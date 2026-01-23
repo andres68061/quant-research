@@ -7,6 +7,7 @@ scipy>=1.10.0
 matplotlib>=3.7.0
 seaborn>=0.12.0
 plotly>=5.15.0
+streamlit>=1.28.0
 
 # Financial analysis
 yfinance>=0.2.0
