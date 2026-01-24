@@ -130,7 +130,7 @@ def plot_cumulative_returns(returns_dict, title="Cumulative Returns"):
         height=500,
         showlegend=True,
         xaxis=dict(
-            rangeslider=dict(visible=True),
+            rangeslider=dict(visible=True, yaxis=dict(rangemode='auto')),
             rangeselector=dict(
                 buttons=list([
                     dict(count=1, label="1m", step="month", stepmode="backward"),
@@ -143,7 +143,8 @@ def plot_cumulative_returns(returns_dict, title="Cumulative Returns"):
                 bgcolor="lightgray",
                 activecolor="gray"
             ),
-        )
+        ),
+        yaxis=dict(fixedrange=False, autorange=True),
     )
     
     return fig
@@ -174,7 +175,7 @@ def plot_drawdown(returns_dict, title="Drawdown Analysis"):
         height=400,
         showlegend=True,
         xaxis=dict(
-            rangeslider=dict(visible=True),
+            rangeslider=dict(visible=True, yaxis=dict(rangemode='auto')),
             rangeselector=dict(
                 buttons=list([
                     dict(count=1, label="1m", step="month", stepmode="backward"),
@@ -185,7 +186,8 @@ def plot_drawdown(returns_dict, title="Drawdown Analysis"):
                 bgcolor="lightgray",
                 activecolor="gray"
             ),
-        )
+        ),
+        yaxis=dict(fixedrange=False, autorange=True),
     )
     
     return fig
@@ -237,7 +239,7 @@ def plot_rolling_metrics(returns, window=252):
         showlegend=False,
         hovermode="x unified",
         xaxis=dict(
-            rangeslider=dict(visible=True),
+            rangeslider=dict(visible=True, yaxis=dict(rangemode='auto')),
             rangeselector=dict(
                 buttons=list([
                     dict(count=6, label="6m", step="month", stepmode="backward"),
@@ -248,7 +250,8 @@ def plot_rolling_metrics(returns, window=252):
                 bgcolor="lightgray",
                 activecolor="gray"
             ),
-        )
+        ),
+        yaxis=dict(fixedrange=False, autorange=True),
     )
     
     return fig
@@ -705,16 +708,47 @@ def main():
                 st.markdown("---")
                 st.markdown("### 📈 Performance Visualizations")
                 
-                # Cumulative returns
+                # Date range filter for charts
+                st.markdown("**📅 Chart Date Range** (Y-axis auto-adjusts to selected period)")
+                
+                min_date = portfolio_returns.index.min().to_pydatetime()
+                max_date = portfolio_returns.index.max().to_pydatetime()
+                
+                col_date1, col_date2 = st.columns(2)
+                with col_date1:
+                    chart_start_date = st.date_input(
+                        "Start Date",
+                        value=min_date,
+                        min_value=min_date,
+                        max_value=max_date,
+                        key="chart_start_date"
+                    )
+                with col_date2:
+                    chart_end_date = st.date_input(
+                        "End Date",
+                        value=max_date,
+                        min_value=min_date,
+                        max_value=max_date,
+                        key="chart_end_date"
+                    )
+                
+                # Filter returns by selected date range
+                chart_start = pd.Timestamp(chart_start_date)
+                chart_end = pd.Timestamp(chart_end_date)
+                
+                filtered_portfolio = portfolio_returns.loc[chart_start:chart_end]
+                filtered_benchmark = benchmark_returns.loc[chart_start:chart_end]
+                
+                # Cumulative returns (recalculated for filtered period)
                 returns_dict = {
-                    strategy_name: portfolio_returns,
-                    benchmark_name: benchmark_returns,
+                    strategy_name: filtered_portfolio,
+                    benchmark_name: filtered_benchmark,
                 }
                 
                 fig_cum = plot_cumulative_returns(returns_dict)
                 st.plotly_chart(fig_cum, use_container_width=True)
                 
-                # Drawdown
+                # Drawdown (recalculated for filtered period)
                 fig_dd = plot_drawdown(returns_dict)
                 st.plotly_chart(fig_dd, use_container_width=True)
                 
@@ -722,6 +756,199 @@ def main():
                 st.markdown("### 📉 Rolling Metrics (1-Year Window)")
                 fig_rolling = plot_rolling_metrics(portfolio_returns, window=252)
                 st.plotly_chart(fig_rolling, use_container_width=True)
+                
+                # VaR Analysis Section
+                st.markdown("---")
+                st.markdown("### 📊 Value at Risk (VaR) Analysis")
+                st.markdown("*What's the maximum loss you could expect?*")
+                
+                var_confidence = st.slider(
+                    "VaR Confidence Level (%)",
+                    min_value=90,
+                    max_value=99,
+                    value=95,
+                    step=1,
+                    help="Higher confidence = more conservative (larger VaR)"
+                )
+                
+                # Calculate VaR metrics
+                returns_array = portfolio_returns.values
+                alpha = 1 - var_confidence / 100
+                
+                # 1. Historical VaR
+                historical_var = np.percentile(returns_array, var_confidence - 100) * -100
+                historical_cvar = returns_array[returns_array <= np.percentile(returns_array, 100 - var_confidence)].mean() * -100
+                
+                # 2. Parametric VaR (assumes normal distribution)
+                from scipy import stats as scipy_stats
+                mu = returns_array.mean()
+                sigma = returns_array.std()
+                z_score = scipy_stats.norm.ppf(1 - var_confidence / 100)
+                parametric_var = -(mu + z_score * sigma) * 100
+                parametric_cvar = -(mu - sigma * scipy_stats.norm.pdf(z_score) / alpha) * 100
+                
+                # 3. Monte Carlo VaR
+                n_simulations = 10000
+                np.random.seed(42)
+                mc_returns = np.random.normal(mu, sigma, n_simulations)
+                mc_var = np.percentile(mc_returns, var_confidence - 100) * -100
+                mc_cvar = mc_returns[mc_returns <= np.percentile(mc_returns, 100 - var_confidence)].mean() * -100
+                
+                # Display VaR metrics
+                st.markdown(f"**At {var_confidence}% confidence level:**")
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.markdown("#### 📜 Historical VaR")
+                    st.metric(
+                        "Daily VaR",
+                        f"{historical_var:.2f}%",
+                        help="Based on actual historical returns"
+                    )
+                    st.metric(
+                        "CVaR (Expected Shortfall)",
+                        f"{historical_cvar:.2f}%",
+                        help="Average loss when VaR is exceeded"
+                    )
+                    st.caption("Uses actual past returns")
+                
+                with col2:
+                    st.markdown("#### 📐 Parametric VaR")
+                    st.metric(
+                        "Daily VaR",
+                        f"{parametric_var:.2f}%",
+                        help="Assumes returns are normally distributed"
+                    )
+                    st.metric(
+                        "CVaR (Expected Shortfall)",
+                        f"{parametric_cvar:.2f}%",
+                        help="Average loss when VaR is exceeded"
+                    )
+                    st.caption("Assumes normal distribution")
+                
+                with col3:
+                    st.markdown("#### 🎲 Monte Carlo VaR")
+                    st.metric(
+                        "Daily VaR",
+                        f"{mc_var:.2f}%",
+                        help="Based on 10,000 simulated scenarios"
+                    )
+                    st.metric(
+                        "CVaR (Expected Shortfall)",
+                        f"{mc_cvar:.2f}%",
+                        help="Average loss when VaR is exceeded"
+                    )
+                    st.caption("10,000 simulated scenarios")
+                
+                # VaR Comparison Chart
+                st.markdown("#### 📊 VaR Comparison")
+                
+                fig_var = go.Figure()
+                
+                var_methods = ['Historical', 'Parametric', 'Monte Carlo']
+                var_values = [historical_var, parametric_var, mc_var]
+                cvar_values = [historical_cvar, parametric_cvar, mc_cvar]
+                colors = ['#3498db', '#e74c3c', '#2ecc71']
+                
+                # VaR bars
+                fig_var.add_trace(go.Bar(
+                    name='VaR',
+                    x=var_methods,
+                    y=var_values,
+                    marker_color=colors,
+                    text=[f'{v:.2f}%' for v in var_values],
+                    textposition='outside',
+                ))
+                
+                # CVaR bars
+                fig_var.add_trace(go.Bar(
+                    name='CVaR (Expected Shortfall)',
+                    x=var_methods,
+                    y=cvar_values,
+                    marker_color=[c.replace(')', ', 0.5)').replace('rgb', 'rgba') if 'rgb' in c else c for c in colors],
+                    marker_pattern_shape='/',
+                    text=[f'{v:.2f}%' for v in cvar_values],
+                    textposition='outside',
+                    opacity=0.7,
+                ))
+                
+                fig_var.update_layout(
+                    title=f"VaR Comparison at {var_confidence}% Confidence",
+                    yaxis_title="Maximum Expected Loss (%)",
+                    barmode='group',
+                    height=400,
+                    showlegend=True,
+                )
+                
+                st.plotly_chart(fig_var, use_container_width=True)
+                
+                # Return Distribution with VaR
+                st.markdown("#### 📈 Return Distribution with VaR Thresholds")
+                
+                fig_dist = go.Figure()
+                
+                # Histogram of returns
+                fig_dist.add_trace(go.Histogram(
+                    x=returns_array * 100,
+                    name='Daily Returns',
+                    nbinsx=50,
+                    marker_color='lightblue',
+                    opacity=0.7,
+                ))
+                
+                # Add VaR lines
+                fig_dist.add_vline(
+                    x=-historical_var,
+                    line_dash="solid",
+                    line_color="blue",
+                    annotation_text=f"Historical VaR: {historical_var:.2f}%",
+                    annotation_position="top left"
+                )
+                
+                fig_dist.add_vline(
+                    x=-parametric_var,
+                    line_dash="dash",
+                    line_color="red",
+                    annotation_text=f"Parametric VaR: {parametric_var:.2f}%",
+                    annotation_position="top right"
+                )
+                
+                fig_dist.update_layout(
+                    title="Daily Return Distribution with VaR Thresholds",
+                    xaxis_title="Daily Return (%)",
+                    yaxis_title="Frequency",
+                    height=400,
+                    showlegend=True,
+                )
+                
+                st.plotly_chart(fig_dist, use_container_width=True)
+                
+                # VaR Interpretation
+                with st.expander("ℹ️ Understanding VaR"):
+                    st.markdown(f"""
+                    **What does VaR mean?**
+                    
+                    At a **{var_confidence}% confidence level**, the VaR tells you:
+                    
+                    > "On {100 - var_confidence}% of days, your portfolio could lose **more than** the VaR amount."
+                    
+                    **Example:** If Historical VaR = {historical_var:.2f}%, then on {100 - var_confidence}% of trading days 
+                    (~{int((100 - var_confidence) / 100 * 252)} days per year), you could lose more than {historical_var:.2f}%.
+                    
+                    **Three Methods:**
+                    
+                    1. **Historical VaR**: Uses actual past returns. Best when history is representative of future.
+                    
+                    2. **Parametric VaR**: Assumes normal distribution. Faster but **underestimates tail risk**.
+                    
+                    3. **Monte Carlo VaR**: Simulates many scenarios. Flexible but computationally intensive.
+                    
+                    **CVaR (Expected Shortfall):**
+                    
+                    While VaR tells you the threshold, CVaR tells you the **average loss when things go wrong**.
+                    It's more useful for understanding tail risk.
+                    """)
                 
                 # Additional details for factor-based strategies
                 if strategy_type == "Factor-Based":

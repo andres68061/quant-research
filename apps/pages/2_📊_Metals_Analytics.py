@@ -2,7 +2,8 @@
 """
 Metals Analytics Page
 
-Interactive analysis of precious metals and commodity prices from FRED.
+Interactive analysis of precious metals and commodity prices.
+Now uses persistent parquet storage for fast loading.
 """
 
 import sys
@@ -10,12 +11,12 @@ import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import requests
 import streamlit as st
-import yfinance as yf
 from plotly.subplots import make_subplots
+from scipy import stats
 
 warnings.filterwarnings("ignore")
 
@@ -24,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from config.settings import ALPHAVANTAGE_API_KEY
+from src.data.commodities import COMMODITIES_CONFIG
 
 # Page configuration
 st.set_page_config(
@@ -34,7 +35,7 @@ st.set_page_config(
 )
 
 st.title("📊 Commodities & Metals Analytics")
-st.markdown("**Multi-Source Data** - Alpha Vantage + Yahoo Finance ETFs")
+st.markdown("**Persistent Data Storage** - Daily updated from Alpha Vantage & Yahoo Finance")
 
 st.info("""
 📋 **Available Assets:**
@@ -42,294 +43,189 @@ st.info("""
 - **Energy**: Crude Oil (WTI & Brent), Natural Gas
 - **Industrial Metals**: Copper, Aluminum
 - **Agricultural**: Wheat, Corn, Coffee, Cotton, Sugar
+
+💾 **Data is stored locally and updated daily** - No API rate limits!
 """)
 
 st.markdown("---")
 
-# Check API key (only warning, not blocking - Yahoo Finance works without it)
-if not ALPHAVANTAGE_API_KEY:
-    st.warning("""
-    ⚠️ **Alpha Vantage API Key not found!**
+# Load commodities data from parquet
+@st.cache_data
+def load_commodities_data():
+    """Load commodities data from parquet file."""
+    data_file = ROOT / "data" / "commodities" / "prices.parquet"
     
-    You can still use **Precious Metals ETFs** (Gold, Silver, Platinum, Palladium) which use Yahoo Finance.
+    if not data_file.exists():
+        return None, None
     
-    To enable energy and agricultural commodities, add your Alpha Vantage API key to `.env`:
-    ```
-    ALPHAVANTAGE_API_KEY=your_key_here
-    ```
-    
-    Get a free key at: https://www.alphavantage.co/support/#api-key
-    """)
+    try:
+        df = pd.read_parquet(data_file)
+        df.index = pd.to_datetime(df.index).tz_localize(None)
+        
+        # Build metadata
+        metadata = {}
+        for col in df.columns:
+            series = df[col].dropna()
+            if len(series) > 0:
+                config = COMMODITIES_CONFIG.get(col, {})
+                metadata[col] = {
+                    "name": config.get("name", col),
+                    "count": len(series),
+                    "start": series.index[0],
+                    "end": series.index[-1],
+                    "latest": series.iloc[-1],
+                    "unit": config.get("unit", "USD"),
+                    "category": config.get("category", "unknown"),
+                }
+        
+        return df, metadata
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return None, None
 
-# Commodities metadata - supports both Alpha Vantage and Yahoo Finance
-METALS_DATA = {
-    # Precious Metals (Yahoo Finance ETFs)
-    "Gold (GLD)": {
-        "symbol": "GLD",
-        "name": "SPDR Gold Trust ETF",
-        "color": "#FFD700",
-        "unit": "USD",
-        "source": "yahoo",
-    },
-    "Silver (SLV)": {
-        "symbol": "SLV",
-        "name": "iShares Silver Trust ETF",
-        "color": "#C0C0C0",
-        "unit": "USD",
-        "source": "yahoo",
-    },
-    "Platinum (PPLT)": {
-        "symbol": "PPLT",
-        "name": "Aberdeen Physical Platinum ETF",
-        "color": "#E5E4E2",
-        "unit": "USD",
-        "source": "yahoo",
-    },
-    "Palladium (PALL)": {
-        "symbol": "PALL",
-        "name": "Aberdeen Physical Palladium ETF",
-        "color": "#CED0DD",
-        "unit": "USD",
-        "source": "yahoo",
-    },
-    # Energy (Alpha Vantage)
-    "Crude Oil (WTI)": {
-        "symbol": "WTI",
-        "name": "WTI Crude Oil",
-        "color": "#000000",
-        "unit": "USD/barrel",
-        "source": "alphavantage",
-    },
-    "Crude Oil (Brent)": {
-        "symbol": "BRENT",
-        "name": "Brent Crude Oil",
-        "color": "#2C2C2C",
-        "unit": "USD/barrel",
-        "source": "alphavantage",
-    },
-    "Natural Gas": {
-        "symbol": "NATURAL_GAS",
-        "name": "Natural Gas",
-        "color": "#87CEEB",
-        "unit": "USD/MMBtu",
-        "source": "alphavantage",
-    },
-    # Industrial Metals (Alpha Vantage)
-    "Copper": {
-        "symbol": "COPPER",
-        "name": "Copper Spot Price",
-        "color": "#B87333",
-        "unit": "USD/lb",
-        "source": "alphavantage",
-    },
-    "Aluminum": {
-        "symbol": "ALUMINUM",
-        "name": "Aluminum Spot Price",
-        "color": "#848789",
-        "unit": "USD/lb",
-        "source": "alphavantage",
-    },
-    # Agricultural (Alpha Vantage)
-    "Wheat": {
-        "symbol": "WHEAT",
-        "name": "Wheat Price",
-        "color": "#DAA520",
-        "unit": "USD/bushel",
-        "source": "alphavantage",
-    },
-    "Corn": {
-        "symbol": "CORN",
-        "name": "Corn Price",
-        "color": "#F4C430",
-        "unit": "USD/bushel",
-        "source": "alphavantage",
-    },
-    "Coffee": {
-        "symbol": "COFFEE",
-        "name": "Coffee Price",
-        "color": "#6F4E37",
-        "unit": "USD/lb",
-        "source": "alphavantage",
-    },
-    "Cotton": {
-        "symbol": "COTTON",
-        "name": "Cotton Price",
-        "color": "#FFFFF0",
-        "unit": "USD/lb",
-        "source": "alphavantage",
-    },
-    "Sugar": {
-        "symbol": "SUGAR",
-        "name": "Sugar Price",
-        "color": "#FFFFFF",
-        "unit": "USD/lb",
-        "source": "alphavantage",
-    },
-}
+
+# Load data
+df, metadata = load_commodities_data()
+
+if df is None:
+    st.error("""
+    ⚠️ **No commodities data found!**
+    
+    Please run the initial data fetch:
+    ```bash
+    python scripts/fetch_commodities.py
+    ```
+    
+    This will download all historical commodity prices and store them locally.
+    """)
+    st.stop()
+
+# Display data info
+st.success(f"✅ Loaded {len(df.columns)} commodities | "
+           f"{len(df):,} days | "
+           f"Last update: {df.index[-1].date()}")
+
+# Create friendly display names
+symbol_to_display = {}
+display_to_symbol = {}
+
+for symbol, config in COMMODITIES_CONFIG.items():
+    display_name = f"{config['name']}"
+    symbol_to_display[symbol] = display_name
+    display_to_symbol[display_name] = symbol
 
 # Sidebar controls
 st.sidebar.header("⚙️ Analysis Settings")
 
 # Commodity selection
-selected_commodities = st.sidebar.multiselect(
+available_commodities = [symbol_to_display.get(col, col) for col in df.columns]
+default_selection = [
+    symbol_to_display.get("GLD", "Gold (GLD ETF)"),
+    symbol_to_display.get("SLV", "Silver (SLV ETF)"),
+    symbol_to_display.get("COPPER", "Copper"),
+]
+# Filter defaults to only those that exist
+default_selection = [d for d in default_selection if d in available_commodities]
+
+selected_display = st.sidebar.multiselect(
     "Select Assets",
-    list(METALS_DATA.keys()),
-    default=["Gold (GLD)", "Silver (SLV)", "Copper"],
+    available_commodities,
+    default=default_selection,
     help="Choose which assets to analyze",
 )
 
-# Data interval
-data_interval = st.sidebar.selectbox(
-    "Data Interval",
-    ["Monthly", "Weekly", "Daily"],
+# Convert back to symbols
+selected_commodities = [display_to_symbol.get(d, d) for d in selected_display]
+
+# Data resampling
+resample_freq = st.sidebar.selectbox(
+    "Data Frequency",
+    ["Daily", "Weekly", "Monthly"],
     index=0,
-    help="Data granularity - monthly recommended for long histories",
+    help="Resample data to different frequencies",
 )
 
-interval_map = {"Daily": "daily", "Weekly": "weekly", "Monthly": "monthly"}
+freq_map = {"Daily": "D", "Weekly": "W", "Monthly": "ME"}
 
 # Analysis type
 analysis_type = st.sidebar.selectbox(
     "Analysis Type",
-    ["Price Trends", "Returns Analysis", "Correlation Matrix", "Normalized Comparison"],
+    [
+        "Price Trends",
+        "Returns Analysis",
+        "Correlation Matrix",
+        "Normalized Comparison",
+        "Seasonality Analysis",
+    ],
     help="Type of analysis to perform",
 )
 
-# Fetch button
-if st.sidebar.button("🔄 Fetch Data", type="primary"):
-    st.session_state.fetch_data = True
-
-# Fetch and cache data
-@st.cache_data(ttl=3600)  # Cache for 1 hour
-def fetch_commodity_data(commodities_list, interval="monthly"):
-    """Fetch commodities data from multiple sources (Alpha Vantage + Yahoo Finance)."""
-    data = {}
-    metadata = {}
-    
-    for commodity in commodities_list:
-        try:
-            symbol = METALS_DATA[commodity]["symbol"]
-            source = METALS_DATA[commodity]["source"]
-            
-            if source == "yahoo":
-                # Fetch from Yahoo Finance (for precious metals ETFs)
-                ticker = yf.Ticker(symbol)
-                
-                # Determine period based on interval
-                if interval == "daily":
-                    period = "10y"
-                    hist_interval = "1d"
-                elif interval == "weekly":
-                    period = "10y"
-                    hist_interval = "1wk"
-                else:  # monthly
-                    period = "max"
-                    hist_interval = "1mo"
-                
-                hist = ticker.history(period=period, interval=hist_interval)
-                
-                if not hist.empty:
-                    # Use closing prices
-                    series = hist["Close"]
-                    series.index.name = "date"
-                    
-                    data[commodity] = series
-                    metadata[commodity] = {
-                        "count": len(series),
-                        "start": series.index[0],
-                        "end": series.index[-1],
-                        "latest": series.iloc[-1],
-                        "unit": METALS_DATA[commodity]["unit"],
-                        "source": "Yahoo Finance",
-                    }
-                else:
-                    st.sidebar.warning(f"⚠️ {commodity}: No data from Yahoo Finance")
-                    
-            elif source == "alphavantage":
-                # Fetch from Alpha Vantage (for commodities)
-                if not ALPHAVANTAGE_API_KEY:
-                    st.sidebar.warning(f"⚠️ {commodity}: Alpha Vantage API key required")
-                    continue
-                
-                url = "https://www.alphavantage.co/query"
-                params = {
-                    "function": symbol,
-                    "interval": interval,
-                    "apikey": ALPHAVANTAGE_API_KEY,
-                }
-                
-                response = requests.get(url, params=params, timeout=30)
-                
-                if response.status_code == 200:
-                    json_data = response.json()
-                    
-                    # Check for errors
-                    if "Error Message" in json_data:
-                        st.sidebar.warning(f"⚠️ {commodity}: {json_data['Error Message']}")
-                        continue
-                    
-                    if "Note" in json_data:
-                        st.sidebar.warning(f"⚠️ Rate limit: {json_data['Note']}")
-                        continue
-                    
-                    # Extract data
-                    if "data" in json_data:
-                        df_data = pd.DataFrame(json_data["data"])
-                        
-                        if not df_data.empty:
-                            df_data["date"] = pd.to_datetime(df_data["date"])
-                            df_data = df_data.set_index("date")
-                            df_data["value"] = pd.to_numeric(df_data["value"], errors="coerce")
-                            series = df_data["value"].sort_index()
-                            
-                            data[commodity] = series
-                            metadata[commodity] = {
-                                "count": len(series),
-                                "start": series.index[0],
-                                "end": series.index[-1],
-                                "latest": series.iloc[-1],
-                                "unit": METALS_DATA[commodity]["unit"],
-                                "source": "Alpha Vantage",
-                            }
-                else:
-                    st.sidebar.warning(f"⚠️ {commodity}: HTTP {response.status_code}")
-                
-        except Exception as e:
-            st.sidebar.warning(f"⚠️ Could not fetch {commodity}: {str(e)}")
-    
-    return data, metadata
-
-# Main content
 if not selected_commodities:
-    st.info("👈 Please select at least one commodity from the sidebar.")
+    st.warning("Please select at least one commodity")
     st.stop()
 
-if "fetch_data" not in st.session_state:
-    st.info("👈 Click **Fetch Data** in the sidebar to load commodity prices.")
-    st.stop()
+# Filter and resample data
+filtered_df = df[selected_commodities].copy()
 
-# Fetch data
-with st.spinner(f"Fetching data for {len(selected_commodities)} commodities..."):
-    commodities_data, metadata = fetch_commodity_data(
-        selected_commodities, interval=interval_map[data_interval]
+if resample_freq != "Daily":
+    freq = freq_map[resample_freq]
+    filtered_df = filtered_df.resample(freq).last()
+
+# Remove any remaining NaN for selected commodities
+filtered_df = filtered_df.dropna(how="all")
+
+# Display summary metrics
+st.markdown("### 📊 Selected Assets Summary")
+cols = st.columns(min(4, len(selected_commodities)))
+
+for i, symbol in enumerate(selected_commodities):
+    if symbol in filtered_df.columns:
+        series = filtered_df[symbol].dropna()
+        if len(series) > 0:
+            col = cols[i % len(cols)]
+            with col:
+                latest = series.iloc[-1]
+                pct_change = ((series.iloc[-1] / series.iloc[-2]) - 1) * 100 if len(series) > 1 else 0
+                config = COMMODITIES_CONFIG.get(symbol, {})
+                
+                st.metric(
+                    config.get("name", symbol),
+                    f"${latest:.2f}",
+                    f"{pct_change:+.2f}%",
+                    help=f"{config.get('unit', 'USD')} | Last: {series.index[-1].date()}",
+                )
+
+st.markdown("---")
+
+# Date range filter for charts
+st.markdown("**📅 Chart Date Range** *(adjust Y-axis to zoom into specific periods)*")
+
+# Get overall date range
+overall_min = filtered_df.index.min()
+overall_max = filtered_df.index.max()
+
+col_date1, col_date2 = st.columns(2)
+with col_date1:
+    chart_start_date = st.date_input(
+        "Start Date",
+        value=overall_min,
+        min_value=overall_min,
+        max_value=overall_max,
+        key="chart_start_date",
+    )
+with col_date2:
+    chart_end_date = st.date_input(
+        "End Date",
+        value=overall_max,
+        min_value=overall_min,
+        max_value=overall_max,
+        key="chart_end_date",
     )
 
-if not commodities_data:
-    st.error("❌ No data available. Check your Alpha Vantage API key and try again.")
-    st.stop()
-
-# Display metadata
-st.success(f"✅ Loaded data for {len(commodities_data)} commodities")
-
-cols = st.columns(min(4, len(commodities_data)))
-for i, (commodity, meta) in enumerate(metadata.items()):
-    col = cols[i % len(cols)]
-    with col:
-        st.metric(
-            commodity,
-            f"${meta['latest']:.2f}",
-            help=f"Latest: {meta['end'].strftime('%Y-%m-%d')} ({meta['unit']})",
-        )
+# Filter by date range
+chart_start = pd.Timestamp(chart_start_date)
+chart_end = pd.Timestamp(chart_end_date)
+date_filtered_df = filtered_df.loc[chart_start:chart_end]
 
 st.markdown("---")
 
@@ -339,291 +235,327 @@ if analysis_type == "Price Trends":
     
     fig = go.Figure()
     
-    for commodity in selected_commodities:
-        if commodity in commodities_data:
-            series = commodities_data[commodity]
+    for symbol in selected_commodities:
+        if symbol in date_filtered_df.columns:
+            series = date_filtered_df[symbol].dropna()
+            config = COMMODITIES_CONFIG.get(symbol, {})
+            
             fig.add_trace(
                 go.Scatter(
                     x=series.index,
                     y=series.values,
-                    name=commodity,
+                    name=config.get("name", symbol),
                     mode="lines",
-                    line=dict(color=METALS_DATA[commodity]["color"], width=2),
-                    hovertemplate=f"{commodity}: $%{{y:.2f}}<extra></extra>",
+                    line=dict(width=2),
                 )
             )
     
     fig.update_layout(
-        title="Commodity Prices (USD)",
+        title=f"Commodity Prices ({resample_freq})",
         xaxis_title="Date",
         yaxis_title="Price (USD)",
         hovermode="x unified",
         height=600,
-        showlegend=True,
-        xaxis=dict(
-            rangeslider=dict(visible=True),
-            rangeselector=dict(
-                buttons=list([
-                    dict(count=1, label="1m", step="month", stepmode="backward"),
-                    dict(count=3, label="3m", step="month", stepmode="backward"),
-                    dict(count=6, label="6m", step="month", stepmode="backward"),
-                    dict(count=1, label="1y", step="year", stepmode="backward"),
-                    dict(count=5, label="5y", step="year", stepmode="backward"),
-                    dict(step="all", label="All")
-                ]),
-                bgcolor="lightgray",
-                activecolor="gray"
-            ),
-        )
+        template="plotly_white",
     )
     
     st.plotly_chart(fig, use_container_width=True)
     
     # Statistics table
-    st.subheader("📊 Price Statistics")
+    st.markdown("### 📊 Price Statistics")
     
     stats_data = []
-    for commodity in selected_commodities:
-        if commodity in commodities_data:
-            series = commodities_data[commodity]
-            unit = metadata[commodity]["unit"]
-            stats_data.append({
-                "Commodity": commodity,
-                "Current": f"${series.iloc[-1]:.2f}",
-                "Min": f"${series.min():.2f}",
-                "Max": f"${series.max():.2f}",
-                "Mean": f"${series.mean():.2f}",
-                "Std Dev": f"${series.std():.2f}",
-                "Unit": unit,
-            })
+    for symbol in selected_commodities:
+        if symbol in date_filtered_df.columns:
+            series = date_filtered_df[symbol].dropna()
+            if len(series) > 0:
+                config = COMMODITIES_CONFIG.get(symbol, {})
+                stats_data.append({
+                    "Asset": config.get("name", symbol),
+                    "Latest": f"${series.iloc[-1]:.2f}",
+                    "Mean": f"${series.mean():.2f}",
+                    "Min": f"${series.min():.2f}",
+                    "Max": f"${series.max():.2f}",
+                    "Std Dev": f"${series.std():.2f}",
+                })
     
-    st.dataframe(pd.DataFrame(stats_data), use_container_width=True, hide_index=True)
+    if stats_data:
+        st.dataframe(pd.DataFrame(stats_data), use_container_width=True, hide_index=True)
 
 elif analysis_type == "Returns Analysis":
     st.subheader("📊 Returns Analysis")
     
     # Calculate returns
-    returns_data = {}
-    for commodity in selected_commodities:
-        if commodity in commodities_data:
-            returns_data[commodity] = commodities_data[commodity].pct_change() * 100
+    returns_df = date_filtered_df.pct_change().dropna()
     
-    # Plot cumulative returns
+    # Returns distribution
     fig = go.Figure()
     
-    for commodity, returns in returns_data.items():
-        cum_returns = (1 + returns / 100).cumprod() - 1
-        fig.add_trace(
-            go.Scatter(
-                x=returns.index,
-                y=cum_returns.values * 100,
-                name=commodity,
-                mode="lines",
-                line=dict(color=METALS_DATA[commodity]["color"], width=2),
-                hovertemplate=f"{commodity}: %{{y:.2f}}%<extra></extra>",
+    for symbol in selected_commodities:
+        if symbol in returns_df.columns:
+            ret_series = returns_df[symbol].dropna()
+            config = COMMODITIES_CONFIG.get(symbol, {})
+            
+            fig.add_trace(
+                go.Histogram(
+                    x=ret_series * 100,
+                    name=config.get("name", symbol),
+                    opacity=0.7,
+                    nbinsx=50,
+                )
             )
-        )
     
     fig.update_layout(
-        title="Cumulative Returns (%)",
-        xaxis_title="Date",
-        yaxis_title="Cumulative Return (%)",
-        hovermode="x unified",
+        title="Returns Distribution (%)",
+        xaxis_title="Return (%)",
+        yaxis_title="Frequency",
+        barmode="overlay",
         height=500,
-        xaxis=dict(
-            rangeslider=dict(visible=True),
-            rangeselector=dict(
-                buttons=list([
-                    dict(count=1, label="1m", step="month", stepmode="backward"),
-                    dict(count=6, label="6m", step="month", stepmode="backward"),
-                    dict(count=1, label="1y", step="year", stepmode="backward"),
-                    dict(count=3, label="3y", step="year", stepmode="backward"),
-                    dict(step="all", label="All")
-                ]),
-                bgcolor="lightgray",
-                activecolor="gray"
-            ),
-        )
+        template="plotly_white",
     )
     
     st.plotly_chart(fig, use_container_width=True)
     
     # Returns statistics
-    st.subheader("📈 Return Statistics")
+    st.markdown("### 📊 Returns Statistics")
     
-    stats_data = []
-    for commodity, returns in returns_data.items():
-        clean_returns = returns.dropna()
-        stats_data.append({
-            "Commodity": commodity,
-            "Total Return": f"{((1 + clean_returns / 100).prod() - 1) * 100:.2f}%",
-            "Ann. Return": f"{clean_returns.mean() * 252:.2f}%",
-            "Ann. Volatility": f"{clean_returns.std() * (252 ** 0.5):.2f}%",
-            "Sharpe": f"{(clean_returns.mean() / clean_returns.std()) * (252 ** 0.5):.2f}",
-            "Max Drawdown": f"{(clean_returns.cumsum().cummax() - clean_returns.cumsum()).max():.2f}%",
-        })
+    returns_stats = []
+    for symbol in selected_commodities:
+        if symbol in returns_df.columns:
+            ret_series = returns_df[symbol].dropna()
+            if len(ret_series) > 0:
+                config = COMMODITIES_CONFIG.get(symbol, {})
+                
+                # Annualization factor
+                periods_per_year = {"Daily": 252, "Weekly": 52, "Monthly": 12}
+                ann_factor = periods_per_year.get(resample_freq, 252)
+                
+                returns_stats.append({
+                    "Asset": config.get("name", symbol),
+                    "Mean Return": f"{ret_series.mean() * 100:.3f}%",
+                    "Annualized": f"{ret_series.mean() * ann_factor * 100:.2f}%",
+                    "Volatility": f"{ret_series.std() * 100:.3f}%",
+                    "Ann. Vol": f"{ret_series.std() * np.sqrt(ann_factor) * 100:.2f}%",
+                    "Sharpe": f"{(ret_series.mean() / ret_series.std()) * np.sqrt(ann_factor):.2f}",
+                    "Skewness": f"{ret_series.skew():.3f}",
+                    "Kurtosis": f"{ret_series.kurtosis():.3f}",
+                })
     
-    st.dataframe(pd.DataFrame(stats_data), use_container_width=True, hide_index=True)
+    if returns_stats:
+        st.dataframe(
+            pd.DataFrame(returns_stats), use_container_width=True, hide_index=True
+        )
 
 elif analysis_type == "Correlation Matrix":
     st.subheader("🔗 Correlation Matrix")
     
-    # Create price DataFrame
-    price_df = pd.DataFrame(commodities_data)
+    # Calculate correlation matrix
+    corr_matrix = date_filtered_df[selected_commodities].corr()
     
-    # Calculate returns
-    returns_df = price_df.pct_change().dropna()
+    # Replace symbols with display names
+    display_names = [COMMODITIES_CONFIG.get(s, {}).get("name", s) for s in corr_matrix.index]
+    corr_matrix.index = display_names
+    corr_matrix.columns = display_names
     
-    # Correlation matrix
-    corr_matrix = returns_df.corr()
-    
-    # Plot heatmap
-    fig = go.Figure(data=go.Heatmap(
-        z=corr_matrix.values,
-        x=corr_matrix.columns,
-        y=corr_matrix.index,
-        colorscale="RdBu",
-        zmid=0,
-        text=corr_matrix.values,
-        texttemplate="%{text:.2f}",
-        textfont={"size": 12},
-        colorbar=dict(title="Correlation"),
-    ))
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=corr_matrix.values,
+            x=corr_matrix.columns,
+            y=corr_matrix.index,
+            colorscale="RdBu",
+            zmid=0,
+            text=corr_matrix.values,
+            texttemplate="%{text:.2f}",
+            textfont={"size": 10},
+            colorbar=dict(title="Correlation"),
+        )
+    )
     
     fig.update_layout(
-        title="Commodity Return Correlations",
-        height=500,
+        title="Commodity Price Correlations",
+        height=600,
+        template="plotly_white",
     )
     
     st.plotly_chart(fig, use_container_width=True)
-    
-    st.info("""
-    **Interpretation:**
-    - Values close to +1: Strong positive correlation (move together)
-    - Values close to -1: Strong negative correlation (move opposite)
-    - Values close to 0: Little to no correlation
-    """)
 
 elif analysis_type == "Normalized Comparison":
-    st.subheader("📊 Normalized Price Comparison")
+    st.subheader("📈 Normalized Price Comparison (Base = 100)")
     
-    st.info("All prices normalized to 100 at the start date for easy comparison.")
+    # Normalize prices to start at 100
+    normalized_df = (date_filtered_df / date_filtered_df.iloc[0]) * 100
     
     fig = go.Figure()
     
-    for commodity in selected_commodities:
-        if commodity in commodities_data:
-            series = commodities_data[commodity]
-            # Normalize to 100 at start
-            normalized = (series / series.iloc[0]) * 100
+    for symbol in selected_commodities:
+        if symbol in normalized_df.columns:
+            series = normalized_df[symbol].dropna()
+            config = COMMODITIES_CONFIG.get(symbol, {})
             
             fig.add_trace(
                 go.Scatter(
-                    x=normalized.index,
-                    y=normalized.values,
-                    name=commodity,
+                    x=series.index,
+                    y=series.values,
+                    name=config.get("name", symbol),
                     mode="lines",
-                    line=dict(color=METALS_DATA[commodity]["color"], width=2),
-                    hovertemplate=f"{commodity}: %{{y:.2f}}<extra></extra>",
+                    line=dict(width=2),
                 )
             )
     
     fig.update_layout(
-        title="Normalized Prices (Base = 100)",
+        title=f"Normalized Commodity Performance (Base = 100)",
         xaxis_title="Date",
-        yaxis_title="Normalized Price",
+        yaxis_title="Indexed Price",
         hovermode="x unified",
         height=600,
-        xaxis=dict(
-            rangeslider=dict(visible=True),
-            rangeselector=dict(
-                buttons=list([
-                    dict(count=1, label="1m", step="month", stepmode="backward"),
-                    dict(count=6, label="6m", step="month", stepmode="backward"),
-                    dict(count=1, label="1y", step="year", stepmode="backward"),
-                    dict(count=5, label="5y", step="year", stepmode="backward"),
-                    dict(step="all", label="All")
-                ]),
-                bgcolor="lightgray",
-                activecolor="gray"
-            ),
-        )
+        template="plotly_white",
     )
-    
-    # Add horizontal line at 100
-    fig.add_hline(y=100, line_dash="dash", line_color="gray", opacity=0.5)
     
     st.plotly_chart(fig, use_container_width=True)
     
-    # Performance summary
-    st.subheader("🏆 Performance Summary")
+    # Performance table
+    st.markdown("### 📊 Cumulative Performance")
     
     perf_data = []
-    for commodity in selected_commodities:
-        if commodity in commodities_data:
-            series = commodities_data[commodity]
-            change = ((series.iloc[-1] / series.iloc[0]) - 1) * 100
-            perf_data.append({
-                "Commodity": commodity,
-                "Start Price": f"${series.iloc[0]:.2f}",
-                "End Price": f"${series.iloc[-1]:.2f}",
-                "Total Change": f"{change:+.2f}%",
-                "Best Performer": "🏆" if change == max([((commodities_data[c].iloc[-1] / commodities_data[c].iloc[0]) - 1) * 100 for c in selected_commodities if c in commodities_data]) else "",
-            })
+    for symbol in selected_commodities:
+        if symbol in normalized_df.columns:
+            series = normalized_df[symbol].dropna()
+            if len(series) > 0:
+                config = COMMODITIES_CONFIG.get(symbol, {})
+                total_return = series.iloc[-1] - 100
+                perf_data.append({
+                    "Asset": config.get("name", symbol),
+                    "Start": f"100.00",
+                    "End": f"{series.iloc[-1]:.2f}",
+                    "Total Return": f"{total_return:+.2f}%",
+                })
     
-    st.dataframe(pd.DataFrame(perf_data), use_container_width=True, hide_index=True)
+    if perf_data:
+        st.dataframe(pd.DataFrame(perf_data), use_container_width=True, hide_index=True)
 
-# Download section
-st.markdown("---")
-st.subheader("💾 Download Data")
-
-if st.button("📥 Download as CSV"):
-    # Combine all data
-    download_df = pd.DataFrame(commodities_data)
-    csv = download_df.to_csv()
+elif analysis_type == "Seasonality Analysis":
+    st.subheader("🌙 Seasonality Analysis")
     
-    st.download_button(
-        label="Download Commodity Data",
-        data=csv,
-        file_name=f"commodity_data_{datetime.now().strftime('%Y%m%d')}.csv",
-        mime="text/csv",
-    )
-
-# Info footer
-with st.expander("ℹ️ Data Sources & Available Assets"):
     st.markdown("""
-    **Multi-Source Data Integration**
-    
-    This page combines data from:
-    - **Yahoo Finance**: Precious metals ETFs (no API key needed)
-    - **Alpha Vantage**: Energy, industrial metals, agricultural commodities
-    
-    ---
-    
-    ### Precious Metals (Yahoo Finance ETFs)
-    - **Gold (GLD)**: SPDR Gold Trust - tracks gold bullion prices
-    - **Silver (SLV)**: iShares Silver Trust - tracks silver bullion prices
-    - **Platinum (PPLT)**: Aberdeen Physical Platinum - tracks platinum prices
-    - **Palladium (PALL)**: Aberdeen Physical Palladium - tracks palladium prices
-    
-    ### Energy (Alpha Vantage)
-    - **Crude Oil (WTI)**: West Texas Intermediate crude oil
-    - **Crude Oil (Brent)**: Brent crude oil benchmark
-    - **Natural Gas**: Natural gas spot prices
-    
-    ### Industrial Metals (Alpha Vantage)
-    - **Copper**: Global copper spot prices
-    - **Aluminum**: Aluminum spot prices
-    
-    ### Agricultural (Alpha Vantage)
-    - **Wheat, Corn, Coffee, Cotton, Sugar**: Global commodity prices
-    
-    ---
-    
-    **API Configuration:**
-    - **Alpha Vantage**: Free tier = 25 requests/day | Get key: https://www.alphavantage.co/support/#api-key
-    - **Yahoo Finance**: No API key required | Unlimited requests
-    
-    **Data Caching:** 1 hour (to optimize API usage)
+    Analyze monthly patterns in commodity returns to identify seasonal trends.
     """)
+    
+    # Use the full date range for seasonality (not filtered)
+    seasonality_df = filtered_df.copy()
+    
+    for symbol in selected_commodities:
+        if symbol in seasonality_df.columns:
+            series = seasonality_df[symbol].dropna()
+            
+            if len(series) < 24:  # Need at least 2 years
+                st.warning(f"Not enough data for {symbol} seasonality analysis")
+                continue
+            
+            config = COMMODITIES_CONFIG.get(symbol, {})
+            st.markdown(f"### {config.get('name', symbol)}")
+            
+            # Calculate monthly returns
+            returns = series.pct_change()
+            monthly_data = pd.DataFrame({
+                "return": returns,
+                "month": returns.index.month,
+                "year": returns.index.year,
+            })
+            
+            # 1. Average returns by month
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                avg_by_month = monthly_data.groupby("month")["return"].mean() * 100
+                month_names = [
+                    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+                ]
+                
+                fig_bar = go.Figure(
+                    go.Bar(
+                        x=month_names,
+                        y=avg_by_month.values,
+                        marker_color=["green" if v > 0 else "red" for v in avg_by_month.values],
+                    )
+                )
+                fig_bar.update_layout(
+                    title="Average Return by Month",
+                    xaxis_title="Month",
+                    yaxis_title="Avg Return (%)",
+                    height=400,
+                    template="plotly_white",
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
+            
+            with col2:
+                # 2. Returns heatmap (year x month)
+                pivot = monthly_data.pivot_table(
+                    values="return", index="year", columns="month", aggfunc="mean"
+                ) * 100
+                
+                fig_heat = go.Figure(
+                    data=go.Heatmap(
+                        z=pivot.values,
+                        x=month_names,
+                        y=pivot.index,
+                        colorscale="RdYlGn",
+                        zmid=0,
+                        text=pivot.values,
+                        texttemplate="%{text:.1f}",
+                        textfont={"size": 8},
+                        colorbar=dict(title="Return (%)"),
+                    )
+                )
+                fig_heat.update_layout(
+                    title="Returns Heatmap (Year × Month)",
+                    xaxis_title="Month",
+                    yaxis_title="Year",
+                    height=400,
+                    template="plotly_white",
+                )
+                st.plotly_chart(fig_heat, use_container_width=True)
+            
+            # 3. Box plot of returns by month
+            fig_box = go.Figure()
+            for month in range(1, 13):
+                month_returns = monthly_data[monthly_data["month"] == month]["return"] * 100
+                fig_box.add_trace(
+                    go.Box(
+                        y=month_returns,
+                        name=month_names[month - 1],
+                        boxmean="sd",
+                    )
+                )
+            
+            fig_box.update_layout(
+                title="Return Distribution by Month",
+                yaxis_title="Return (%)",
+                height=400,
+                template="plotly_white",
+                showlegend=False,
+            )
+            st.plotly_chart(fig_box, use_container_width=True)
+            
+            # 4. Statistics table
+            stats_by_month = monthly_data.groupby("month")["return"].agg(
+                ["mean", "std", "min", "max", "count"]
+            ) * 100
+            stats_by_month["mean"] = stats_by_month["mean"].round(2)
+            stats_by_month["std"] = stats_by_month["std"].round(2)
+            stats_by_month["min"] = stats_by_month["min"].round(2)
+            stats_by_month["max"] = stats_by_month["max"].round(2)
+            stats_by_month.index = month_names
+            stats_by_month.columns = ["Mean (%)", "Std (%)", "Min (%)", "Max (%)", "Count"]
+            
+            st.dataframe(stats_by_month, use_container_width=True)
+            
+            st.markdown("---")
 
+# Footer
+st.markdown("---")
+st.markdown("""
+<div style='text-align: center; color: gray;'>
+    <p>💡 <b>Tip:</b> Run <code>python scripts/update_commodities.py</code> to fetch the latest prices</p>
+</div>
+""", unsafe_allow_html=True)

@@ -323,7 +323,7 @@ fig.update_layout(
     showlegend=False,
     hovermode="x unified",
     xaxis=dict(
-        rangeslider=dict(visible=True),
+        rangeslider=dict(visible=True, yaxis=dict(rangemode='auto')),
         rangeselector=dict(
             buttons=list([
                 dict(count=6, label="6m", step="month", stepmode="backward"),
@@ -336,7 +336,8 @@ fig.update_layout(
             bgcolor="lightgray",
             activecolor="gray"
         ),
-    )
+    ),
+    yaxis=dict(fixedrange=False, autorange=True),
 )
 
 fig.update_xaxes(title_text="Date", row=len(selected_indicators), col=1)
