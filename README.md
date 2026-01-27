@@ -480,6 +480,126 @@ python scripts/add_symbol.py NVDA TSLA
 
 ---
 
+## 📈 S&P 500 Historical Constituents
+
+**Eliminate survivorship bias** with point-in-time S&P 500 membership data from 1996-2026.
+
+### Why This Matters
+
+Most backtests suffer from **survivorship bias** - testing strategies only on stocks that "survived" to today, ignoring all the bankruptcies, delistings, and failures. This can inflate returns by 2-5% annually!
+
+**Our Solution**: Historical constituent data showing exactly which stocks were in the S&P 500 on any given date.
+
+### Quick Start
+
+```bash
+# 1. Analyze what you have vs. what you need
+python scripts/analyze_sp500_constituents.py
+
+# 2. Fetch missing historical constituents (693 tickers)
+python scripts/fetch_sp500_prices.py --batch 50
+# Estimated time: ~2 hours for all 693 tickers
+# Can be run in batches and resumed
+
+# 3. Use in portfolio simulator
+# "S&P 500 Historical" will be available as a benchmark option
+```
+
+### Key Statistics
+
+```
+Total Historical Tickers: 1,194 (all stocks ever in S&P 500)
+Current Coverage: 501 tickers (42%)
+Missing: 693 tickers
+Date Range: 1996-01-02 to 2026-01-14
+Total Index Changes: 680 events
+```
+
+### Using in Python
+
+```python
+from src.data.sp500_constituents import SP500Constituents
+import pandas as pd
+
+# Load historical constituents
+sp500 = SP500Constituents()
+sp500.load()
+
+# Get constituents on a specific date (eliminates survivorship bias!)
+backtest_date = pd.Timestamp('2008-01-01')
+universe = sp500.get_constituents_on_date(backtest_date)
+# Returns list of ~500 tickers that were actually in S&P 500 on that date
+
+# Check if a stock was in S&P 500
+sp500.is_in_sp500('LEHMAN', pd.Timestamp('2007-01-01'))  # True
+sp500.is_in_sp500('LEHMAN', pd.Timestamp('2009-01-01'))  # False (bankrupt)
+
+# Track index additions/removals
+changes = sp500.get_additions_and_removals(
+    start_date=pd.Timestamp('2020-01-01')
+)
+# Shows when stocks were added/removed from index
+```
+
+### Use Cases
+
+1. **Survivorship-Bias-Free Backtesting**
+   ```python
+   # Only pick from stocks that were actually investable at the time
+   investable = sp500.filter_universe_by_date(candidates, backtest_date)
+   ```
+
+2. **Index Reconstitution Analysis**
+   - Study price impact when stocks are added/removed from S&P 500
+   - Typically: +5-10% spike on addition, -2-5% drop on removal
+
+3. **Historical Benchmarking**
+   - Compare your strategy to what the S&P 500 *actually was* at each point in time
+   - Not just to survivors who made it to 2026
+
+4. **Sector Evolution Analysis**
+   - Track how S&P 500 composition changed over time
+   - Tech boom (1999), Financial crisis (2008), Tech dominance (2020s)
+
+### Market Cap Data Sources (Free)
+
+For cap-weighted benchmarks, fetch market cap from **Yahoo Finance** (already integrated):
+
+```python
+import yfinance as yf
+
+# Get current market cap
+ticker = yf.Ticker("AAPL")
+market_cap = ticker.info['marketCap']
+
+# For historical market cap:
+# Use: shares_outstanding * close_price from historical data
+```
+
+**Alternative Free Sources**:
+- **FMP (Financial Modeling Prep)**: Free tier includes market cap (sign up for API key)
+- **Alpha Vantage**: Company overview endpoint includes market cap
+- **Quandl/NASDAQ Data Link**: Market cap data available
+
+### Data File
+
+Location: `data/S&P 500 Historical Components & Changes(01-17-2026).csv`
+
+Format:
+```csv
+date,tickers
+1996-01-02,"AAPL,MSFT,GE,IBM,..."
+1996-01-03,"AAPL,MSFT,GE,IBM,..."
+```
+
+### Coming Soon
+
+- ✅ S&P 500 Historical benchmark in portfolio simulator
+- ✅ Jupyter notebook analyzing 30 years of index changes
+- ✅ Auto-filter stock universe to historical S&P 500 members
+
+---
+
 ## 🐍 Python API
 
 ### Quick Data Access

@@ -298,6 +298,107 @@ def calculate_benchmark_returns(
         else:
             returns = df_prices.pct_change().mean(axis=1)
             name = "Equal Weight Universe (S&P 500 not available)"
+    
+    elif benchmark_type == "S&P 500 Historical (Equal Weight)":
+        # Use point-in-time S&P 500 constituents (eliminates survivorship bias)
+        try:
+            from src.data.sp500_constituents import SP500Constituents
+            
+            sp500 = SP500Constituents()
+            sp500.load()
+            
+            # Pre-calculate daily returns for all stocks
+            all_returns = df_prices.pct_change()
+            
+            # Calculate equal-weight returns for S&P 500 constituents on each date
+            daily_returns = []
+            for date in df_prices.index:
+                # Get constituents for this date
+                constituents = sp500.get_constituents_on_date(pd.Timestamp(date))
+                
+                # Filter to constituents we have data for
+                available_constituents = [c for c in constituents if c in all_returns.columns]
+                
+                if available_constituents:
+                    # Equal weight return for available constituents
+                    day_return = all_returns.loc[date, available_constituents].mean()
+                    daily_returns.append(day_return)
+                else:
+                    daily_returns.append(np.nan)
+            
+            returns = pd.Series(daily_returns, index=df_prices.index)
+            
+            # Count unique constituents used
+            all_constituents = set()
+            for date in df_prices.index[::252]:  # Sample every year to avoid slow computation
+                all_constituents.update(sp500.get_constituents_on_date(pd.Timestamp(date)))
+            
+            name = f"S&P 500 Historical (EW, ~{len(all_constituents)} historical tickers)"
+            
+        except Exception as e:
+            st.warning(f"S&P 500 Historical data not available: {str(e)}. Using Equal Weight Universe instead.")
+            returns = df_prices.pct_change().mean(axis=1)
+            name = "Equal Weight Universe (S&P 500 Historical unavailable)"
+    
+    elif benchmark_type == "S&P 500 Historical (Cap-Weighted)":
+        # Cap-weighted using historical market caps and point-in-time constituents
+        try:
+            from src.data.sp500_constituents import SP500Constituents
+            from src.data.market_caps import MarketCapCalculator
+            
+            sp500 = SP500Constituents()
+            sp500.load()
+            
+            calc = MarketCapCalculator()
+            market_caps = calc.load_market_caps()
+            
+            if market_caps is None or market_caps.empty:
+                st.warning("Market cap data not available. Run fetch_shares_and_market_caps.py first.")
+                returns = df_prices.pct_change().mean(axis=1)
+                name = "Equal Weight Universe (Market caps unavailable)"
+            else:
+                # Pre-calculate daily returns
+                all_returns = df_prices.pct_change()
+                
+                # Calculate cap-weighted returns for each date
+                daily_returns = []
+                
+                for date in df_prices.index:
+                    # Get S&P 500 constituents for this date
+                    constituents = sp500.get_constituents_on_date(pd.Timestamp(date))
+                    
+                    # Filter to constituents we have both price and market cap data for
+                    date_ts = pd.Timestamp(date).tz_localize(None)
+                    
+                    # Get market caps on this date
+                    try:
+                        date_caps = calc.get_market_cap_on_date(date_ts, constituents)
+                        available_tickers = list(date_caps.index)
+                        
+                        if available_tickers:
+                            # Calculate weights
+                            weights = date_caps / date_caps.sum()
+                            
+                            # Calculate weighted return
+                            returns_on_date = all_returns.loc[date, available_tickers]
+                            day_return = (returns_on_date * weights).sum()
+                            daily_returns.append(day_return)
+                        else:
+                            daily_returns.append(np.nan)
+                    except:
+                        daily_returns.append(np.nan)
+                
+                returns = pd.Series(daily_returns, index=df_prices.index)
+                name = "S&P 500 Historical (Cap-Weighted)"
+                
+        except Exception as e:
+            st.warning(f"Cap-weighted benchmark error: {str(e)}. Using ^GSPC instead.")
+            if "^GSPC" in df_prices.columns:
+                returns = df_prices["^GSPC"].pct_change()
+                name = "S&P 500 (^GSPC)"
+            else:
+                returns = df_prices.pct_change().mean(axis=1)
+                name = "Equal Weight Universe"
             
     elif benchmark_type == "Equal Weight Universe":
         returns = df_prices.pct_change().mean(axis=1)
@@ -388,8 +489,28 @@ def main():
         long_only = bottom_pct == 0
         
     elif strategy_type == "Custom Selection":
+        # Option to filter to S&P 500 historical members
+        filter_to_sp500 = st.sidebar.checkbox(
+            "Show only S&P 500 Historical members",
+            value=False,
+            help="Filter stock list to only those that were ever in the S&P 500 (1996-2026)"
+        )
+        
         # Get list of available symbols
         available_symbols = sorted(df_prices.columns.tolist())
+        
+        # Filter to S&P 500 if requested
+        if filter_to_sp500:
+            try:
+                from src.data.sp500_constituents import SP500Constituents
+                sp500 = SP500Constituents()
+                sp500.load()
+                sp500_universe = sp500.get_ticker_universe()
+                available_symbols = [s for s in available_symbols if s in sp500_universe]
+                st.sidebar.info(f"✓ Filtered to {len(available_symbols)} S&P 500 historical members")
+            except Exception as e:
+                st.sidebar.warning(f"Could not load S&P 500 data: {str(e)}")
+        
         selected_symbols = st.sidebar.multiselect(
             "Select Stocks",
             available_symbols,
@@ -482,8 +603,14 @@ def main():
     
     benchmark_type = st.sidebar.selectbox(
         "Benchmark Type",
-        ["S&P 500 (Cap-Weighted)", "Equal Weight Universe", "Synthetic (Custom Mix)"],
-        help="Choose the benchmark for comparison",
+        [
+            "S&P 500 (Cap-Weighted)", 
+            "S&P 500 Historical (Equal Weight)",
+            "S&P 500 Historical (Cap-Weighted)",
+            "Equal Weight Universe", 
+            "Synthetic (Custom Mix)"
+        ],
+        help="Choose the benchmark for comparison. S&P 500 Historical uses point-in-time constituents to eliminate survivorship bias.",
     )
     
     # Synthetic benchmark configuration
@@ -733,11 +860,19 @@ def main():
                     )
                 
                 # Filter returns by selected date range
-                chart_start = pd.Timestamp(chart_start_date)
-                chart_end = pd.Timestamp(chart_end_date)
+                chart_start = pd.Timestamp(chart_start_date).tz_localize(None)
+                chart_end = pd.Timestamp(chart_end_date).tz_localize(None)
                 
-                filtered_portfolio = portfolio_returns.loc[chart_start:chart_end]
-                filtered_benchmark = benchmark_returns.loc[chart_start:chart_end]
+                # Ensure portfolio and benchmark indices are timezone-naive
+                portfolio_tz_naive = portfolio_returns.copy()
+                benchmark_tz_naive = benchmark_returns.copy()
+                if hasattr(portfolio_tz_naive.index, 'tz') and portfolio_tz_naive.index.tz is not None:
+                    portfolio_tz_naive.index = portfolio_tz_naive.index.tz_localize(None)
+                if hasattr(benchmark_tz_naive.index, 'tz') and benchmark_tz_naive.index.tz is not None:
+                    benchmark_tz_naive.index = benchmark_tz_naive.index.tz_localize(None)
+                
+                filtered_portfolio = portfolio_tz_naive.loc[chart_start:chart_end]
+                filtered_benchmark = benchmark_tz_naive.loc[chart_start:chart_end]
                 
                 # Cumulative returns (recalculated for filtered period)
                 returns_dict = {
@@ -775,8 +910,8 @@ def main():
                 returns_array = portfolio_returns.values
                 alpha = 1 - var_confidence / 100
                 
-                # 1. Historical VaR
-                historical_var = np.percentile(returns_array, var_confidence - 100) * -100
+                # 1. Historical VaR (use 100 - confidence to get the left tail)
+                historical_var = np.percentile(returns_array, 100 - var_confidence) * -100
                 historical_cvar = returns_array[returns_array <= np.percentile(returns_array, 100 - var_confidence)].mean() * -100
                 
                 # 2. Parametric VaR (assumes normal distribution)
@@ -791,7 +926,7 @@ def main():
                 n_simulations = 10000
                 np.random.seed(42)
                 mc_returns = np.random.normal(mu, sigma, n_simulations)
-                mc_var = np.percentile(mc_returns, var_confidence - 100) * -100
+                mc_var = np.percentile(mc_returns, 100 - var_confidence) * -100
                 mc_cvar = mc_returns[mc_returns <= np.percentile(mc_returns, 100 - var_confidence)].mean() * -100
                 
                 # Display VaR metrics

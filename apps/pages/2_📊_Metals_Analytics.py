@@ -50,7 +50,7 @@ st.info("""
 st.markdown("---")
 
 # Load commodities data from parquet
-@st.cache_data
+@st.cache_data(ttl=60)  # Cache for 1 minute to allow quick updates
 def load_commodities_data():
     """Load commodities data from parquet file."""
     data_file = ROOT / "data" / "commodities" / "prices.parquet"

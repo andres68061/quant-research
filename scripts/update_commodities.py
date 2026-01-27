@@ -67,7 +67,8 @@ def main(symbols=None):
             print(f"⚠️  Unknown commodity: {symbol}")
             continue
         
-        # Get last date for this commodity
+        # Get last date for this commodity (None if new)
+        last_date = None
         if symbol in updated_df.columns:
             last_date = updated_df[symbol].last_valid_index()
             if last_date:
@@ -76,7 +77,7 @@ def main(symbols=None):
             print(f"\n{symbol}: New commodity (full fetch)")
         
         # Update
-        updated_df = fetcher.update_commodity(symbol)
+        updated_df = fetcher.update_commodity(symbol, existing_df=updated_df)
         
         # Check if we got new data
         if symbol in updated_df.columns:
