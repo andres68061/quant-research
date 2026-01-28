@@ -742,6 +742,7 @@ def main():
                         rebalance_freq=rebalance_freq_code,
                     )
                     gross_returns = portfolio_returns
+                    backtest_results = None  # No detailed results for equal weight
                     strategy_name = "Equal Weight"
                     
                 elif strategy_type == "Custom Selection":
@@ -769,6 +770,7 @@ def main():
                         rebalance_freq=rebalance_freq_code,
                     )
                     gross_returns = portfolio_returns
+                    backtest_results = None  # No detailed results for custom selection
                     strategy_name = f"Custom Portfolio ({weighting_scheme})"
                 
                 # Calculate benchmark based on user selection
@@ -812,7 +814,7 @@ def main():
                 st.success("✅ Simulation complete!")
                 
                 # Portfolio Value Summary (if available)
-                if 'portfolio_value' in backtest_results.columns:
+                if backtest_results is not None and 'portfolio_value' in backtest_results.columns:
                     initial_value = backtest_results['portfolio_value'].iloc[0]
                     final_value = backtest_results['portfolio_value'].iloc[-1]
                     
@@ -914,7 +916,7 @@ def main():
                 filtered_benchmark = benchmark_tz_naive.loc[chart_start:chart_end]
                 
                 # Portfolio Value Chart (if available)
-                if 'portfolio_value' in backtest_results.columns:
+                if backtest_results is not None and 'portfolio_value' in backtest_results.columns:
                     portfolio_value_series = backtest_results['portfolio_value']
                     
                     # Make timezone-naive for filtering
@@ -1158,7 +1160,7 @@ def main():
                     """)
                 
                 # Additional details for factor-based strategies
-                if strategy_type == "Factor-Based":
+                if strategy_type == "Factor-Based" and backtest_results is not None:
                     st.markdown("---")
                     st.markdown("### 📋 Strategy Details")
                     
