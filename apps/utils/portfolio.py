@@ -83,9 +83,14 @@ def calculate_portfolio_returns(
     rebalance_freq: str = "M",
     transaction_cost: float = 0.001,
     long_only: bool = False,
+    initial_value: float = 100.0,
 ) -> pd.DataFrame:
     """
-    Calculate portfolio returns from signals and prices.
+    Calculate portfolio returns from signals and prices with proper handling of:
+    - Portfolio value tracking (starts at initial_value, typically $100)
+    - Delistings (sell on last available trading date, hold as cash)
+    - Rebalancing only on specified dates
+    - Transaction costs
     
     Args:
         signals: DataFrame with 'signal' column (MultiIndex: date, symbol)
@@ -93,6 +98,7 @@ def calculate_portfolio_returns(
         rebalance_freq: Rebalancing frequency ('D', 'W', 'M', 'Q')
         transaction_cost: Cost per trade as decimal (0.001 = 10 bps)
         long_only: If True, ignore short signals
+        initial_value: Starting portfolio value (default: $100)
         
     Returns:
         DataFrame with columns:
@@ -102,10 +108,13 @@ def calculate_portfolio_returns(
             - turnover: Portfolio turnover
             - n_long: Number of long positions
             - n_short: Number of short positions
+            - portfolio_value: Cumulative portfolio value
+            - cash: Cash position (from delistings)
             
     Example:
         >>> results = calculate_portfolio_returns(
-        ...     signals, prices, rebalance_freq='M', transaction_cost=0.001
+        ...     signals, prices, rebalance_freq='M', transaction_cost=0.001,
+        ...     initial_value=100.0
         ... )
     """
     # Calculate price returns
@@ -122,8 +131,13 @@ def calculate_portfolio_returns(
     # Determine rebalance dates
     rebalance_dates = returns.resample(rebalance_freq).last().index
     
-    # Initialize positions DataFrame (date × symbols)
+    # Initialize tracking DataFrames
     positions = pd.DataFrame(0.0, index=returns.index, columns=returns.columns)
+    cash_position = pd.Series(0.0, index=returns.index)
+    portfolio_value = pd.Series(initial_value, index=returns.index)
+    
+    # Track previous positions for delisting detection
+    prev_positions = pd.Series(0.0, index=returns.columns)
     
     # Build positions based on rebalancing schedule
     for i, rebal_date in enumerate(rebalance_dates):
@@ -135,6 +149,10 @@ def calculate_portfolio_returns(
         
         if long_only:
             sigs = sigs.clip(lower=0)
+        
+        # Filter to stocks with available prices on rebalance date
+        available_stocks = prices.loc[rebal_date].dropna().index
+        sigs = sigs[sigs.index.isin(available_stocks)]
         
         # Calculate weights (equal weight within long/short buckets)
         n_long = (sigs > 0).sum()
@@ -156,31 +174,100 @@ def calculate_portfolio_returns(
             (returns.index >= rebal_date) & (returns.index < next_rebal)
         ]
         
-        # Assign weights to all columns that exist in positions
+        # Assign weights for holding period
         for col in weights.index:
             if col in positions.columns:
                 positions.loc[hold_dates, col] = weights[col]
+        
+        # Update previous positions
+        prev_positions = weights
     
-    # Calculate daily portfolio returns (shift positions by 1 day)
-    portfolio_returns = (positions.shift(1) * returns).sum(axis=1)
+    # Calculate daily returns with delisting handling
+    daily_gross_returns = []
+    daily_transaction_costs = []
+    daily_cash = []
+    daily_n_long = []
+    daily_n_short = []
+    daily_turnover = []
     
-    # Calculate turnover (sum of absolute position changes / 2)
-    position_changes = positions.diff().abs().sum(axis=1)
-    turnover = position_changes / 2
+    for i, date in enumerate(returns.index):
+        if i == 0:
+            # First day - no returns yet
+            daily_gross_returns.append(0.0)
+            daily_transaction_costs.append(0.0)
+            daily_cash.append(0.0)
+            daily_n_long.append((positions.loc[date] > 0).sum())
+            daily_n_short.append((positions.loc[date] < 0).sum())
+            daily_turnover.append(0.0)
+            continue
+        
+        prev_date = returns.index[i - 1]
+        
+        # Get positions and returns
+        pos = positions.loc[prev_date]
+        ret = returns.loc[date]
+        
+        # Handle delistings: if stock has position but no return, it delisted
+        # Sell at last available price (previous day)
+        cash_from_delistings = 0.0
+        for symbol in pos[pos != 0].index:
+            if pd.isna(ret[symbol]) or symbol not in ret.index:
+                # Stock delisted - convert position to cash
+                cash_from_delistings += abs(pos[symbol])
+                # Zero out position going forward
+                positions.loc[date:, symbol] = 0.0
+        
+        # Calculate gross return from active positions
+        valid_returns = ret[pos.index].fillna(0.0)
+        gross_ret = (pos * valid_returns).sum()
+        
+        # Track cash (from delistings, waiting for rebalance)
+        cash = cash_position.loc[prev_date] + cash_from_delistings
+        
+        # On rebalance dates, cash is reinvested (already handled in weights)
+        if date in rebalance_dates:
+            cash = 0.0
+        
+        # Calculate turnover and transaction costs
+        if i > 0:
+            pos_change = (positions.loc[date] - positions.loc[prev_date]).abs().sum()
+            turnover_val = pos_change / 2
+            trans_cost = turnover_val * transaction_cost
+        else:
+            turnover_val = 0.0
+            trans_cost = 0.0
+        
+        daily_gross_returns.append(gross_ret)
+        daily_transaction_costs.append(trans_cost)
+        daily_cash.append(cash)
+        daily_n_long.append((positions.loc[date] > 0).sum())
+        daily_n_short.append((positions.loc[date] < 0).sum())
+        daily_turnover.append(turnover_val)
+        
+        # Update cash position
+        cash_position.loc[date] = cash
     
-    # Apply transaction costs
-    transaction_costs = turnover * transaction_cost
-    net_returns = portfolio_returns - transaction_costs
+    # Convert to Series
+    gross_returns = pd.Series(daily_gross_returns, index=returns.index)
+    transaction_costs = pd.Series(daily_transaction_costs, index=returns.index)
+    net_returns = gross_returns - transaction_costs
+    
+    # Calculate cumulative portfolio value
+    portfolio_value[0] = initial_value
+    for i in range(1, len(portfolio_value)):
+        portfolio_value.iloc[i] = portfolio_value.iloc[i-1] * (1 + net_returns.iloc[i])
     
     # Combine results
     results = pd.DataFrame(
         {
-            "gross_return": portfolio_returns,
+            "gross_return": gross_returns,
             "transaction_cost": transaction_costs,
             "net_return": net_returns,
-            "turnover": turnover,
-            "n_long": (positions > 0).sum(axis=1),
-            "n_short": (positions < 0).sum(axis=1),
+            "turnover": daily_turnover,
+            "n_long": daily_n_long,
+            "n_short": daily_n_short,
+            "portfolio_value": portfolio_value,
+            "cash": cash_position,
         }
     )
     

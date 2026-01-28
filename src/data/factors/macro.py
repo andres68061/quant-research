@@ -45,7 +45,7 @@ def load_default_macro() -> pd.DataFrame:
     # CPI YoY
     cpi = fred.get_series('CPIAUCSL')
     cpi.index = pd.to_datetime(cpi.index)
-    cpi_yoy = cpi.pct_change(12).rename('cpi_yoy')
+    cpi_yoy = cpi.pct_change(12, fill_method=None).rename('cpi_yoy')
     frames['cpi_yoy'] = cpi_yoy
     # Unemployment rate
     unrate = fred.get_series('UNRATE')

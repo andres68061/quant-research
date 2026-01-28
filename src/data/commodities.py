@@ -134,25 +134,32 @@ class CommodityDataFetcher:
         """
         Fetch commodity data from Yahoo Finance (ETFs).
 
+        Uses Adjusted Close to account for distributions and splits.
+
         Args:
             symbol: Yahoo Finance ticker (e.g., 'GLD', 'SLV')
             interval: Data interval ('1d', '1wk', '1mo')
 
         Returns:
-            pandas Series with datetime index and closing prices
+            pandas Series with datetime index and adjusted closing prices
         """
         try:
             ticker = yf.Ticker(symbol)
             
             # Get maximum available history
-            hist = ticker.history(period="max", interval=interval)
+            hist = ticker.history(period="max", interval=interval, auto_adjust=False)
             
             if hist.empty:
                 print(f"⚠️  No data returned for {symbol}")
                 return pd.Series(dtype=float)
             
-            # Extract closing prices
-            series = hist["Close"]
+            # Use Adjusted Close for total return (accounts for distributions and splits)
+            # Fallback to Close if Adj Close not available
+            if 'Adj Close' in hist.columns:
+                series = hist['Adj Close']
+            else:
+                series = hist['Close']
+            
             series.index = pd.to_datetime(series.index).tz_localize(None)
             series.index.name = "date"
             series.name = symbol
@@ -180,13 +187,14 @@ class CommodityDataFetcher:
             pandas Series with datetime index and prices
         """
         if not ALPHAVANTAGE_API_KEY:
-            print(f"⚠️  Alpha Vantage API key not configured, skipping {symbol}")
+            print(
+                f"⚠️  Alpha Vantage API key not configured, skipping {symbol}")
             return pd.Series(dtype=float)
 
         try:
             # Rate limit: 1 request per second for free tier
             time.sleep(1.1)
-            
+
             url = "https://www.alphavantage.co/query"
             params = {
                 "function": symbol,
@@ -202,9 +210,11 @@ class CommodityDataFetcher:
             # Alpha Vantage returns data in 'data' key
             if "data" not in data:
                 # Try to extract error message
-                error_msg = data.get("Note") or data.get("Error Message") or data.get("Information") or str(data)
+                error_msg = data.get("Note") or data.get(
+                    "Error Message") or data.get("Information") or str(data)
                 if "rate limit" in error_msg.lower() or "per second" in error_msg.lower():
-                    print(f"⚠️  Rate limit hit for {symbol}, please wait and retry later")
+                    print(
+                        f"⚠️  Rate limit hit for {symbol}, please wait and retry later")
                 else:
                     print(f"⚠️  No data for {symbol}: {error_msg[:100]}")
                 return pd.Series(dtype=float)
@@ -335,7 +345,7 @@ class CommodityDataFetcher:
         # Load existing data if not provided
         if existing_df is None:
             existing_df = self.load_prices()
-        
+
         # Fetch new data
         new_series = self.fetch_commodity(symbol)
 
@@ -392,4 +402,3 @@ if __name__ == "__main__":
     print("\nConfigured commodities:")
     for symbol, config in COMMODITIES_CONFIG.items():
         print(f"  {symbol:15s} - {config['name']:30s} [{config['source']}]")
-

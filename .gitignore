@@ -44,7 +44,7 @@ logs/
 *.log
 
 # Data files (databases, datasets, artifacts)
-data/
+/data/
 !data/.gitkeep
 *.db
 *.duckdb

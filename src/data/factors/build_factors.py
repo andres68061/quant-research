@@ -3,12 +3,12 @@ import pandas as pd
 
 
 def compute_returns(close: pd.Series) -> pd.Series:
-    return close.pct_change()
+    return close.pct_change(fill_method=None)
 
 
 def momentum_excluding_recent(close: pd.Series, months: int) -> pd.Series:
     # 12-1 style: past m months excluding the most recent 21 trading days
-    ret = close.pct_change()
+    ret = close.pct_change(fill_method=None)
     recent = 21
     window = months * 21
     cum = (1 + ret).rolling(window).apply(np.prod, raw=True) - 1.0
@@ -29,7 +29,7 @@ def rolling_beta(asset_ret: pd.Series, market_ret: pd.Series, window: int = 60) 
 
 def build_price_factors(close_panel: pd.DataFrame, market_symbol: str = 'SPY') -> pd.DataFrame:
     close_panel = close_panel.sort_index()
-    ret_panel = close_panel.pct_change()
+    ret_panel = close_panel.pct_change(fill_method=None)
     market_ret = ret_panel.get(market_symbol)
     factors = {}
     for sym in close_panel.columns:
