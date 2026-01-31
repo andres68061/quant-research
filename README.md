@@ -262,6 +262,11 @@ python scripts/add_symbol.py '^IXIC' '^RUT' '^DJI'
 
 #### Performance Metrics
 
+**Data Quality Controls:**
+- **Penny Stock Filter**: Automatically excludes stocks trading below $5 to prevent corrupted returns
+- **Missing Data Handling**: Forward-fills minor gaps, detects delistings, filters unavailable stocks at rebalancing
+- **Look-Ahead Prevention**: Factors calculated only from start date onwards
+
 **Return Metrics:**
 - Total Return
 - Annualized Return

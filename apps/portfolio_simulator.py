@@ -465,13 +465,27 @@ def main():
         df_prices_filtered = df_prices[
             (df_prices.index.date >= start_date) & (df_prices.index.date <= end_date)
         ]
+        
+        # CRITICAL: Filter out penny stocks (prices < $5)
+        # Small prices cause huge percentage returns and corrupt results
+        # Standard practice in quant research
+        price_mask = (df_prices_filtered >= 5.0).all(axis=0)
+        valid_symbols = df_prices_filtered.columns[price_mask]
+        
+        if len(valid_symbols) < len(df_prices_filtered.columns):
+            excluded = len(df_prices_filtered.columns) - len(valid_symbols)
+            st.sidebar.info(f"ℹ️ Excluded {excluded} penny stocks (price < $5) to prevent data corruption")
+        
+        df_prices_filtered = df_prices_filtered[valid_symbols]
+        
         df_factors_filtered = df_factors[
             (df_factors.index.get_level_values("date").date >= start_date)
             & (df_factors.index.get_level_values("date").date <= end_date)
+            & (df_factors.index.get_level_values("symbol").isin(valid_symbols))
         ]
         
         st.sidebar.success(f"✓ Data filtered: {start_date} to {end_date}")
-        st.sidebar.info(f"📊 {len(df_prices_filtered)} trading days, {len(df_prices_filtered.columns)} symbols")
+        st.sidebar.info(f"📊 {len(df_prices_filtered)} trading days, {len(valid_symbols)} symbols")
     else:
         st.sidebar.warning("Please select both start and end dates")
         df_prices_filtered = df_prices
@@ -499,8 +513,14 @@ def main():
             index=factor_columns.index("mom_12_1")
             if "mom_12_1" in factor_columns
             else 0,
-            help="Factor to use for ranking stocks",
+            help="mom_12_1 = 12-month momentum excluding last month (industry standard for momentum strategies)",
         )
+        
+        st.sidebar.caption("**Factor Definitions:**")
+        st.sidebar.caption("• `mom_12_1`: Return over 12 months, excluding last month")
+        st.sidebar.caption("• `mom_6_1`: Return over 6 months, excluding last month")  
+        st.sidebar.caption("• `vol_60d`: 60-day volatility (annualized)")
+        st.sidebar.caption("• `beta_60d`: 60-day beta vs SPY")
         
         top_pct = st.sidebar.slider(
             "Top % (Long)",
@@ -508,7 +528,7 @@ def main():
             max_value=50,
             value=20,
             step=5,
-            help="Percentage of top-ranked stocks to go long",
+            help="Go LONG the top 20% of stocks ranked by the factor (e.g., highest momentum)",
         ) / 100
         
         bottom_pct = st.sidebar.slider(
@@ -517,7 +537,7 @@ def main():
             max_value=50,
             value=20,
             step=5,
-            help="Percentage of bottom-ranked stocks to short (0 for long-only)",
+            help="Go SHORT the bottom 20% of stocks (e.g., lowest momentum). Set to 0 for long-only.",
         ) / 100
         
         long_only = bottom_pct == 0
