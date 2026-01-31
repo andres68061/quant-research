@@ -9,6 +9,8 @@ due to price filters, and allows detailed inspection of their price history.
 import sys
 import warnings
 from pathlib import Path
+import json
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -21,6 +23,41 @@ warnings.filterwarnings("ignore")
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+# Path for manual validations
+VALIDATIONS_FILE = ROOT / "data" / "manual_validations.json"
+
+
+def load_manual_validations():
+    """Load manually validated symbols from JSON file."""
+    if VALIDATIONS_FILE.exists():
+        with open(VALIDATIONS_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+
+def save_manual_validation(symbol, reason, threshold):
+    """Save a manual validation to JSON file."""
+    validations = load_manual_validations()
+    validations[symbol] = {
+        'validated_at': datetime.now().isoformat(),
+        'reason': reason,
+        'threshold_at_validation': threshold
+    }
+    VALIDATIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(VALIDATIONS_FILE, 'w') as f:
+        json.dump(validations, f, indent=2)
+    return validations
+
+
+def remove_manual_validation(symbol):
+    """Remove a manual validation from JSON file."""
+    validations = load_manual_validations()
+    if symbol in validations:
+        del validations[symbol]
+        with open(VALIDATIONS_FILE, 'w') as f:
+            json.dump(validations, f, indent=2)
+    return validations
 
 # Page configuration
 st.set_page_config(
@@ -107,12 +144,37 @@ price_threshold = st.sidebar.slider(
 
 st.sidebar.markdown("---")
 
+# Manual validations filter
+manual_validations = load_manual_validations()
+show_validated = st.sidebar.checkbox(
+    "Show Only Manually Validated",
+    value=False,
+    help=f"Filter to show only the {len(manual_validations)} manually validated stocks"
+)
+
+if len(manual_validations) > 0:
+    with st.sidebar.expander(f"📋 Validated Stocks ({len(manual_validations)})"):
+        for symbol, info in manual_validations.items():
+            validated_date = datetime.fromisoformat(info['validated_at']).strftime('%Y-%m-%d')
+            st.caption(f"**{symbol}** - {validated_date}")
+
+st.sidebar.markdown("---")
+
 # Calculate exclusions
 # Note: fillna(inf) ensures NaN values don't cause false exclusions
 # We only want to exclude stocks that actually trade below threshold
 price_mask = (df_prices_filtered.fillna(np.inf) >= price_threshold).all(axis=0)
 valid_symbols = df_prices_filtered.columns[price_mask]
 excluded_symbols = df_prices_filtered.columns[~price_mask]
+
+# Apply manual validation filter if requested
+if show_validated:
+    excluded_symbols = [s for s in excluded_symbols if s in manual_validations]
+    if len(excluded_symbols) == 0:
+        st.info("ℹ️ No manually validated stocks to display. Validate stocks below to add them to the list.")
+        st.stop()
+    
+excluded_symbols = list(excluded_symbols)  # Convert to list for indexing
 
 # Summary metrics
 col1, col2, col3 = st.columns(3)
@@ -218,7 +280,9 @@ if selected_symbol:
         
         # Calculate returns
         returns = symbol_prices.pct_change().dropna()
-        extreme_returns = (returns.abs() > 0.5).sum()
+        extreme_returns_positive = (returns > 0.5).sum()
+        extreme_returns_negative = (returns < -0.5).sum()
+        extreme_returns_total = (returns.abs() > 0.5).sum()
         max_daily_gain = returns.max()
         max_daily_loss = returns.min()
         
@@ -246,10 +310,21 @@ if selected_symbol:
         with col6:
             st.metric("Max Daily Loss", f"{max_daily_loss*100:.1f}%")
         with col7:
-            st.metric("Extreme Returns", extreme_returns, help="Days with >50% return")
+            st.metric("Extreme Returns (+)", extreme_returns_positive, help="Days with >50% gain")
         with col8:
+            st.metric("Extreme Returns (-)", extreme_returns_negative, help="Days with >50% loss")
+        
+        col9, col10, col11, col12 = st.columns(4)
+        
+        with col9:
             volatility = returns.std() * np.sqrt(252)
             st.metric("Annualized Vol", f"{volatility*100:.1f}%")
+        with col10:
+            st.metric("Extreme Returns (Total)", extreme_returns_total, help="Days with >50% absolute return")
+        with col11:
+            st.empty()  # Placeholder
+        with col12:
+            st.empty()  # Placeholder
         
         # Create price chart
         fig = go.Figure()
@@ -289,6 +364,39 @@ if selected_symbol:
                 )
             )
         
+        # Mark extreme positive returns (>50% gains) in GREEN
+        extreme_gains_mask = returns > 0.5
+        if extreme_gains_mask.any():
+            # Shift index by 1 to align with price (returns are calculated from previous day)
+            extreme_gains_dates = returns[extreme_gains_mask].index
+            extreme_gains_prices = symbol_prices.loc[extreme_gains_dates]
+            fig.add_trace(
+                go.Scatter(
+                    x=extreme_gains_dates,
+                    y=extreme_gains_prices.values,
+                    mode='markers',
+                    name='Extreme Gain (>50%)',
+                    marker=dict(color='green', size=12, symbol='triangle-up', line=dict(width=2, color='darkgreen')),
+                    hovertemplate='%{x}<br>Price: $%{y:.2f}<br>(Extreme gain)<extra></extra>'
+                )
+            )
+        
+        # Mark extreme negative returns (>50% losses) in ORANGE/RED
+        extreme_losses_mask = returns < -0.5
+        if extreme_losses_mask.any():
+            extreme_losses_dates = returns[extreme_losses_mask].index
+            extreme_losses_prices = symbol_prices.loc[extreme_losses_dates]
+            fig.add_trace(
+                go.Scatter(
+                    x=extreme_losses_dates,
+                    y=extreme_losses_prices.values,
+                    mode='markers',
+                    name='Extreme Loss (>50%)',
+                    marker=dict(color='orange', size=12, symbol='triangle-down', line=dict(width=2, color='darkorange')),
+                    hovertemplate='%{x}<br>Price: $%{y:.2f}<br>(Extreme loss)<extra></extra>'
+                )
+            )
+        
         fig.update_layout(
             title=f"{selected_symbol} Price History ({start_date} to {end_date})",
             xaxis_title="Date",
@@ -316,6 +424,23 @@ if selected_symbol:
             )
         )
         
+        # Add vertical lines for extreme returns thresholds
+        fig_returns.add_vline(
+            x=50,
+            line_dash="dash",
+            line_color="green",
+            annotation_text="Extreme Gain (+50%)",
+            annotation_position="top right"
+        )
+        
+        fig_returns.add_vline(
+            x=-50,
+            line_dash="dash",
+            line_color="orange",
+            annotation_text="Extreme Loss (-50%)",
+            annotation_position="top left"
+        )
+        
         fig_returns.update_layout(
             title=f"{selected_symbol} Daily Returns Distribution",
             xaxis_title="Daily Return (%)",
@@ -339,8 +464,8 @@ if selected_symbol:
         if pct_below > 50:
             reasons.append(f"- **Frequently below threshold**: {pct_below:.1f}% of days below ${price_threshold}")
         
-        if extreme_returns > 0:
-            reasons.append(f"- **Extreme volatility**: {extreme_returns} days with >50% daily return")
+        if extreme_returns_total > 0:
+            reasons.append(f"- **Extreme volatility**: {extreme_returns_total} days with >50% absolute return ({extreme_returns_positive} gains, {extreme_returns_negative} losses)")
         
         if volatility > 1.0:
             reasons.append(f"- **Very high volatility**: {volatility*100:.1f}% annualized (>100%)")
@@ -359,7 +484,56 @@ if selected_symbol:
         
         **Excluding these stocks ensures more realistic backtest results.**
         """)
-
+        
+        # Manual Validation Section
+        st.markdown("---")
+        st.markdown("### ✅ Manual Validation")
+        
+        is_validated = selected_symbol in manual_validations
+        
+        if is_validated:
+            val_info = manual_validations[selected_symbol]
+            val_date = datetime.fromisoformat(val_info['validated_at']).strftime('%Y-%m-%d %H:%M')
+            
+            st.success(f"✅ This stock was manually validated on {val_date}")
+            st.markdown(f"**Validation Reason:** {val_info['reason']}")
+            st.caption(f"Price threshold at validation: ${val_info['threshold_at_validation']}")
+            
+            col_btn1, col_btn2 = st.columns([1, 3])
+            with col_btn1:
+                if st.button("🗑️ Remove Validation", key=f"remove_{selected_symbol}"):
+                    remove_manual_validation(selected_symbol)
+                    st.success(f"Removed validation for {selected_symbol}")
+                    st.rerun()
+        else:
+            st.warning(f"""
+            ⚠️ **{selected_symbol}** is currently excluded from portfolio simulations.
+            
+            If after reviewing the data you believe this stock should be included despite the price threshold, 
+            you can manually validate it here. The stock will remain excluded by default, but will be tracked 
+            in your manual validations list for future reference.
+            """)
+            
+            validation_reason = st.text_area(
+                "Reason for manual validation",
+                placeholder="E.g., 'Price spike was due to stock split correction, actual trading history is stable'",
+                help="Document why you're overriding the automatic exclusion",
+                key=f"reason_{selected_symbol}"
+            )
+            
+            col_btn1, col_btn2 = st.columns([1, 3])
+            with col_btn1:
+                if st.button("✅ Validate Stock", key=f"validate_{selected_symbol}", type="primary"):
+                    if validation_reason.strip():
+                        save_manual_validation(selected_symbol, validation_reason.strip(), price_threshold)
+                        st.success(f"✅ Manually validated {selected_symbol}")
+                        st.info("💡 **Note:** This marks the stock as reviewed. To actually include it in simulations, you would need to adjust the price threshold or implement custom filtering logic.")
+                        st.rerun()
+                    else:
+                        st.error("❌ Please provide a reason for validation")
+            
+            with col_btn2:
+                st.caption("💡 Tip: Manual validations are saved to `data/manual_validations.json`")
 st.markdown("---")
 
 # Additional Statistics
