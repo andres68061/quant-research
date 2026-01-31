@@ -108,7 +108,9 @@ price_threshold = st.sidebar.slider(
 st.sidebar.markdown("---")
 
 # Calculate exclusions
-price_mask = (df_prices_filtered >= price_threshold).all(axis=0)
+# Note: fillna(inf) ensures NaN values don't cause false exclusions
+# We only want to exclude stocks that actually trade below threshold
+price_mask = (df_prices_filtered.fillna(np.inf) >= price_threshold).all(axis=0)
 valid_symbols = df_prices_filtered.columns[price_mask]
 excluded_symbols = df_prices_filtered.columns[~price_mask]
 

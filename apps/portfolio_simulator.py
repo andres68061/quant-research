@@ -469,7 +469,8 @@ def main():
         # CRITICAL: Filter out penny stocks (prices < $5)
         # Small prices cause huge percentage returns and corrupt results
         # Standard practice in quant research
-        price_mask = (df_prices_filtered >= 5.0).all(axis=0)
+        # Note: fillna(inf) ensures NaN values don't cause false exclusions
+        price_mask = (df_prices_filtered.fillna(np.inf) >= 5.0).all(axis=0)
         valid_symbols = df_prices_filtered.columns[price_mask]
         
         if len(valid_symbols) < len(df_prices_filtered.columns):
