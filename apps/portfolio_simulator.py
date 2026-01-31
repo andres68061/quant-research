@@ -886,11 +886,22 @@ def main():
                 st.markdown("---")
                 st.markdown("### 📈 Performance Visualizations")
                 
+                # Check if we have valid data
+                if len(portfolio_returns) == 0 or portfolio_returns.index.isna().all():
+                    st.error("❌ No valid returns data to display")
+                    st.stop()
+                
                 # Date range filter for charts
                 st.markdown("**📅 Chart Date Range** (Y-axis auto-adjusts to selected period)")
                 
-                min_date = portfolio_returns.index.min().to_pydatetime()
-                max_date = portfolio_returns.index.max().to_pydatetime()
+                # Get valid date range (filter out NaT)
+                valid_dates = portfolio_returns.index[portfolio_returns.index.notna()]
+                if len(valid_dates) == 0:
+                    st.error("❌ No valid dates in returns data")
+                    st.stop()
+                
+                min_date = valid_dates.min().to_pydatetime().date()
+                max_date = valid_dates.max().to_pydatetime().date()
                 
                 col_date1, col_date2 = st.columns(2)
                 with col_date1:
