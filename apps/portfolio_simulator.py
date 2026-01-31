@@ -813,16 +813,6 @@ def main():
                 # Display results
                 st.success("✅ Simulation complete!")
                 
-                # Portfolio Value Summary (if available)
-                if backtest_results is not None and 'portfolio_value' in backtest_results.columns:
-                    initial_value = backtest_results['portfolio_value'].iloc[0]
-                    final_value = backtest_results['portfolio_value'].iloc[-1]
-                    
-                    st.markdown("### 💰 Portfolio Value")
-                    st.markdown(f"**${initial_value:.2f}** → **${final_value:.2f}** "
-                               f"({(final_value/initial_value - 1)*100:+.2f}%)")
-                    st.markdown("---")
-                
                 # Key metrics in columns
                 st.markdown("### 📊 Performance Summary")
                 col1, col2, col3, col4 = st.columns(4)
@@ -914,39 +904,6 @@ def main():
                 
                 filtered_portfolio = portfolio_tz_naive.loc[chart_start:chart_end]
                 filtered_benchmark = benchmark_tz_naive.loc[chart_start:chart_end]
-                
-                # Portfolio Value Chart (if available)
-                if backtest_results is not None and 'portfolio_value' in backtest_results.columns:
-                    portfolio_value_series = backtest_results['portfolio_value']
-                    
-                    # Make timezone-naive for filtering
-                    if hasattr(portfolio_value_series.index, 'tz') and portfolio_value_series.index.tz is not None:
-                        portfolio_value_series.index = portfolio_value_series.index.tz_localize(None)
-                    
-                    filtered_portfolio_value = portfolio_value_series.loc[chart_start:chart_end]
-                    
-                    fig_value = go.Figure()
-                    fig_value.add_trace(
-                        go.Scatter(
-                            x=filtered_portfolio_value.index,
-                            y=filtered_portfolio_value.values,
-                            mode="lines",
-                            name="Portfolio Value",
-                            line=dict(color="green", width=2),
-                            hovertemplate="$%{y:.2f}<extra></extra>",
-                        )
-                    )
-                    
-                    fig_value.update_layout(
-                        title="Portfolio Value Over Time",
-                        xaxis_title="Date",
-                        yaxis_title="Portfolio Value ($)",
-                        hovermode="x unified",
-                        height=400,
-                        showlegend=True,
-                    )
-                    
-                    st.plotly_chart(fig_value, use_container_width=True)
                 
                 # Cumulative returns (recalculated for filtered period)
                 returns_dict = {

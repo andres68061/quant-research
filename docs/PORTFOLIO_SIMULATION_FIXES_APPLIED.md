@@ -54,19 +54,26 @@ for symbol in pos[pos != 0].index:
 
 ---
 
-### 4. ✅ Portfolio Value Tracking Added
-**Problem:** Only returns calculated, no actual portfolio value ($100 → $X).
+## Research Focus: Returns-Based Analysis
 
-**Fix:**
-- Portfolio starts at `initial_value` (default: $100)
-- Daily compounding: `portfolio_value[t] = portfolio_value[t-1] × (1 + net_return[t])`
-- Tracked in results DataFrame
-- Displayed in UI and charts
+**Design Decision:** This is research-grade software focused on analyzing **returns**, not portfolio dollar values.
 
-**Code Changes:**
-- Added `initial_value` parameter to `calculate_portfolio_returns()`
-- Added `portfolio_value` column to results
-- Added portfolio value chart in Streamlit UI
+**What We Track:**
+- ✅ Daily returns (gross and net)
+- ✅ Transaction costs
+- ✅ Turnover
+- ✅ Number of long/short positions
+- ✅ Cash position (from delistings)
+
+**What We Don't Track:**
+- ❌ Portfolio dollar value ($100 → $150)
+- Portfolio value can be calculated from returns if needed: `(1 + returns).cumprod() * initial_value`
+
+**Rationale:**
+- Returns are what matter for factor research and strategy evaluation
+- All performance metrics (Sharpe ratio, drawdown, alpha) are calculated from returns
+- Keeping the codebase simple and focused on research objectives
+- Avoids inconsistencies between different strategy types
 
 ---
 

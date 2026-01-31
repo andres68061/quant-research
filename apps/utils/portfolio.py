@@ -83,11 +83,9 @@ def calculate_portfolio_returns(
     rebalance_freq: str = "M",
     transaction_cost: float = 0.001,
     long_only: bool = False,
-    initial_value: float = 100.0,
 ) -> pd.DataFrame:
     """
     Calculate portfolio returns from signals and prices with proper handling of:
-    - Portfolio value tracking (starts at initial_value, typically $100)
     - Delistings (sell on last available trading date, hold as cash)
     - Rebalancing only on specified dates
     - Transaction costs
@@ -98,7 +96,6 @@ def calculate_portfolio_returns(
         rebalance_freq: Rebalancing frequency ('D', 'W', 'M', 'Q')
         transaction_cost: Cost per trade as decimal (0.001 = 10 bps)
         long_only: If True, ignore short signals
-        initial_value: Starting portfolio value (default: $100)
         
     Returns:
         DataFrame with columns:
@@ -108,13 +105,11 @@ def calculate_portfolio_returns(
             - turnover: Portfolio turnover
             - n_long: Number of long positions
             - n_short: Number of short positions
-            - portfolio_value: Cumulative portfolio value
             - cash: Cash position (from delistings)
             
     Example:
         >>> results = calculate_portfolio_returns(
-        ...     signals, prices, rebalance_freq='M', transaction_cost=0.001,
-        ...     initial_value=100.0
+        ...     signals, prices, rebalance_freq='M', transaction_cost=0.001
         ... )
     """
     # Calculate price returns
@@ -134,10 +129,6 @@ def calculate_portfolio_returns(
     # Initialize tracking DataFrames
     positions = pd.DataFrame(0.0, index=returns.index, columns=returns.columns)
     cash_position = pd.Series(0.0, index=returns.index)
-    portfolio_value = pd.Series(initial_value, index=returns.index)
-    
-    # Track previous positions for delisting detection
-    prev_positions = pd.Series(0.0, index=returns.columns)
     
     # Build positions based on rebalancing schedule
     for i, rebal_date in enumerate(rebalance_dates):
@@ -178,9 +169,6 @@ def calculate_portfolio_returns(
         for col in weights.index:
             if col in positions.columns:
                 positions.loc[hold_dates, col] = weights[col]
-        
-        # Update previous positions
-        prev_positions = weights
     
     # Calculate daily returns with delisting handling
     daily_gross_returns = []
@@ -252,11 +240,6 @@ def calculate_portfolio_returns(
     transaction_costs = pd.Series(daily_transaction_costs, index=returns.index)
     net_returns = gross_returns - transaction_costs
     
-    # Calculate cumulative portfolio value
-    portfolio_value[0] = initial_value
-    for i in range(1, len(portfolio_value)):
-        portfolio_value.iloc[i] = portfolio_value.iloc[i-1] * (1 + net_returns.iloc[i])
-    
     # Combine results
     results = pd.DataFrame(
         {
@@ -266,7 +249,6 @@ def calculate_portfolio_returns(
             "turnover": daily_turnover,
             "n_long": daily_n_long,
             "n_short": daily_n_short,
-            "portfolio_value": portfolio_value,
             "cash": cash_position,
         }
     )
