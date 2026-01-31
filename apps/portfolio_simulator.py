@@ -127,8 +127,9 @@ def plot_cumulative_returns(returns_dict, title="Cumulative Returns"):
         xaxis_title="Date",
         yaxis_title="Cumulative Return (%)",
         hovermode="x unified",
-        height=500,
+        height=600,  # Increased from 500
         showlegend=True,
+        margin=dict(t=80, b=60, l=60, r=40),  # Add margins to prevent clipping
         xaxis=dict(
             rangeslider=dict(visible=True, yaxis=dict(rangemode='auto')),
             rangeselector=dict(
@@ -144,7 +145,11 @@ def plot_cumulative_returns(returns_dict, title="Cumulative Returns"):
                 activecolor="gray"
             ),
         ),
-        yaxis=dict(fixedrange=False, autorange=True),
+        yaxis=dict(
+            fixedrange=False, 
+            autorange=True,
+            rangemode='normal',
+        ),
     )
     
     return fig
@@ -172,8 +177,9 @@ def plot_drawdown(returns_dict, title="Drawdown Analysis"):
         xaxis_title="Date",
         yaxis_title="Drawdown (%)",
         hovermode="x unified",
-        height=400,
+        height=500,  # Increased from 400
         showlegend=True,
+        margin=dict(t=80, b=60, l=60, r=40),  # Add margins to prevent clipping
         xaxis=dict(
             rangeslider=dict(visible=True, yaxis=dict(rangemode='auto')),
             rangeselector=dict(
@@ -187,7 +193,11 @@ def plot_drawdown(returns_dict, title="Drawdown Analysis"):
                 activecolor="gray"
             ),
         ),
-        yaxis=dict(fixedrange=False, autorange=True),
+        yaxis=dict(
+            fixedrange=False, 
+            autorange=True,
+            rangemode='normal',
+        ),
     )
     
     return fig
@@ -235,9 +245,10 @@ def plot_rolling_metrics(returns, window=252):
     fig.update_yaxes(title_text="Volatility (%)", row=2, col=1)
     
     fig.update_layout(
-        height=600,
+        height=700,  # Increased from 600
         showlegend=False,
         hovermode="x unified",
+        margin=dict(t=80, b=60, l=60, r=40),  # Add margins to prevent clipping
         xaxis=dict(
             rangeslider=dict(visible=True, yaxis=dict(rangemode='auto')),
             rangeselector=dict(
@@ -251,7 +262,11 @@ def plot_rolling_metrics(returns, window=252):
                 activecolor="gray"
             ),
         ),
-        yaxis=dict(fixedrange=False, autorange=True),
+        yaxis=dict(
+            fixedrange=False, 
+            autorange=True,
+            rangemode='normal',
+        ),
     )
     
     return fig
@@ -1075,7 +1090,7 @@ def main():
                     title=f"VaR Comparison at {var_confidence}% Confidence",
                     yaxis_title="Maximum Expected Loss (%)",
                     barmode='group',
-                    height=400,
+                    height=500,  # Increased from 400
                     showlegend=True,
                 )
                 
@@ -1116,7 +1131,7 @@ def main():
                     title="Daily Return Distribution with VaR Thresholds",
                     xaxis_title="Daily Return (%)",
                     yaxis_title="Frequency",
-                    height=400,
+                    height=500,  # Increased from 400
                     showlegend=True,
                 )
                 
