@@ -395,6 +395,7 @@ def calculate_rolling_metrics(
     returns: pd.Series,
     window: int = 252,
     periods_per_year: int = 252,
+    risk_free_rate: float = 0.0,
 ) -> pd.DataFrame:
     """
     Calculate rolling performance metrics.
@@ -403,13 +404,29 @@ def calculate_rolling_metrics(
         returns: Series of returns
         window: Rolling window size (default: 252 trading days = 1 year)
         periods_per_year: Number of periods per year
+        risk_free_rate: Risk-free rate for Sharpe/Sortino (annualized)
         
     Returns:
-        DataFrame with rolling metrics
+        DataFrame with rolling metrics including Sharpe and Sortino ratios
     """
     rolling_return = returns.rolling(window).mean() * periods_per_year
     rolling_vol = returns.rolling(window).std() * np.sqrt(periods_per_year)
-    rolling_sharpe = rolling_return / rolling_vol
+    rolling_sharpe = (rolling_return - risk_free_rate) / rolling_vol
+    
+    # Rolling Sortino ratio (downside deviation)
+    def rolling_sortino(window_returns):
+        if len(window_returns) < 2:
+            return np.nan
+        mean_return = window_returns.mean() * periods_per_year
+        downside_returns = window_returns[window_returns < 0]
+        if len(downside_returns) == 0:
+            return np.nan
+        downside_dev = downside_returns.std() * np.sqrt(periods_per_year)
+        if downside_dev == 0:
+            return np.nan
+        return (mean_return - risk_free_rate) / downside_dev
+    
+    rolling_sortino_ratio = returns.rolling(window).apply(rolling_sortino, raw=False)
     
     # Rolling max drawdown
     cum_returns = (1 + returns).cumprod()
@@ -421,6 +438,7 @@ def calculate_rolling_metrics(
             "annualized_return": rolling_return,
             "annualized_volatility": rolling_vol,
             "sharpe_ratio": rolling_sharpe,
+            "sortino_ratio": rolling_sortino_ratio,
             "drawdown": rolling_dd,
         }
     )

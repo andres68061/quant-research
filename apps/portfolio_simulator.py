@@ -251,6 +251,54 @@ def plot_rolling_sharpe(returns, window=252):
     return fig
 
 
+def plot_rolling_sortino(returns, window=252):
+    """Plot rolling Sortino ratio."""
+    rolling = calculate_rolling_metrics(returns, window=window)
+    
+    fig = go.Figure()
+    
+    fig.add_trace(
+        go.Scatter(
+            x=rolling.index,
+            y=rolling["sortino_ratio"],
+            mode="lines",
+            name="Sortino Ratio",
+            line=dict(color="purple", width=2),
+            hovertemplate='Sortino: %{y:.2f}<extra></extra>',
+        )
+    )
+    
+    fig.update_layout(
+        title="Rolling Sortino Ratio (252-Day Window)",
+        xaxis_title="Date",
+        yaxis_title="Sortino Ratio",
+        hovermode="x unified",
+        height=650,  # Standardized height across all charts
+        showlegend=False,
+        margin=dict(t=80, b=60, l=60, r=40),
+        xaxis=dict(
+            rangeslider=dict(visible=True, yaxis=dict(rangemode='auto')),
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=6, label="6m", step="month", stepmode="backward"),
+                    dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(count=3, label="3y", step="year", stepmode="backward"),
+                    dict(step="all", label="All")
+                ]),
+                bgcolor="lightgray",
+                activecolor="gray"
+            ),
+        ),
+        yaxis=dict(
+            fixedrange=False, 
+            autorange=True,
+            rangemode='normal',
+        ),
+    )
+    
+    return fig
+
+
 def plot_rolling_volatility(returns, window=252):
     """Plot rolling volatility."""
     rolling = calculate_rolling_metrics(returns, window=window)
@@ -996,6 +1044,11 @@ def main():
                 st.markdown("### 📈 Rolling Sharpe Ratio (1-Year Window)")
                 fig_sharpe = plot_rolling_sharpe(portfolio_returns, window=252)
                 st.plotly_chart(fig_sharpe, use_container_width=True)
+                
+                st.markdown("### 💜 Rolling Sortino Ratio (1-Year Window)")
+                st.caption("Sortino ratio focuses on downside risk only (better than Sharpe for asymmetric returns)")
+                fig_sortino = plot_rolling_sortino(portfolio_returns, window=252)
+                st.plotly_chart(fig_sortino, use_container_width=True)
                 
                 st.markdown("### 📉 Rolling Volatility (1-Year Window)")
                 fig_vol = plot_rolling_volatility(portfolio_returns, window=252)
