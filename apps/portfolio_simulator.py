@@ -203,19 +203,12 @@ def plot_drawdown(returns_dict, title="Drawdown Analysis"):
     return fig
 
 
-def plot_rolling_metrics(returns, window=252):
-    """Plot rolling Sharpe ratio and volatility."""
+def plot_rolling_sharpe(returns, window=252):
+    """Plot rolling Sharpe ratio."""
     rolling = calculate_rolling_metrics(returns, window=window)
     
-    fig = make_subplots(
-        rows=2,
-        cols=1,
-        subplot_titles=("Rolling Sharpe Ratio", "Rolling Volatility"),
-        vertical_spacing=0.12,  # Increased spacing between subplots
-        row_heights=[0.5, 0.5],  # Equal heights for both charts
-    )
+    fig = go.Figure()
     
-    # Sharpe ratio
     fig.add_trace(
         go.Scatter(
             x=rolling.index,
@@ -224,34 +217,17 @@ def plot_rolling_metrics(returns, window=252):
             name="Sharpe Ratio",
             line=dict(color="blue", width=2),
             hovertemplate='Sharpe: %{y:.2f}<extra></extra>',
-        ),
-        row=1,
-        col=1,
+        )
     )
-    
-    # Volatility
-    fig.add_trace(
-        go.Scatter(
-            x=rolling.index,
-            y=rolling["annualized_volatility"] * 100,
-            mode="lines",
-            name="Volatility",
-            line=dict(color="red", width=2),
-            hovertemplate='Vol: %{y:.1f}%<extra></extra>',
-        ),
-        row=2,
-        col=1,
-    )
-    
-    fig.update_xaxes(title_text="Date", row=2, col=1)
-    fig.update_yaxes(title_text="Sharpe Ratio", row=1, col=1)
-    fig.update_yaxes(title_text="Volatility (%)", row=2, col=1)
     
     fig.update_layout(
-        height=800,  # Increased from 700 for more separation
-        showlegend=False,
+        title="Rolling Sharpe Ratio (252-Day Window)",
+        xaxis_title="Date",
+        yaxis_title="Sharpe Ratio",
         hovermode="x unified",
-        margin=dict(t=100, b=60, l=60, r=40),  # More top margin for titles
+        height=450,
+        showlegend=False,
+        margin=dict(t=80, b=60, l=60, r=40),
         xaxis=dict(
             rangeslider=dict(visible=True, yaxis=dict(rangemode='auto')),
             rangeselector=dict(
@@ -262,8 +238,7 @@ def plot_rolling_metrics(returns, window=252):
                     dict(step="all", label="All")
                 ]),
                 bgcolor="lightgray",
-                activecolor="gray",
-                y=1.15,  # Position higher to avoid overlap
+                activecolor="gray"
             ),
         ),
         yaxis=dict(
@@ -271,7 +246,50 @@ def plot_rolling_metrics(returns, window=252):
             autorange=True,
             rangemode='normal',
         ),
-        yaxis2=dict(
+    )
+    
+    return fig
+
+
+def plot_rolling_volatility(returns, window=252):
+    """Plot rolling volatility."""
+    rolling = calculate_rolling_metrics(returns, window=window)
+    
+    fig = go.Figure()
+    
+    fig.add_trace(
+        go.Scatter(
+            x=rolling.index,
+            y=rolling["annualized_volatility"] * 100,
+            mode="lines",
+            name="Volatility",
+            line=dict(color="red", width=2),
+            hovertemplate='Vol: %{y:.1f}%<extra></extra>',
+        )
+    )
+    
+    fig.update_layout(
+        title="Rolling Volatility (252-Day Window)",
+        xaxis_title="Date",
+        yaxis_title="Volatility (%)",
+        hovermode="x unified",
+        height=450,
+        showlegend=False,
+        margin=dict(t=80, b=60, l=60, r=40),
+        xaxis=dict(
+            rangeslider=dict(visible=True, yaxis=dict(rangemode='auto')),
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=6, label="6m", step="month", stepmode="backward"),
+                    dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(count=3, label="3y", step="year", stepmode="backward"),
+                    dict(step="all", label="All")
+                ]),
+                bgcolor="lightgray",
+                activecolor="gray"
+            ),
+        ),
+        yaxis=dict(
             fixedrange=False, 
             autorange=True,
             rangemode='normal',
@@ -974,10 +992,14 @@ def main():
                 fig_dd = plot_drawdown(returns_dict)
                 st.plotly_chart(fig_dd, use_container_width=True)
                 
-                # Rolling metrics
-                st.markdown("### 📉 Rolling Metrics (1-Year Window)")
-                fig_rolling = plot_rolling_metrics(portfolio_returns, window=252)
-                st.plotly_chart(fig_rolling, use_container_width=True)
+                # Rolling metrics - Separate charts
+                st.markdown("### 📈 Rolling Sharpe Ratio (1-Year Window)")
+                fig_sharpe = plot_rolling_sharpe(portfolio_returns, window=252)
+                st.plotly_chart(fig_sharpe, use_container_width=True)
+                
+                st.markdown("### 📉 Rolling Volatility (1-Year Window)")
+                fig_vol = plot_rolling_volatility(portfolio_returns, window=252)
+                st.plotly_chart(fig_vol, use_container_width=True)
                 
                 # VaR Analysis Section
                 st.markdown("---")
