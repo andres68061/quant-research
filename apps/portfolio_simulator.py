@@ -127,7 +127,7 @@ def plot_cumulative_returns(returns_dict, title="Cumulative Returns"):
         xaxis_title="Date",
         yaxis_title="Cumulative Return (%)",
         hovermode="x unified",
-        height=600,  # Increased from 500
+        height=650,  # Standardized height across all charts
         showlegend=True,
         margin=dict(t=80, b=60, l=60, r=40),  # Add margins to prevent clipping
         xaxis=dict(
@@ -177,7 +177,7 @@ def plot_drawdown(returns_dict, title="Drawdown Analysis"):
         xaxis_title="Date",
         yaxis_title="Drawdown (%)",
         hovermode="x unified",
-        height=500,  # Increased from 400
+        height=650,  # Standardized height across all charts
         showlegend=True,
         margin=dict(t=80, b=60, l=60, r=40),  # Add margins to prevent clipping
         xaxis=dict(
@@ -225,7 +225,7 @@ def plot_rolling_sharpe(returns, window=252):
         xaxis_title="Date",
         yaxis_title="Sharpe Ratio",
         hovermode="x unified",
-        height=450,
+        height=650,  # Standardized height across all charts
         showlegend=False,
         margin=dict(t=80, b=60, l=60, r=40),
         xaxis=dict(
@@ -273,7 +273,7 @@ def plot_rolling_volatility(returns, window=252):
         xaxis_title="Date",
         yaxis_title="Volatility (%)",
         hovermode="x unified",
-        height=450,
+        height=650,  # Standardized height across all charts
         showlegend=False,
         margin=dict(t=80, b=60, l=60, r=40),
         xaxis=dict(
@@ -1121,7 +1121,7 @@ def main():
                     title=f"VaR Comparison at {var_confidence}% Confidence",
                     yaxis_title="Maximum Expected Loss (%)",
                     barmode='group',
-                    height=500,  # Increased from 400
+                    height=650,  # Standardized height across all charts
                     showlegend=True,
                 )
                 
@@ -1162,7 +1162,7 @@ def main():
                     title="Daily Return Distribution with VaR Thresholds",
                     xaxis_title="Daily Return (%)",
                     yaxis_title="Frequency",
-                    height=500,  # Increased from 400
+                    height=650,  # Standardized height across all charts
                     showlegend=True,
                 )
                 
