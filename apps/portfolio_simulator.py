@@ -211,7 +211,8 @@ def plot_rolling_metrics(returns, window=252):
         rows=2,
         cols=1,
         subplot_titles=("Rolling Sharpe Ratio", "Rolling Volatility"),
-        vertical_spacing=0.15,
+        vertical_spacing=0.12,  # Increased spacing between subplots
+        row_heights=[0.5, 0.5],  # Equal heights for both charts
     )
     
     # Sharpe ratio
@@ -221,7 +222,8 @@ def plot_rolling_metrics(returns, window=252):
             y=rolling["sharpe_ratio"],
             mode="lines",
             name="Sharpe Ratio",
-            line=dict(color="blue"),
+            line=dict(color="blue", width=2),
+            hovertemplate='Sharpe: %{y:.2f}<extra></extra>',
         ),
         row=1,
         col=1,
@@ -234,7 +236,8 @@ def plot_rolling_metrics(returns, window=252):
             y=rolling["annualized_volatility"] * 100,
             mode="lines",
             name="Volatility",
-            line=dict(color="red"),
+            line=dict(color="red", width=2),
+            hovertemplate='Vol: %{y:.1f}%<extra></extra>',
         ),
         row=2,
         col=1,
@@ -245,10 +248,10 @@ def plot_rolling_metrics(returns, window=252):
     fig.update_yaxes(title_text="Volatility (%)", row=2, col=1)
     
     fig.update_layout(
-        height=700,  # Increased from 600
+        height=800,  # Increased from 700 for more separation
         showlegend=False,
         hovermode="x unified",
-        margin=dict(t=80, b=60, l=60, r=40),  # Add margins to prevent clipping
+        margin=dict(t=100, b=60, l=60, r=40),  # More top margin for titles
         xaxis=dict(
             rangeslider=dict(visible=True, yaxis=dict(rangemode='auto')),
             rangeselector=dict(
@@ -259,10 +262,16 @@ def plot_rolling_metrics(returns, window=252):
                     dict(step="all", label="All")
                 ]),
                 bgcolor="lightgray",
-                activecolor="gray"
+                activecolor="gray",
+                y=1.15,  # Position higher to avoid overlap
             ),
         ),
         yaxis=dict(
+            fixedrange=False, 
+            autorange=True,
+            rangemode='normal',
+        ),
+        yaxis2=dict(
             fixedrange=False, 
             autorange=True,
             rangemode='normal',
