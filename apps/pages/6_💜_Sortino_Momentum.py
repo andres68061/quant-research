@@ -41,6 +41,684 @@ will it continue to improve? And with what probability?
 This page uses three statistical methods to answer this question and identify regime changes.
 """)
 
+# ============================================================================
+# THEORY & METHODOLOGY SECTION
+# ============================================================================
+
+with st.expander("📚 Theory & Methodology - Click to Learn More", expanded=False):
+    st.markdown("""
+    # Comprehensive Guide to Sortino Momentum Analysis
+    
+    ## 1. Understanding the Sortino Momentum Analysis Page
+    
+    ### What This Page Does
+    
+    This analysis investigates **momentum persistence** in the Sortino ratio - a phenomenon where 
+    improving risk-adjusted returns tend to continue improving for some period of time.
+    
+    **The Core Question:**
+    > "If my strategy's Sortino ratio has been rising faster than usual for the last X days,
+    > what's the probability (Z%) it will keep rising for the next K days?"
+    
+    ### Why This Matters
+    
+    **1. Regime Detection**
+    - Identifies when your strategy is in a "hot streak" vs "cold streak"
+    - Helps you understand if current performance is likely to persist
+    - Provides confidence (or caution) about near-term prospects
+    
+    **2. Position Sizing**
+    - Increase positions when momentum is strong and significant
+    - Reduce exposure when momentum weakens
+    - Dynamic risk management based on regime
+    
+    **3. Strategy Evaluation**
+    - Some strategies have persistent momentum (trend-following)
+    - Others are mean-reverting (no momentum)
+    - Understanding this helps set realistic expectations
+    
+    ### The Three Parameters: X, K, and Z
+    
+    **X (Lookback Period):**
+    - How many days to measure "recent" improvement
+    - Too short (5 days): Noisy, many false signals
+    - Too long (90 days): Slow to react, misses regime changes
+    - Typical optimal: 15-30 days
+    
+    **K (Forecast Horizon):**
+    - How many days ahead to predict
+    - Shorter K (5-10 days): More reliable but limited usefulness
+    - Longer K (30+ days): Less reliable but more actionable
+    - Typical optimal: 10-20 days
+    
+    **Z (Hit Rate / Probability):**
+    - Percentage of time momentum continues
+    - Random baseline: 50% (coin flip)
+    - Weak signal: 52-55% (barely better than random)
+    - Modest signal: 55-60% (useful supplementary indicator)
+    - Strong signal: 60-70% (genuine predictive power)
+    - Exceptional: >70% (rare, check for overfitting)
+    
+    ---
+    
+    ## 2. The Three Statistical Methods Explained
+    
+    ### Method 1: Grid Search Optimization
+    
+    **Mathematical Approach:**
+    
+    For each combination of (X, K):
+    
+    1. **Calculate Recent Slope:**
+       ```
+       recent_slope[t] = (Sortino[t] - Sortino[t-X]) / X
+       ```
+       This measures how fast Sortino is changing over the last X days.
+    
+    2. **Calculate Baseline Slope:**
+       ```
+       baseline_slope[t] = (Sortino[t-X] - Sortino[t-X-30]) / 30
+       ```
+       This measures the "normal" rate of change from the previous 30 days.
+    
+    3. **Identify Strong Momentum:**
+       ```
+       strong_momentum[t] = (recent_slope[t] > baseline_slope[t])
+       ```
+       True when current improvement exceeds historical norm.
+    
+    4. **Check Continuation:**
+       ```
+       continued[t] = (Sortino[t+K] > Sortino[t])
+       ```
+       Did Sortino actually rise over the next K days?
+    
+    5. **Calculate Hit Rate:**
+       ```
+       Z = (Number of times continued = True) / (Total strong_momentum signals)
+       ```
+    
+    **Why Grid Search?**
+    - No assumptions about optimal parameters
+    - Tests all reasonable combinations empirically
+    - Finds what actually worked historically
+    - Provides confidence intervals for reliability
+    
+    **Interpreting Results:**
+    - **Heatmap:** Shows Z% for all (X,K) combinations
+      - Red zones: Poor performance (<50%)
+      - Yellow zones: Modest performance (50-55%)
+      - Green zones: Good performance (>55%)
+    
+    - **Top 10 Table:** Best combinations ranked by Z
+      - Look for: High Z, tight confidence interval, many signals
+      - Avoid: High Z with wide CI or few signals (likely luck)
+    
+    **Example Interpretation:**
+    ```
+    X=20, K=10, Z=62.3%, CI=[55.1%, 69.5%], Signals=87
+    
+    Translation: "When Sortino rises faster than usual for 20 days,
+    it continues rising for the next 10 days 62.3% of the time.
+    We're 95% confident the true rate is between 55-70%.
+    This pattern occurred 87 times historically."
+    ```
+    
+    ---
+    
+    ### Method 2: Statistical Significance Testing
+    
+    **The Problem:**
+    Even random data can produce seemingly good results by chance. We need to know:
+    Is our Z% genuinely predictive, or just lucky?
+    
+    **Bootstrap Resampling Explained:**
+    
+    1. **Take the best (X, K) from Method 1**
+    
+    2. **Shuffle the outcomes randomly:**
+       - Keep the signal dates the same
+       - Randomize whether momentum continued
+       - This breaks any real relationship
+    
+    3. **Recalculate Z% on shuffled data**
+    
+    4. **Repeat 500 times:**
+       - Creates distribution of "random" Z values
+       - Shows what we'd get by pure chance
+    
+    5. **Compare actual vs random:**
+       ```
+       p_value = Probability(random Z ≥ actual Z)
+       ```
+       - p < 0.05: Less than 5% chance it's random → SIGNIFICANT
+       - p > 0.05: Could easily be random → NOT SIGNIFICANT
+    
+    **Why Bootstrap?**
+    - Non-parametric (no assumptions about distributions)
+    - Robust to outliers and non-normal data
+    - Intuitive interpretation
+    - Industry standard for time series
+    
+    **Interpreting P-Values:**
+    
+    - **p = 0.001:** Extremely significant (99.9% confident it's real)
+    - **p = 0.01:** Very significant (99% confident)
+    - **p = 0.05:** Significant (95% confident) ← Standard threshold
+    - **p = 0.10:** Marginally significant (90% confident)
+    - **p = 0.20:** Not significant (could be luck)
+    - **p = 0.50:** Definitely random (no relationship)
+    
+    **Example Interpretation:**
+    ```
+    Actual: 62.3%
+    Random Mean: 51.2% ± 3.8%
+    P-Value: 0.012
+    
+    Translation: "Our 62.3% hit rate is much higher than the 51.2%
+    we'd expect by random chance. There's only a 1.2% probability
+    this is luck. We can confidently say momentum is real."
+    ```
+    
+    **Visual Interpretation:**
+    - Bootstrap histogram shows random distribution
+    - Actual hit rate (red line) far from random mean
+    - If red line is in the tail → significant
+    - If red line is in the middle → not significant
+    
+    ---
+    
+    ### Method 3: Machine Learning Prediction
+    
+    **Why Machine Learning?**
+    
+    Methods 1 & 2 use only one signal (recent slope vs baseline).
+    ML can combine multiple features for better predictions:
+    
+    **The 8 Features:**
+    
+    1. **sortino:** Current Sortino level
+       - High Sortino might be more stable
+       - Or might be due for mean reversion
+    
+    2. **sharpe:** Current Sharpe ratio
+       - Correlated with Sortino
+       - Provides complementary risk info
+    
+    3. **volatility:** Recent volatility
+       - High vol might mean unstable momentum
+       - Low vol might mean stable trends
+    
+    4. **slope_5d:** 5-day Sortino slope
+       - Very recent momentum
+       - Captures short-term acceleration
+    
+    5. **slope_10d:** 10-day Sortino slope
+       - Short-term momentum
+       - Balances recency and stability
+    
+    6. **slope_20d:** 20-day Sortino slope
+       - Medium-term momentum
+       - Often most predictive
+    
+    7. **slope_30d:** 30-day Sortino slope
+       - Longer-term momentum
+       - Captures sustained trends
+    
+    8. **vs_baseline:** Recent slope vs historical baseline
+       - Direct momentum acceleration measure
+       - Combines multiple timeframes
+    
+    **Logistic Regression Explained:**
+    
+    ```
+    P(momentum continues) = 1 / (1 + e^(-z))
+    
+    where z = β₀ + β₁×sortino + β₂×sharpe + ... + β₈×vs_baseline
+    ```
+    
+    - Each feature gets a coefficient (β)
+    - Positive β: Higher feature → higher probability
+    - Negative β: Higher feature → lower probability
+    - Larger |β|: More important feature
+    
+    **Time Series Cross-Validation:**
+    
+    Critical to avoid look-ahead bias:
+    
+    ```
+    Fold 1: Train[Year 1-3] → Test[Year 4]
+    Fold 2: Train[Year 1-4] → Test[Year 5]
+    Fold 3: Train[Year 1-5] → Test[Year 6]
+    Fold 4: Train[Year 1-6] → Test[Year 7]
+    Fold 5: Train[Year 1-7] → Test[Year 8]
+    ```
+    
+    - Always train on past, test on future
+    - Never use future data to predict past
+    - Mimics real-world usage
+    
+    **Feature Importance:**
+    
+    Shows which features matter most:
+    
+    ```
+    slope_20d: 0.45  ← Most important
+    vs_baseline: 0.38
+    slope_10d: 0.31
+    sortino: 0.12
+    volatility: 0.08  ← Least important
+    ```
+    
+    **Interpreting Accuracy:**
+    
+    - **50%:** Random (coin flip)
+    - **52-55%:** Weak edge (marginally useful)
+    - **55-60%:** Modest edge (supplementary indicator)
+    - **60-65%:** Strong edge (primary indicator)
+    - **>65%:** Exceptional (check for overfitting!)
+    
+    **Example Interpretation:**
+    ```
+    Mean Accuracy: 58.2% ± 2.1%
+    Top Feature: slope_20d (0.45)
+    
+    Translation: "Using 8 features, we can predict momentum
+    continuation 58% of the time (vs 50% random). The 20-day
+    slope is most predictive. This is a modest but real edge."
+    ```
+    
+    **Cross-Validation Consistency:**
+    
+    Look at per-fold accuracy:
+    - All folds 55-60%: Robust, reliable
+    - Folds vary 45-70%: Unstable, unreliable
+    - One fold 80%, others 50%: Overfitting
+    
+    ---
+    
+    ## 3. Understanding Sortino vs Sharpe Ratio
+    
+    ### The Fundamental Difference
+    
+    **Sharpe Ratio:**
+    ```
+    Sharpe = (Return - RiskFree) / TotalVolatility
+    
+    TotalVolatility = √(Σ(all returns - mean)² / n)
+    ```
+    
+    - Penalizes ALL volatility (up and down)
+    - Treats 10% gain same as 10% loss
+    - Assumes investors dislike variability in general
+    
+    **Sortino Ratio:**
+    ```
+    Sortino = (Return - RiskFree) / DownsideDeviation
+    
+    DownsideDeviation = √(Σ(negative returns - 0)² / n)
+    ```
+    
+    - Penalizes ONLY downside volatility
+    - Ignores upside volatility (the good kind!)
+    - Assumes investors only dislike losses
+    
+    ### Why Sortino is Better for Asymmetric Strategies
+    
+    **Example: Two Strategies**
+    
+    **Strategy A (Positive Skew):**
+    ```
+    Returns: +1%, +1%, +1%, +1%, +1%, +1%, +1%, +1%, +1%, +15%
+    Mean: +2.5%
+    Sharpe: 1.2 (penalized for +15% "outlier")
+    Sortino: 2.8 (ignores +15% upside)
+    ```
+    
+    **Strategy B (Negative Skew):**
+    ```
+    Returns: +2%, +2%, +2%, +2%, +2%, +2%, +2%, +2%, +2%, -15%
+    Mean: +0.3%
+    Sharpe: 0.1
+    Sortino: 0.1 (correctly penalizes -15%)
+    ```
+    
+    **Interpretation:**
+    - Strategy A is clearly better (big upside, no downside)
+    - Sharpe doesn't distinguish them well
+    - Sortino correctly identifies A as superior
+    
+    ### Time Series Autocorrelation and Momentum
+    
+    **What is Autocorrelation?**
+    
+    Correlation of a time series with itself at different lags:
+    
+    ```
+    Autocorr(lag=1) = Correlation(Sortino[t], Sortino[t-1])
+    Autocorr(lag=5) = Correlation(Sortino[t], Sortino[t-5])
+    ```
+    
+    - Positive autocorrelation: Momentum (trends persist)
+    - Zero autocorrelation: Random walk (no patterns)
+    - Negative autocorrelation: Mean reversion (trends reverse)
+    
+    **Why Expect Momentum?**
+    
+    **Behavioral Factors:**
+    1. **Herding:** Investors follow trends
+    2. **Underreaction:** Markets slow to incorporate news
+    3. **Confirmation bias:** Good performance attracts more capital
+    
+    **Structural Factors:**
+    1. **Regime persistence:** Market conditions don't change instantly
+    2. **Strategy capacity:** Takes time for edge to erode
+    3. **Feedback loops:** Success → more capital → more success
+    
+    **Why NOT Expect Momentum?**
+    
+    1. **Efficient markets:** All info already in prices
+    2. **Mean reversion:** Extreme performance unsustainable
+    3. **Crowding:** Everyone chasing momentum kills it
+    4. **Regime changes:** Sudden shifts break patterns
+    
+    **Empirical Reality:**
+    - Short-term (1-12 months): Momentum often exists
+    - Long-term (3-5 years): Mean reversion dominates
+    - Asset-specific: Some show momentum, others don't
+    
+    ---
+    
+    ## 4. Practical Application Guide
+    
+    ### How to Use Results in Trading/Investing
+    
+    **Step 1: Determine Signal Strength**
+    
+    ```
+    IF Z > 60% AND p < 0.05 AND ML_accuracy > 55%:
+        Signal = STRONG
+    ELIF Z > 55% AND (p < 0.05 OR ML_accuracy > 55%):
+        Signal = MODEST
+    ELSE:
+        Signal = WEAK
+    ```
+    
+    **Step 2: Apply Based on Strength**
+    
+    **STRONG Signal (Z>60%, significant, ML works):**
+    
+    ✅ **Do:**
+    - Use as primary regime indicator
+    - Adjust position sizes based on regime
+    - Set different risk parameters per regime
+    - Monitor closely for regime changes
+    
+    ❌ **Don't:**
+    - Use as sole entry/exit signal
+    - Ignore other analysis
+    - Over-leverage based on momentum
+    - Assume it will work forever
+    
+    **MODEST Signal (Z=55-60%):**
+    
+    ✅ **Do:**
+    - Use as supplementary indicator
+    - Combine with other signals
+    - Slight position size adjustments
+    - Track for regime awareness
+    
+    ❌ **Don't:**
+    - Make it primary decision driver
+    - Trade solely on momentum
+    - Expect consistent edge
+    
+    **WEAK Signal (Z<55%):**
+    
+    ✅ **Do:**
+    - Ignore momentum for this asset
+    - Focus on other metrics
+    - Assume random walk
+    
+    ❌ **Don't:**
+    - Try to force patterns
+    - Over-optimize parameters
+    - Use for decision making
+    
+    ### What "Regime Indicator" Means
+    
+    **Definition:**
+    A regime indicator identifies which market/strategy state you're in:
+    
+    **Regime Types:**
+    
+    1. **Strong Positive Momentum:**
+       - Sortino rising faster than usual
+       - High probability of continuation
+       - Strategy in "hot streak"
+       - Action: Maintain or increase exposure
+    
+    2. **Neutral/Weak Momentum:**
+       - Sortino not rising unusually fast
+       - No clear direction
+       - Strategy in "normal" state
+       - Action: Standard position sizing
+    
+    3. **Negative Momentum:**
+       - Sortino declining
+       - May continue declining
+       - Strategy in "cold streak"
+       - Action: Reduce exposure or pause
+    
+    **Using Regime Information:**
+    
+    ```python
+    if current_regime == "Strong Positive":
+        position_size = base_size * 1.5  # Increase 50%
+        stop_loss = wider_stop  # Give more room
+        
+    elif current_regime == "Neutral":
+        position_size = base_size  # Standard
+        stop_loss = normal_stop
+        
+    elif current_regime == "Negative":
+        position_size = base_size * 0.5  # Reduce 50%
+        stop_loss = tighter_stop  # Protect capital
+    ```
+    
+    ### Position Sizing Based on Momentum
+    
+    **Kelly Criterion Adjustment:**
+    
+    ```
+    Standard Kelly: f = (p×b - q) / b
+    
+    where:
+    f = fraction of capital to bet
+    p = probability of win
+    b = odds (win amount / loss amount)
+    q = probability of loss = 1 - p
+    
+    Momentum-Adjusted Kelly:
+    f_adjusted = f × momentum_multiplier
+    
+    momentum_multiplier = {
+        1.5 if strong positive momentum
+        1.0 if neutral
+        0.5 if negative momentum
+    }
+    ```
+    
+    **Example:**
+    
+    ```
+    Base Kelly: 10% of capital
+    
+    Strong Momentum: 10% × 1.5 = 15%
+    Neutral: 10% × 1.0 = 10%
+    Negative: 10% × 0.5 = 5%
+    ```
+    
+    **Conservative Approach:**
+    
+    Don't change position size, change allocation:
+    
+    ```
+    Strong Momentum:
+    - Allocate to this strategy: 60%
+    - Allocate to others: 40%
+    
+    Negative Momentum:
+    - Allocate to this strategy: 30%
+    - Allocate to others: 70%
+    ```
+    
+    ### Risk Management Implications
+    
+    **Dynamic Stop Losses:**
+    
+    ```
+    Strong Momentum:
+    - Wider stops (give strategy room to work)
+    - Trail stops more loosely
+    - Example: 3% stop vs 2% normal
+    
+    Negative Momentum:
+    - Tighter stops (protect capital)
+    - Trail stops aggressively
+    - Example: 1% stop vs 2% normal
+    ```
+    
+    **Rebalancing Frequency:**
+    
+    ```
+    Strong Momentum:
+    - Rebalance less frequently
+    - Let winners run
+    - Monthly instead of weekly
+    
+    Negative Momentum:
+    - Rebalance more frequently
+    - Cut losers quickly
+    - Weekly instead of monthly
+    ```
+    
+    **Risk Budget Allocation:**
+    
+    ```
+    Total Risk Budget: 10% portfolio volatility
+    
+    Strong Momentum:
+    - Allocate 6% to this strategy
+    - Allocate 4% to others
+    
+    Negative Momentum:
+    - Allocate 3% to this strategy
+    - Allocate 7% to others
+    ```
+    
+    ### Example Decision Framework
+    
+    **Scenario: You run a momentum strategy on ^GSPC**
+    
+    **Analysis Results:**
+    ```
+    X = 20 days
+    K = 10 days
+    Z = 62.3%
+    P-value = 0.012 (significant)
+    ML Accuracy = 58.2%
+    → Signal: STRONG
+    ```
+    
+    **Current Regime:**
+    ```
+    Recent Slope (20d): +0.0042
+    Baseline Slope (30d): +0.0018
+    → Strong Positive Momentum
+    ```
+    
+    **Your Action Plan:**
+    
+    1. **Position Sizing:**
+       - Increase from 50% → 65% of capital
+       - Rationale: High confidence in continuation
+    
+    2. **Stop Loss:**
+       - Widen from 2% → 3%
+       - Rationale: Give strategy room in favorable regime
+    
+    3. **Rebalancing:**
+       - Reduce from weekly → bi-weekly
+       - Rationale: Let momentum play out
+    
+    4. **Monitoring:**
+       - Check regime daily
+       - If momentum weakens, revert to standard sizing
+    
+    5. **Exit Plan:**
+       - If regime turns negative: reduce to 35%
+       - If Z drops below 55%: stop using momentum
+    
+    **Risk Management:**
+    ```
+    Maximum drawdown tolerance: 15%
+    Current regime: Strong positive
+    → Acceptable drawdown: 18% (20% higher)
+    
+    If drawdown exceeds 18%:
+    → Override momentum signal
+    → Reduce position immediately
+    ```
+    
+    ---
+    
+    ## Key Takeaways
+    
+    ### What This Analysis Can Do:
+    
+    ✅ Identify if momentum exists for your strategy
+    ✅ Quantify the probability of continuation
+    ✅ Provide statistical confidence in findings
+    ✅ Detect current regime (hot/cold streak)
+    ✅ Inform position sizing decisions
+    ✅ Improve risk management
+    
+    ### What This Analysis Cannot Do:
+    
+    ❌ Predict exact future returns
+    ❌ Guarantee profits
+    ❌ Replace fundamental analysis
+    ❌ Work forever (patterns change)
+    ❌ Eliminate all risk
+    ❌ Substitute for diversification
+    
+    ### Best Practices:
+    
+    1. **Test on multiple assets** - Some show momentum, others don't
+    2. **Update regularly** - Patterns evolve over time
+    3. **Combine with other analysis** - Never use in isolation
+    4. **Respect statistical significance** - Don't trade insignificant patterns
+    5. **Start small** - Test with small position adjustments first
+    6. **Monitor performance** - Track if momentum edge persists
+    7. **Have exit rules** - Know when to stop using momentum
+    
+    ### Warning Signs:
+    
+    🚨 **Stop using momentum if:**
+    - P-value increases above 0.10
+    - Z drops below 52%
+    - ML accuracy falls below 51%
+    - Regime indicator stops working
+    - Losses exceed expectations
+    
+    ---
+    
+    *This methodology is for educational and research purposes. Past performance 
+    does not guarantee future results. Always conduct your own due diligence and 
+    consider your risk tolerance before making investment decisions.*
+    """)
+
 st.markdown("---")
 
 
