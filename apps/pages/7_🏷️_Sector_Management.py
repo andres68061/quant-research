@@ -396,7 +396,8 @@ for idx, row in df_display.iterrows():
 
         # Show current values
         st.markdown("**Current Values:**")
-        quote_type = row.get('quoteType', 'N/A') if 'quoteType' in row.index else 'N/A'
+        quote_type = row.get(
+            'quoteType', 'N/A') if 'quoteType' in row.index else 'N/A'
         st.code(f"""
 sector: {row['sector']}
 industry: {row['industry']}
