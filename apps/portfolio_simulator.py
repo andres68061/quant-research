@@ -72,7 +72,7 @@ st.markdown(
 
 @st.cache_data
 def load_data():
-    """Load prices and factors data with path resolution."""
+    """Load prices, factors, and sector classification data with path resolution."""
     # Resolve data directory (handles both repo root and notebooks/)
     candidates = [ROOT / "data" / "factors", ROOT.parent / "data" / "factors"]
     
@@ -88,6 +88,7 @@ def load_data():
     
     factors_path = data_dir / "factors_price.parquet"
     prices_path = data_dir / "prices.parquet"
+    sectors_path = ROOT / "data" / "sectors" / "sector_classifications.parquet"
     
     if not factors_path.exists():
         st.error(f"❌ Factors file not found: {factors_path}")
@@ -100,10 +101,49 @@ def load_data():
     try:
         df_factors = pd.read_parquet(factors_path)
         df_prices = pd.read_parquet(prices_path)
-        return df_factors, df_prices, data_dir
+        
+        # Load sector classifications (optional)
+        df_sectors = None
+        if sectors_path.exists():
+            try:
+                df_sectors = pd.read_parquet(sectors_path)
+            except Exception as e:
+                st.warning(f"⚠️ Could not load sector classifications: {e}")
+        
+        return df_factors, df_prices, df_sectors, data_dir
     except Exception as e:
         st.error(f"❌ Error loading data: {e}")
         st.stop()
+
+
+def categorize_asset_type(symbol):
+    """
+    Categorize a symbol as Stock, Commodity, or ETF.
+    
+    Args:
+        symbol: Ticker symbol
+        
+    Returns:
+        str: 'Stock', 'Commodity', 'ETF', or 'Index'
+    """
+    # Commodities (common patterns)
+    commodities = ['GC=F', 'SI=F', 'CL=F', 'NG=F', 'HG=F', 'PL=F', 'PA=F']
+    if symbol in commodities or '=F' in symbol:
+        return 'Commodity'
+    
+    # Indices
+    if symbol.startswith('^'):
+        return 'Index'
+    
+    # ETFs (common patterns - 3 letters or known ETFs)
+    common_etfs = ['SPY', 'QQQ', 'IWM', 'DIA', 'VOO', 'VTI', 'AGG', 'BND', 
+                   'GLD', 'SLV', 'USO', 'TLT', 'EEM', 'VWO', 'XLE', 'XLF',
+                   'XLK', 'XLV', 'XLI', 'XLP', 'XLY', 'XLU', 'XLB', 'XLRE']
+    if symbol in common_etfs or (len(symbol) == 3 and symbol.isupper()):
+        return 'ETF'
+    
+    # Default to stock
+    return 'Stock'
 
 
 def plot_cumulative_returns(returns_dict, title="Cumulative Returns"):
@@ -531,7 +571,7 @@ def main():
     
     # Load data
     with st.spinner("Loading data..."):
-        df_factors, df_prices, data_dir = load_data()
+        df_factors, df_prices, df_sectors, data_dir = load_data()
     
     # STEP 1: Date Range Selection (FIRST!)
     st.sidebar.header("1️⃣ Date Range Selection")
@@ -634,34 +674,135 @@ def main():
         long_only = bottom_pct == 0
         
     elif strategy_type == "Custom Selection":
-        # Option to filter to S&P 500 historical members
-        filter_to_sp500 = st.sidebar.checkbox(
-            "Show only S&P 500 Historical members",
-            value=False,
-            help="Filter stock list to only those that were ever in the S&P 500 (1996-2026)"
+        st.sidebar.markdown("### 🔍 Asset Filters")
+        
+        # Asset Type Filter
+        asset_types = st.sidebar.multiselect(
+            "Asset Types",
+            ["Stocks", "ETFs", "Commodities", "Indices"],
+            default=["Stocks"],
+            help="Filter by asset type"
         )
         
         # Get list of available symbols
-        available_symbols = sorted(df_prices.columns.tolist())
+        all_symbols = df_prices.columns.tolist()
+        available_symbols = []
         
-        # Filter to S&P 500 if requested
-        if filter_to_sp500:
-            try:
-                from src.data.sp500_constituents import SP500Constituents
-                sp500 = SP500Constituents()
-                sp500.load()
-                sp500_universe = sp500.get_ticker_universe()
-                available_symbols = [s for s in available_symbols if s in sp500_universe]
-                st.sidebar.info(f"✓ Filtered to {len(available_symbols)} S&P 500 historical members")
-            except Exception as e:
-                st.sidebar.warning(f"Could not load S&P 500 data: {str(e)}")
+        # Filter by asset type
+        for symbol in all_symbols:
+            asset_type = categorize_asset_type(symbol)
+            if (asset_type == 'Stock' and 'Stocks' in asset_types) or \
+               (asset_type == 'ETF' and 'ETFs' in asset_types) or \
+               (asset_type == 'Commodity' and 'Commodities' in asset_types) or \
+               (asset_type == 'Index' and 'Indices' in asset_types):
+                available_symbols.append(symbol)
+        
+        # Sector/Industry Filter (only for stocks)
+        if 'Stocks' in asset_types and df_sectors is not None:
+            st.sidebar.markdown("### 🏷️ Sector/Industry Filters")
+            
+            # Get unique sectors and industries
+            all_sectors = sorted(df_sectors['sector'].unique().tolist())
+            all_industries = sorted(df_sectors['industry'].unique().tolist())
+            
+            # Remove 'Unknown' from defaults but keep in list
+            default_sectors = [s for s in all_sectors if s != 'Unknown']
+            
+            selected_sectors = st.sidebar.multiselect(
+                "Sectors",
+                all_sectors,
+                default=default_sectors if len(default_sectors) <= 5 else [],
+                help="Filter stocks by sector (leave empty for all)"
+            )
+            
+            selected_industries = st.sidebar.multiselect(
+                "Industries",
+                all_industries,
+                default=[],
+                help="Filter stocks by industry (leave empty for all)"
+            )
+            
+            # Apply sector/industry filters
+            if selected_sectors or selected_industries:
+                filtered_stocks = set()
+                
+                for symbol in available_symbols:
+                    if categorize_asset_type(symbol) != 'Stock':
+                        # Keep non-stocks
+                        filtered_stocks.add(symbol)
+                        continue
+                    
+                    # Check if stock matches filters
+                    stock_info = df_sectors[df_sectors['symbol'] == symbol]
+                    if not stock_info.empty:
+                        sector = stock_info.iloc[0]['sector']
+                        industry = stock_info.iloc[0]['industry']
+                        
+                        # Include if matches sector OR industry (if specified)
+                        sector_match = (not selected_sectors) or (sector in selected_sectors)
+                        industry_match = (not selected_industries) or (industry in selected_industries)
+                        
+                        if sector_match and industry_match:
+                            filtered_stocks.add(symbol)
+                    else:
+                        # Include stocks without sector info if no filters
+                        if not selected_sectors and not selected_industries:
+                            filtered_stocks.add(symbol)
+                
+                available_symbols = sorted(list(filtered_stocks))
+                
+                st.sidebar.info(f"✓ {len(available_symbols)} assets match filters")
+        
+        # Option to filter to S&P 500 historical members
+        if 'Stocks' in asset_types:
+            filter_to_sp500 = st.sidebar.checkbox(
+                "S&P 500 Historical members only",
+                value=False,
+                help="Further filter to only S&P 500 members (1996-2026)"
+            )
+            
+            # Filter to S&P 500 if requested
+            if filter_to_sp500:
+                try:
+                    from src.data.sp500_constituents import SP500Constituents
+                    sp500 = SP500Constituents()
+                    sp500.load()
+                    sp500_universe = sp500.get_ticker_universe()
+                    available_symbols = [s for s in available_symbols if s in sp500_universe]
+                    st.sidebar.info(f"✓ Filtered to {len(available_symbols)} S&P 500 members")
+                except Exception as e:
+                    st.sidebar.warning(f"Could not load S&P 500 data: {str(e)}")
+        
+        available_symbols = sorted(available_symbols)
+        
+        st.sidebar.markdown("### 📊 Select Assets")
+        st.sidebar.caption(f"{len(available_symbols)} assets available")
         
         selected_symbols = st.sidebar.multiselect(
-            "Select Stocks",
+            "Choose Assets for Portfolio",
             available_symbols,
             default=available_symbols[:10] if len(available_symbols) >= 10 else available_symbols[:5],
-            help="Choose specific stocks for your portfolio",
+            help="Select assets to include in your portfolio",
         )
+        
+        # Show selected assets with their types
+        if selected_symbols:
+            st.sidebar.markdown(f"**Selected: {len(selected_symbols)} assets**")
+            
+            # Group by type
+            by_type = {}
+            for symbol in selected_symbols:
+                asset_type = categorize_asset_type(symbol)
+                if asset_type not in by_type:
+                    by_type[asset_type] = []
+                by_type[asset_type].append(symbol)
+            
+            # Display counts
+            type_summary = []
+            for asset_type, symbols in by_type.items():
+                type_summary.append(f"{len(symbols)} {asset_type}{'s' if len(symbols) > 1 and asset_type != 'Index' else ''}")
+            
+            st.sidebar.caption(" | ".join(type_summary))
         
         # Weighting scheme
         weighting_scheme = st.sidebar.selectbox(
@@ -708,6 +849,50 @@ def main():
                     key=f"shares_{symbol}",
                 )
                 share_counts[symbol] = shares
+        
+        # Show detailed asset information in main area (not sidebar)
+        if selected_symbols and df_sectors is not None:
+            with st.expander("📋 Selected Assets Details", expanded=False):
+                st.markdown("### Asset Information")
+                
+                # Create detailed table
+                asset_details = []
+                for symbol in selected_symbols:
+                    asset_type = categorize_asset_type(symbol)
+                    
+                    if asset_type == 'Stock' and df_sectors is not None:
+                        stock_info = df_sectors[df_sectors['symbol'] == symbol]
+                        if not stock_info.empty:
+                            sector = stock_info.iloc[0]['sector']
+                            industry = stock_info.iloc[0]['industry']
+                        else:
+                            sector = 'Unknown'
+                            industry = 'Unknown'
+                    else:
+                        sector = asset_type
+                        industry = '-'
+                    
+                    asset_details.append({
+                        'Symbol': symbol,
+                        'Type': asset_type,
+                        'Sector': sector,
+                        'Industry': industry
+                    })
+                
+                df_details = pd.DataFrame(asset_details)
+                
+                # Show summary by sector
+                if 'Stocks' in asset_types:
+                    st.markdown("**Sector Breakdown:**")
+                    sector_counts = df_details[df_details['Type'] == 'Stock']['Sector'].value_counts()
+                    
+                    cols = st.columns(min(4, len(sector_counts)))
+                    for idx, (sector, count) in enumerate(sector_counts.items()):
+                        with cols[idx % len(cols)]:
+                            st.metric(sector, count)
+                
+                st.markdown("**Full List:**")
+                st.dataframe(df_details, use_container_width=True, hide_index=True)
     
     # STEP 3: Backtesting Settings
     st.sidebar.markdown("---")

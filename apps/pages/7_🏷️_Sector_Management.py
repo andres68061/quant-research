@@ -5,6 +5,10 @@ This page allows manual assignment of sector classifications for stocks
 marked as 'Unknown' and provides trading status information.
 """
 
+from src.data.sector_classification import (
+    load_sector_classifications,
+    save_sector_classifications,
+)
 import json
 from datetime import datetime
 from pathlib import Path
@@ -20,10 +24,6 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.data.sector_classification import (
-    load_sector_classifications,
-    save_sector_classifications,
-)
 
 # Constants
 MANUAL_OVERRIDES_FILE = ROOT / "data" / "sectors" / "manual_overrides.json"
@@ -66,7 +66,7 @@ def load_manual_overrides():
     """Load manual sector overrides from JSON."""
     if not MANUAL_OVERRIDES_FILE.exists():
         return {}
-    
+
     try:
         with open(MANUAL_OVERRIDES_FILE, 'r') as f:
             return json.load(f)
@@ -78,7 +78,7 @@ def load_manual_overrides():
 def save_manual_override(symbol, sector, industry, industry_key, sector_key, reason):
     """Save a manual sector override."""
     overrides = load_manual_overrides()
-    
+
     overrides[symbol] = {
         'sector': sector,
         'industry': industry,
@@ -87,15 +87,15 @@ def save_manual_override(symbol, sector, industry, industry_key, sector_key, rea
         'reason': reason,
         'updated_at': datetime.now().isoformat(),
     }
-    
+
     MANUAL_OVERRIDES_FILE.parent.mkdir(parents=True, exist_ok=True)
-    
+
     with open(MANUAL_OVERRIDES_FILE, 'w') as f:
         json.dump(overrides, f, indent=2)
-    
+
     # Also update the main classifications file
     df = load_sector_classifications()
-    
+
     if df is not None and not df.empty:
         # Update the row for this symbol
         mask = df['symbol'] == symbol
@@ -116,7 +116,7 @@ def save_manual_override(symbol, sector, industry, industry_key, sector_key, rea
                 'last_updated': datetime.now().isoformat(),
             }])
             df = pd.concat([df, new_row], ignore_index=True)
-        
+
         save_sector_classifications(df)
 
 
@@ -124,7 +124,7 @@ def load_delisted_stocks():
     """Load delisted stocks information."""
     if not DELISTED_STOCKS_FILE.exists():
         return {}
-    
+
     try:
         with open(DELISTED_STOCKS_FILE, 'r') as f:
             return json.load(f)
@@ -136,14 +136,14 @@ def load_delisted_stocks():
 def mark_as_delisted(symbol, reason):
     """Mark a stock as delisted."""
     delisted = load_delisted_stocks()
-    
+
     delisted[symbol] = {
         'marked_at': datetime.now().isoformat(),
         'reason': reason,
     }
-    
+
     DELISTED_STOCKS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    
+
     with open(DELISTED_STOCKS_FILE, 'w') as f:
         json.dump(delisted, f, indent=2)
 
@@ -151,14 +151,14 @@ def mark_as_delisted(symbol, reason):
 def check_trading_status(symbol):
     """
     Check if a stock is currently trading.
-    
+
     Returns:
         dict: {'is_trading': bool, 'last_price': float, 'last_date': str, 'error': str}
     """
     try:
         ticker = yf.Ticker(symbol)
         hist = ticker.history(period='5d')
-        
+
         if hist.empty:
             return {
                 'is_trading': False,
@@ -166,14 +166,14 @@ def check_trading_status(symbol):
                 'last_date': None,
                 'error': 'No recent trading data'
             }
-        
+
         last_date = hist.index[-1]
         last_price = hist['Close'].iloc[-1]
-        
+
         # Check if last trade was recent (within 7 days)
         days_since = (pd.Timestamp.now() - last_date).days
         is_trading = days_since <= 7
-        
+
         return {
             'is_trading': is_trading,
             'last_price': last_price,
@@ -181,7 +181,7 @@ def check_trading_status(symbol):
             'error': None,
             'days_since': days_since
         }
-        
+
     except Exception as e:
         return {
             'is_trading': False,
@@ -202,7 +202,8 @@ def generate_keys(sector, industry):
 # STREAMLIT APP
 # ============================================================================
 
-st.set_page_config(page_title="Sector Management", page_icon="🏷️", layout="wide")
+st.set_page_config(page_title="Sector Management",
+                   page_icon="🏷️", layout="wide")
 
 st.title("🏷️ Manual Sector Classification Management")
 
@@ -217,7 +218,8 @@ manual_overrides = load_manual_overrides()
 delisted_stocks = load_delisted_stocks()
 
 if df_sectors is None or df_sectors.empty:
-    st.error("❌ No sector classifications found. Run `python scripts/fetch_sectors.py` first.")
+    st.error(
+        "❌ No sector classifications found. Run `python scripts/fetch_sectors.py` first.")
     st.stop()
 
 # ============================================================================
@@ -234,16 +236,19 @@ show_filter = st.sidebar.radio(
 if show_filter == "Unknown Only":
     df_display = df_sectors[df_sectors['sector'] == 'Unknown'].copy()
 elif show_filter == "Manually Overridden":
-    df_display = df_sectors[df_sectors['symbol'].isin(manual_overrides.keys())].copy()
+    df_display = df_sectors[df_sectors['symbol'].isin(
+        manual_overrides.keys())].copy()
 elif show_filter == "Delisted":
-    df_display = df_sectors[df_sectors['symbol'].isin(delisted_stocks.keys())].copy()
+    df_display = df_sectors[df_sectors['symbol'].isin(
+        delisted_stocks.keys())].copy()
 else:
     df_display = df_sectors.copy()
 
 # Search
 search_term = st.sidebar.text_input("🔎 Search by symbol", "")
 if search_term:
-    df_display = df_display[df_display['symbol'].str.contains(search_term.upper())]
+    df_display = df_display[df_display['symbol'].str.contains(
+        search_term.upper())]
 
 st.sidebar.markdown(f"**Showing {len(df_display)} stocks**")
 
@@ -259,7 +264,8 @@ with col1:
 
 with col2:
     unknown_count = (df_sectors['sector'] == 'Unknown').sum()
-    unknown_pct = (unknown_count / total_stocks * 100) if total_stocks > 0 else 0
+    unknown_pct = (unknown_count / total_stocks *
+                   100) if total_stocks > 0 else 0
     st.metric("❓ Unknown Sector", f"{unknown_count} ({unknown_pct:.1f}%)")
 
 with col3:
@@ -290,21 +296,21 @@ for idx, row in df_display.iterrows():
     symbol = row['symbol']
     current_sector = row['sector']
     current_industry = row['industry']
-    
+
     # Check if manually overridden
     is_overridden = symbol in manual_overrides
     is_delisted = symbol in delisted_stocks
-    
+
     # Create expandable section for each stock
     with st.expander(f"**{symbol}** - {current_sector} / {current_industry} {'✏️' if is_overridden else ''} {'🚫' if is_delisted else ''}"):
-        
+
         # Trading Status Section
         st.markdown("### 📈 Trading Status")
-        
+
         if st.button(f"Check Trading Status", key=f"check_{symbol}"):
             with st.spinner(f"Checking {symbol}..."):
                 status = check_trading_status(symbol)
-                
+
                 if status['is_trading']:
                     st.success(f"✅ **{symbol} is actively trading**")
                     st.write(f"- Last Price: ${status['last_price']:.2f}")
@@ -313,52 +319,56 @@ for idx, row in df_display.iterrows():
                 else:
                     st.warning(f"⚠️ **{symbol} is NOT actively trading**")
                     if status['last_date']:
-                        st.write(f"- Last Trade: {status['last_date']} ({status['days_since']} days ago)")
+                        st.write(
+                            f"- Last Trade: {status['last_date']} ({status['days_since']} days ago)")
                         st.write(f"- Last Price: ${status['last_price']:.2f}")
                     if status['error']:
                         st.write(f"- Error: {status['error']}")
-                    
+
                     # Option to mark as delisted
                     if not is_delisted:
                         if st.button(f"Mark {symbol} as Delisted", key=f"mark_delisted_{symbol}"):
-                            mark_as_delisted(symbol, status['error'] or "No recent trading data")
+                            mark_as_delisted(
+                                symbol, status['error'] or "No recent trading data")
                             st.success(f"Marked {symbol} as delisted")
                             st.rerun()
-        
+
         # Show delisted info if marked
         if is_delisted:
             delisted_info = delisted_stocks[symbol]
             st.info(f"🚫 **Marked as Delisted**")
             st.write(f"- Marked At: {delisted_info['marked_at']}")
             st.write(f"- Reason: {delisted_info['reason']}")
-        
+
         st.markdown("---")
-        
+
         # Manual Classification Section
         st.markdown("### 🏷️ Manual Classification")
-        
+
         col1, col2 = st.columns(2)
-        
+
         with col1:
             # Sector selection
-            current_sector_idx = YAHOO_SECTORS.index(current_sector) if current_sector in YAHOO_SECTORS else 0
+            current_sector_idx = YAHOO_SECTORS.index(
+                current_sector) if current_sector in YAHOO_SECTORS else 0
             new_sector = st.selectbox(
                 "Sector",
                 YAHOO_SECTORS,
                 index=current_sector_idx,
                 key=f"sector_{symbol}"
             )
-            
+
             # Industry selection (filtered by sector)
             industries = INDUSTRIES_BY_SECTOR.get(new_sector, ["Unknown"])
-            current_industry_idx = industries.index(current_industry) if current_industry in industries else 0
+            current_industry_idx = industries.index(
+                current_industry) if current_industry in industries else 0
             new_industry = st.selectbox(
                 "Industry",
                 industries + ["Other (type below)"],
                 index=current_industry_idx,
                 key=f"industry_{symbol}"
             )
-            
+
             # Custom industry input
             if new_industry == "Other (type below)":
                 new_industry = st.text_input(
@@ -366,14 +376,16 @@ for idx, row in df_display.iterrows():
                     value=current_industry if current_industry != "Unknown" else "",
                     key=f"custom_industry_{symbol}"
                 )
-        
+
         with col2:
             # Auto-generate keys
             sector_key, industry_key = generate_keys(new_sector, new_industry)
-            
-            st.text_input("Sector Key (auto-generated)", value=sector_key, disabled=True, key=f"sk_{symbol}")
-            st.text_input("Industry Key (auto-generated)", value=industry_key, disabled=True, key=f"ik_{symbol}")
-        
+
+            st.text_input("Sector Key (auto-generated)",
+                          value=sector_key, disabled=True, key=f"sk_{symbol}")
+            st.text_input("Industry Key (auto-generated)",
+                          value=industry_key, disabled=True, key=f"ik_{symbol}")
+
         # Reason for override
         reason = st.text_area(
             "Reason for Manual Override",
@@ -381,7 +393,7 @@ for idx, row in df_display.iterrows():
             placeholder="e.g., 'Yahoo Finance has incorrect sector' or 'Delisted stock, assigned based on historical data'",
             key=f"reason_{symbol}"
         )
-        
+
         # Show current values
         st.markdown("**Current Values:**")
         st.code(f"""
@@ -391,7 +403,7 @@ industryKey: {row['industryKey']}
 sectorKey: {row['sectorKey']}
 last_updated: {row['last_updated']}
 """)
-        
+
         # Save button
         if st.button(f"💾 Save Classification for {symbol}", key=f"save_{symbol}", type="primary"):
             if not reason.strip():
@@ -407,7 +419,7 @@ last_updated: {row['last_updated']}
                 )
                 st.success(f"✅ Saved classification for {symbol}")
                 st.rerun()
-        
+
         # Show override history if exists
         if is_overridden:
             st.markdown("**Override History:**")
@@ -434,10 +446,12 @@ with col1:
         placeholder="AAPL, MSFT, GOOGL\nor\nAAPL\nMSFT\nGOOGL",
         key="bulk_delisted"
     )
-    delisted_reason = st.text_input("Reason", value="Bulk delisted", key="bulk_delisted_reason")
-    
+    delisted_reason = st.text_input(
+        "Reason", value="Bulk delisted", key="bulk_delisted_reason")
+
     if st.button("Mark as Delisted", key="bulk_delisted_btn"):
-        symbols = [s.strip().upper() for s in delisted_symbols.replace(',', '\n').split('\n') if s.strip()]
+        symbols = [s.strip().upper() for s in delisted_symbols.replace(
+            ',', '\n').split('\n') if s.strip()]
         if symbols:
             for symbol in symbols:
                 mark_as_delisted(symbol, delisted_reason)
@@ -457,14 +471,18 @@ with col2:
         INDUSTRIES_BY_SECTOR.get(bulk_sector, ["Unknown"]),
         key="bulk_industry"
     )
-    bulk_reason = st.text_input("Reason", value="Bulk assignment", key="bulk_reason")
-    
+    bulk_reason = st.text_input(
+        "Reason", value="Bulk assignment", key="bulk_reason")
+
     if st.button("Assign to All", key="bulk_assign_btn"):
-        symbols = [s.strip().upper() for s in bulk_symbols.replace(',', '\n').split('\n') if s.strip()]
+        symbols = [s.strip().upper() for s in bulk_symbols.replace(
+            ',', '\n').split('\n') if s.strip()]
         if symbols:
-            sector_key, industry_key = generate_keys(bulk_sector, bulk_industry)
+            sector_key, industry_key = generate_keys(
+                bulk_sector, bulk_industry)
             for symbol in symbols:
-                save_manual_override(symbol, bulk_sector, bulk_industry, industry_key, sector_key, bulk_reason)
+                save_manual_override(
+                    symbol, bulk_sector, bulk_industry, industry_key, sector_key, bulk_reason)
             st.success(f"Assigned classification to {len(symbols)} stocks")
             st.rerun()
 
