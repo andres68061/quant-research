@@ -52,6 +52,7 @@ python scripts/backfill_all.py --years 10
 ### Data Infrastructure
 - **Incremental Updates**: Fetch only new data, minimizing API calls
 - **Multi-Source Integration**: Yahoo Finance, Alpha Vantage, FRED
+- **Sector Classifications**: Yahoo Finance sector/industry taxonomy with quarterly refresh
 - **Parquet Storage**: Fast columnar format, excellent compression
 - **DuckDB Queries**: SQL interface over Parquet files
 
@@ -104,6 +105,8 @@ quant/
 │   │   ├── factors_all.parquet    # Combined factors
 │   │   ├── macro.parquet          # Economic indicators
 │   │   └── factors.duckdb         # SQL query interface
+│   ├── sectors/                   # Sector classifications
+│   │   └── sector_classifications.parquet  # Yahoo Finance sectors
 │   └── .cache/                    # API response cache
 │       └── fmp/                   # FMP fundamentals by year
 │
@@ -169,17 +172,21 @@ BEA_API_KEY=your_key_here
 ### 3. Initial Data Setup
 
 ```bash
-# Fetch full history for S&P 500 stocks (first time only)
+# Step 1: Fetch full history for S&P 500 stocks (first time only)
 python scripts/backfill_all.py --years 10
+
+# Step 2: Fetch sector classifications for all stocks
+python scripts/fetch_sectors.py
 
 # This creates:
 # - data/factors/prices.parquet (504 stocks, 10 years)
 # - data/factors/factors_price.parquet (momentum, volatility, beta)
 # - data/factors/macro.parquet (FRED economic indicators)
 # - data/factors/factors.duckdb (SQL query interface)
+# - data/sectors/sector_classifications.parquet (Yahoo Finance sectors)
 ```
 
-**Expected time**: 10-15 minutes for initial backfill
+**Expected time**: 10-15 minutes for initial backfill + 5-10 minutes for sectors
 
 ---
 
@@ -409,6 +416,10 @@ Rebalancing: Quarterly
 │  ├─ macro.parquet         (date indexed)                    │
 │  └─ macro_z.parquet       (standardized macro)              │
 │                                                               │
+│  SECTOR CLASSIFICATIONS (Yahoo Finance)                     │
+│  data/sectors/                                               │
+│  └─ sector_classifications.parquet (quarterly refresh)      │
+│                                                               │
 │  CACHE LAYER (API Rate Limit Protection)                    │
 │  data/.cache/                                                │
 │  └─ fmp/                  (FMP fundamentals by year)         │
@@ -431,9 +442,15 @@ Rebalancing: Quarterly
 
 #### Initial Setup (First Time)
 ```bash
+# Step 1: Backfill price history
 python scripts/backfill_all.py --years 10
 # Fetches full history for S&P 500 stocks
 # Creates Parquet files and DuckDB views
+
+# Step 2: Fetch sector classifications
+python scripts/fetch_sectors.py
+# Fetches sector/industry for all stocks from Yahoo Finance
+# Creates data/sectors/sector_classifications.parquet
 ```
 
 #### Weekly/Monthly Updates (Incremental)
@@ -444,6 +461,7 @@ python scripts/update_daily.py
 # Fetches only new data since last date
 # Appends to existing Parquet files
 # Rebuilds factors for new dates
+# Refreshes sector classifications (quarterly, >90 days old)
 ```
 
 **Output Example:**
@@ -479,9 +497,27 @@ python scripts/update_daily.py
 ```bash
 python scripts/add_symbol.py NVDA TSLA
 # Fetches FULL history for new symbols
+# Fetches sector/industry classifications
 # Adds as new columns to prices.parquet
 # Rebuilds all factors
 ```
+
+#### Sector Classification Management
+```bash
+# Initial fetch (after backfill)
+python scripts/fetch_sectors.py
+
+# Quarterly refresh (or manual)
+python scripts/update_sectors.py
+
+# Force refresh all
+python scripts/update_sectors.py --refresh-days 0
+
+# Retry unknown sectors
+python scripts/update_sectors.py --retry-unknown
+```
+
+**See detailed documentation:** [`docs/SECTOR_CLASSIFICATION.md`](docs/SECTOR_CLASSIFICATION.md)
 
 ---
 

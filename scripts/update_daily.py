@@ -7,9 +7,11 @@ This script:
 2. Fetches only new data since last update
 3. Appends new data to Parquet files
 4. Rebuilds factors for new dates
-5. Updates DuckDB views
+5. Refreshes sector classifications (quarterly, >90 days old)
+6. Updates DuckDB views
 
 Run daily/weekly to keep data current without full backfill.
+Sector classifications are automatically refreshed every 3 months.
 """
 
 import argparse
@@ -27,6 +29,11 @@ from src.data.factors.build_factors import build_price_factors
 from src.data.factors.io import connect_duckdb, register_parquet
 from src.data.factors.macro import compute_macro_zscores, load_default_macro
 from src.data.factors.prices import update_prices_panel_incremental
+from src.data.sector_classification import (
+    add_or_update_sectors,
+    get_symbols_needing_refresh,
+    load_sector_classifications,
+)
 from src.utils.io import (
     append_rows_to_parquet,
     get_last_date_from_parquet,
@@ -162,6 +169,40 @@ def rebuild_factors(out_root: Path, prices_updated: bool) -> None:
     write_parquet(factors_price, factors_all_path)
 
 
+def update_sectors_if_needed(out_root: Path) -> bool:
+    """
+    Check if sector classifications need quarterly refresh.
+    Only updates symbols that are >90 days old.
+    
+    Returns:
+        True if sectors were updated, False otherwise
+    """
+    print("📊 Checking sector classifications...")
+    
+    # Load existing sector data
+    sector_df = load_sector_classifications()
+    
+    if sector_df is None or sector_df.empty:
+        print("   ℹ️  No sector data found - run fetch_sectors.py first")
+        return False
+    
+    # Get symbols needing refresh (>90 days old)
+    stale_symbols = get_symbols_needing_refresh(sector_df, refresh_days=90)
+    
+    if not stale_symbols:
+        print("   ✅ Sector classifications are up to date")
+        return False
+    
+    print(f"   Found {len(stale_symbols)} symbols needing quarterly refresh")
+    print(f"   Updating sectors (this may take a few minutes)...")
+    
+    # Update stale sectors
+    add_or_update_sectors(stale_symbols, force_refresh=True)
+    
+    print(f"   ✅ Updated {len(stale_symbols)} sector classifications")
+    return True
+
+
 def update_duckdb_views(out_root: Path, db_path: Path) -> None:
     """
     Update DuckDB views to point to updated Parquet files.
@@ -219,13 +260,19 @@ def main(out_root: str = 'data/factors', db_path: str = 'data/factors/factors.du
     rebuild_factors(out_root_p, prices_updated)
     print()
     
-    # Step 4: Update DuckDB views
+    # Step 4: Update sector classifications (quarterly refresh)
+    sectors_updated = update_sectors_if_needed(out_root_p)
+    print()
+    
+    # Step 5: Update DuckDB views
     update_duckdb_views(out_root_p, db_path_p)
     print()
     
     print("=" * 80)
-    if prices_updated or macro_updated:
+    if prices_updated or macro_updated or sectors_updated:
         print("✅ Incremental update completed successfully!")
+        if sectors_updated:
+            print("   📊 Sector classifications refreshed (quarterly update)")
     else:
         print("✅ Data is already up to date - no changes needed")
     print("=" * 80)

@@ -6,7 +6,8 @@ This script:
 1. Fetches full history for new symbol(s)
 2. Adds them to prices.parquet
 3. Rebuilds factors including the new symbol(s)
-4. Updates DuckDB views
+4. Fetches sector/industry classifications
+5. Updates DuckDB views
 
 Usage:
     python scripts/add_symbol.py NVDA
@@ -28,6 +29,7 @@ if str(ROOT) not in sys.path:
 from src.data.factors.build_factors import build_price_factors
 from src.data.factors.io import connect_duckdb, register_parquet
 from src.data.factors.prices import add_symbol_to_panel
+from src.data.sector_classification import add_or_update_sectors
 from src.utils.io import read_parquet, write_parquet
 
 
@@ -108,7 +110,20 @@ def add_symbols(symbols: List[str], out_root: Path, db_path: Path) -> None:
     write_parquet(factors_price, factors_all_path)
     print()
     
-    # Step 5: Update DuckDB views
+    # Step 5: Fetch sector classifications for new symbols
+    print(f"📊 Fetching sector classifications for new symbols...")
+    sector_df = add_or_update_sectors(new_symbols)
+    
+    # Show sector info for new symbols
+    for symbol in new_symbols:
+        sector_row = sector_df[sector_df['symbol'] == symbol]
+        if not sector_row.empty:
+            sector = sector_row.iloc[0]['sector']
+            industry = sector_row.iloc[0]['industry']
+            print(f"   {symbol}: {sector} - {industry}")
+    print()
+    
+    # Step 6: Update DuckDB views
     print(f"🦆 Updating DuckDB views at {db_path}...")
     con = connect_duckdb(db_path)
     
