@@ -9,6 +9,7 @@ This page replicates the R Markdown ETF portfolio template functionality:
 - Comprehensive performance metrics
 """
 
+from src.data.banxico_api import get_current_cetes28_rate, get_cetes28_returns
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -25,7 +26,6 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.data.banxico_api import get_current_cetes28_rate, get_cetes28_returns
 
 # Page configuration
 st.set_page_config(
@@ -135,7 +135,8 @@ if st.sidebar.button("🇲🇽 Fetch CETES 28 Rate", help="Get current rate from
     try:
         with st.spinner("Fetching from Banxico..."):
             rate, date = get_current_cetes28_rate()
-            st.sidebar.success(f"✅ CETES 28: {rate*100:.2f}% (as of {date.date()})")
+            st.sidebar.success(
+                f"✅ CETES 28: {rate*100:.2f}% (as of {date.date()})")
             # Store in session state
             st.session_state['cetes_rate'] = rate * 100
             st.session_state['cetes_date'] = date
@@ -144,7 +145,8 @@ if st.sidebar.button("🇲🇽 Fetch CETES 28 Rate", help="Get current rate from
 
 # Show cached rate if available
 if 'cetes_rate' in st.session_state:
-    st.sidebar.caption(f"📊 Last fetched: {st.session_state['cetes_rate']:.2f}% on {st.session_state['cetes_date'].date()}")
+    st.sidebar.caption(
+        f"📊 Last fetched: {st.session_state['cetes_rate']:.2f}% on {st.session_state['cetes_date'].date()}")
     default_rate = st.session_state['cetes_rate']
 else:
     default_rate = 8.15
@@ -265,8 +267,10 @@ if use_cetes_returns:
                 end_date.strftime("%Y-%m-%d")
             )
             # Align with portfolio dates
-            cetes28_returns = cetes28_returns.reindex(returns.index, method='ffill')
-            st.success(f"✅ Loaded {len(cetes28_returns)} days of CETES 28 returns")
+            cetes28_returns = cetes28_returns.reindex(
+                returns.index, method='ffill')
+            st.success(
+                f"✅ Loaded {len(cetes28_returns)} days of CETES 28 returns")
     except Exception as e:
         st.error(f"❌ Failed to fetch CETES 28: {e}")
         st.info("Falling back to constant risk-free rate")
@@ -801,9 +805,11 @@ else:
 
 # Use CETES 28 returns if available, otherwise constant risk-free rate
 if use_cetes_returns and cetes28_returns is not None:
-    risk_free_returns_series = cetes28_returns.reindex(tangency_returns.index, method='ffill')
+    risk_free_returns_series = cetes28_returns.reindex(
+        tangency_returns.index, method='ffill')
 else:
-    risk_free_returns_series = pd.Series(risk_free_daily, index=tangency_returns.index)
+    risk_free_returns_series = pd.Series(
+        risk_free_daily, index=tangency_returns.index)
 
 # Calculate metrics
 tangency_metrics = calculate_performance_metrics(
