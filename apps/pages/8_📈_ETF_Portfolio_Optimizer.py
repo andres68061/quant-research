@@ -25,6 +25,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from src.data.banxico_api import get_current_cetes28_rate, get_cetes28_returns
+
 # Page configuration
 st.set_page_config(
     page_title="ETF Portfolio Optimizer",
@@ -46,15 +48,16 @@ Build optimal portfolios using Modern Portfolio Theory with:
 # LOAD DATA
 # ============================================================================
 
+
 @st.cache_data
 def load_price_data():
     """Load prices for ETF portfolio analysis."""
     prices_path = ROOT / "data" / "factors" / "prices.parquet"
-    
+
     if not prices_path.exists():
         st.error("❌ Prices file not found. Run backfill_all.py first.")
         st.stop()
-    
+
     df = pd.read_parquet(prices_path)
     return df
 
@@ -89,7 +92,8 @@ st.sidebar.header("⚙️ Portfolio Configuration")
 # Asset selection
 st.sidebar.markdown("### 📊 Select Assets")
 
-available_etfs = [col for col in df_prices.columns if col in DEFAULT_ETFS or col in BENCHMARK_ETFS or not col.startswith('^')]
+available_etfs = [
+    col for col in df_prices.columns if col in DEFAULT_ETFS or col in BENCHMARK_ETFS or not col.startswith('^')]
 available_etfs = sorted(set(available_etfs))
 
 selected_assets = st.sidebar.multiselect(
@@ -126,13 +130,32 @@ end_date = st.sidebar.date_input(
 # Risk-free rate
 st.sidebar.markdown("### 💰 Risk-Free Rate")
 
+# Try to get current CETES 28 rate
+if st.sidebar.button("🇲🇽 Fetch CETES 28 Rate", help="Get current rate from Banxico API"):
+    try:
+        with st.spinner("Fetching from Banxico..."):
+            rate, date = get_current_cetes28_rate()
+            st.sidebar.success(f"✅ CETES 28: {rate*100:.2f}% (as of {date.date()})")
+            # Store in session state
+            st.session_state['cetes_rate'] = rate * 100
+            st.session_state['cetes_date'] = date
+    except Exception as e:
+        st.sidebar.error(f"❌ Failed: {str(e)}")
+
+# Show cached rate if available
+if 'cetes_rate' in st.session_state:
+    st.sidebar.caption(f"📊 Last fetched: {st.session_state['cetes_rate']:.2f}% on {st.session_state['cetes_date'].date()}")
+    default_rate = st.session_state['cetes_rate']
+else:
+    default_rate = 8.15
+
 risk_free_annual = st.sidebar.number_input(
     "Annual Risk-Free Rate (%)",
     min_value=0.0,
     max_value=20.0,
-    value=8.15,
+    value=default_rate,
     step=0.1,
-    help="Annualized risk-free rate (e.g., T-bills, CETES)"
+    help="Annualized risk-free rate (e.g., T-bills, CETES 28)"
 ) / 100
 
 risk_free_daily = (1 + risk_free_annual) ** (1/252) - 1
@@ -153,14 +176,15 @@ st.sidebar.markdown("### 📊 Benchmark")
 benchmark_assets = st.sidebar.multiselect(
     "Benchmark Assets",
     [a for a in BENCHMARK_ETFS if a in df_prices.columns],
-    default=['BIL', 'ACWI'] if all(a in df_prices.columns for a in ['BIL', 'ACWI']) else ['^GSPC'],
+    default=['BIL', 'ACWI'] if all(a in df_prices.columns for a in [
+                                   'BIL', 'ACWI']) else ['^GSPC'],
     help="Assets for benchmark portfolio"
 )
 
 if benchmark_assets:
     benchmark_weights_input = {}
     st.sidebar.markdown("**Benchmark Weights:**")
-    
+
     remaining = 100.0
     for i, asset in enumerate(benchmark_assets[:-1]):
         weight = st.sidebar.number_input(
@@ -173,12 +197,13 @@ if benchmark_assets:
         )
         benchmark_weights_input[asset] = weight / 100
         remaining -= weight
-    
+
     # Last asset gets remaining weight
     benchmark_weights_input[benchmark_assets[-1]] = max(0, remaining) / 100
     st.sidebar.caption(f"{benchmark_assets[-1]}: {max(0, remaining):.1f}%")
-    
-    benchmark_weights = np.array([benchmark_weights_input[a] for a in benchmark_assets])
+
+    benchmark_weights = np.array(
+        [benchmark_weights_input[a] for a in benchmark_assets])
 else:
     benchmark_weights = None
 
@@ -190,6 +215,15 @@ rebalance_freq = st.sidebar.selectbox(
     ["Annual", "Quarterly", "Monthly"],
     index=0,
     help="How often to rebalance the portfolio"
+)
+
+# CETES 28 option
+st.sidebar.markdown("### 🇲🇽 CETES 28 Integration")
+
+use_cetes_returns = st.sidebar.checkbox(
+    "Use Actual CETES 28 Returns",
+    value=False,
+    help="Use historical CETES 28 returns instead of constant risk-free rate for simulation"
 )
 
 # ============================================================================
@@ -207,17 +241,36 @@ for asset in selected_assets:
         valid_assets.append(asset)
 
 if len(valid_assets) < 2:
-    st.error(f"❌ Not enough data. Need at least 2 assets with {min_data_points}+ data points.")
+    st.error(
+        f"❌ Not enough data. Need at least 2 assets with {min_data_points}+ data points.")
     st.stop()
 
 df_prices_filtered = df_prices_filtered[valid_assets].dropna()
 
 if len(df_prices_filtered) < min_data_points:
-    st.error(f"❌ Insufficient overlapping data. Need at least {min_data_points} days.")
+    st.error(
+        f"❌ Insufficient overlapping data. Need at least {min_data_points} days.")
     st.stop()
 
 # Calculate returns
 returns = df_prices_filtered.pct_change().dropna()
+
+# Fetch CETES 28 returns if requested
+cetes28_returns = None
+if use_cetes_returns:
+    try:
+        with st.spinner("📥 Fetching CETES 28 returns from Banxico..."):
+            cetes28_returns = get_cetes28_returns(
+                start_date.strftime("%Y-%m-%d"),
+                end_date.strftime("%Y-%m-%d")
+            )
+            # Align with portfolio dates
+            cetes28_returns = cetes28_returns.reindex(returns.index, method='ffill')
+            st.success(f"✅ Loaded {len(cetes28_returns)} days of CETES 28 returns")
+    except Exception as e:
+        st.error(f"❌ Failed to fetch CETES 28: {e}")
+        st.info("Falling back to constant risk-free rate")
+        use_cetes_returns = False
 
 # Calculate statistics
 mean_returns = returns.mean() * 252  # Annualized
@@ -227,6 +280,7 @@ std_devs = returns.std() * np.sqrt(252)  # Annualized
 # ============================================================================
 # EFFICIENT FRONTIER CALCULATION
 # ============================================================================
+
 
 def portfolio_stats(weights, mean_returns, cov_matrix):
     """Calculate portfolio return and volatility."""
@@ -249,14 +303,14 @@ def portfolio_volatility(weights, mean_returns, cov_matrix):
 def calculate_efficient_frontier(mean_returns, cov_matrix, risk_free_rate, num_portfolios=50):
     """Calculate efficient frontier portfolios."""
     n_assets = len(mean_returns)
-    
+
     # Constraints
     constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
     bounds = tuple((0, 1) for _ in range(n_assets))
-    
+
     # Find minimum variance portfolio
     init_guess = np.array([1/n_assets] * n_assets)
-    
+
     min_var_result = minimize(
         portfolio_volatility,
         init_guess,
@@ -265,25 +319,26 @@ def calculate_efficient_frontier(mean_returns, cov_matrix, risk_free_rate, num_p
         bounds=bounds,
         constraints=constraints
     )
-    
+
     min_var_return, min_var_std = portfolio_stats(
         min_var_result.x, mean_returns, cov_matrix
     )
-    
+
     # Find maximum return
     max_return = mean_returns.max()
-    
+
     # Calculate efficient frontier
     target_returns = np.linspace(min_var_return, max_return, num_portfolios)
-    
+
     efficient_portfolios = []
-    
+
     for target_return in target_returns:
         constraints_with_return = [
             {'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
-            {'type': 'eq', 'fun': lambda x: np.dot(x, mean_returns) - target_return}
+            {'type': 'eq', 'fun': lambda x: np.dot(
+                x, mean_returns) - target_return}
         ]
-        
+
         result = minimize(
             portfolio_volatility,
             init_guess,
@@ -293,29 +348,30 @@ def calculate_efficient_frontier(mean_returns, cov_matrix, risk_free_rate, num_p
             constraints=constraints_with_return,
             options={'maxiter': 1000}
         )
-        
+
         if result.success:
-            p_return, p_std = portfolio_stats(result.x, mean_returns, cov_matrix)
+            p_return, p_std = portfolio_stats(
+                result.x, mean_returns, cov_matrix)
             sharpe = (p_return - risk_free_rate) / p_std
-            
+
             efficient_portfolios.append({
                 'weights': result.x,
                 'return': p_return,
                 'volatility': p_std,
                 'sharpe': sharpe
             })
-    
+
     return efficient_portfolios, (min_var_return, min_var_std)
 
 
 def find_tangency_portfolio(mean_returns, cov_matrix, risk_free_rate):
     """Find tangency portfolio (max Sharpe ratio)."""
     n_assets = len(mean_returns)
-    
+
     constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
     bounds = tuple((0, 1) for _ in range(n_assets))
     init_guess = np.array([1/n_assets] * n_assets)
-    
+
     result = minimize(
         neg_sharpe_ratio,
         init_guess,
@@ -324,7 +380,7 @@ def find_tangency_portfolio(mean_returns, cov_matrix, risk_free_rate):
         bounds=bounds,
         constraints=constraints
     )
-    
+
     return result.x
 
 
@@ -335,20 +391,20 @@ with st.spinner("🔄 Calculating Efficient Frontier..."):
         cov_matrix.values,
         risk_free_annual
     )
-    
+
     # Find tangency portfolio
     tangency_weights = find_tangency_portfolio(
         mean_returns.values,
         cov_matrix.values,
         risk_free_annual
     )
-    
+
     tangency_return, tangency_std = portfolio_stats(
         tangency_weights,
         mean_returns.values,
         cov_matrix.values
     )
-    
+
     tangency_sharpe = (tangency_return - risk_free_annual) / tangency_std
 
 # ============================================================================
@@ -432,11 +488,14 @@ max_vol = max(ef_vols) * 1.3
 cal_vols = np.linspace(0, max_vol, 100)
 
 # Lending CAL (up to tangency)
-lending_returns = risk_free_annual * 100 + (cal_vols / (tangency_std * 100)) * (tangency_return - risk_free_annual) * 100
+lending_returns = risk_free_annual * 100 + \
+    (cal_vols / (tangency_std * 100)) * \
+    (tangency_return - risk_free_annual) * 100
 
 # Borrowing CAL (beyond tangency)
 borrowing_slope = (tangency_return - borrowing_annual) / tangency_std
-borrowing_returns = tangency_return * 100 + borrowing_slope * (cal_vols - tangency_std * 100) * 100
+borrowing_returns = tangency_return * 100 + \
+    borrowing_slope * (cal_vols - tangency_std * 100) * 100
 
 # Combine CAL
 cal_returns = np.where(
@@ -494,12 +553,12 @@ with col2:
         hole=0.3,
         hovertemplate='%{label}<br>%{value:.2f}%<extra></extra>'
     )])
-    
+
     fig_pie.update_layout(
         title="Portfolio Allocation",
         height=400
     )
-    
+
     st.plotly_chart(fig_pie, use_container_width=True)
 
 # ============================================================================
@@ -509,16 +568,17 @@ with col2:
 st.markdown("---")
 st.header("📈 Portfolio Performance Simulation")
 
+
 def simulate_portfolio_with_rebalancing(returns_df, weights, rebalance_freq='Annual'):
     """Simulate portfolio with periodic rebalancing."""
     dates = returns_df.index
     n_days = len(dates)
-    
+
     portfolio_value = np.zeros(n_days)
     portfolio_value[0] = 1.0  # Start with $1
-    
+
     current_weights = weights.copy()
-    
+
     # Determine rebalancing dates
     if rebalance_freq == 'Annual':
         years = pd.Series(dates).dt.year.unique()
@@ -531,17 +591,17 @@ def simulate_portfolio_with_rebalancing(returns_df, weights, rebalance_freq='Ann
         rebal_dates = dates[dates.is_quarter_start]
     else:  # Monthly
         rebal_dates = dates[dates.is_month_start]
-    
+
     rebal_dates = set(rebal_dates)
-    
+
     for t in range(n_days - 1):
         # Calculate portfolio return
         asset_returns = returns_df.iloc[t].values
         portfolio_return = np.dot(current_weights, asset_returns)
-        
+
         # Update portfolio value
         portfolio_value[t + 1] = portfolio_value[t] * (1 + portfolio_return)
-        
+
         # Rebalance if needed
         if dates[t] in rebal_dates:
             current_weights = weights.copy()
@@ -549,7 +609,7 @@ def simulate_portfolio_with_rebalancing(returns_df, weights, rebalance_freq='Ann
             # Drift weights
             current_weights = current_weights * (1 + asset_returns)
             current_weights = current_weights / current_weights.sum()
-    
+
     return pd.Series(portfolio_value, index=dates)
 
 
@@ -563,7 +623,12 @@ tangency_value = simulate_portfolio_with_rebalancing(
 # Simulate 50/50 portfolio (50% risk-free, 50% tangency)
 optimal_50_weights = tangency_weights * 0.5
 optimal_50_returns = returns[valid_assets].copy()
-optimal_50_returns['RiskFree'] = risk_free_daily
+
+# Use CETES 28 returns if available, otherwise constant risk-free rate
+if use_cetes_returns and cetes28_returns is not None:
+    optimal_50_returns['RiskFree'] = cetes28_returns
+else:
+    optimal_50_returns['RiskFree'] = risk_free_daily
 
 # Add risk-free asset
 optimal_50_weights_full = np.append([0.5], optimal_50_weights)
@@ -576,8 +641,9 @@ optimal_50_value = simulate_portfolio_with_rebalancing(
 
 # Simulate benchmark if available
 if benchmark_assets and benchmark_weights is not None:
-    benchmark_returns = returns[[a for a in benchmark_assets if a in returns.columns]]
-    
+    benchmark_returns = returns[[
+        a for a in benchmark_assets if a in returns.columns]]
+
     if len(benchmark_returns.columns) == len(benchmark_assets):
         benchmark_value = simulate_portfolio_with_rebalancing(
             benchmark_returns,
@@ -618,12 +684,18 @@ if benchmark_value is not None:
     ))
 
 # Add risk-free growth
-rf_growth = (1 + risk_free_daily) ** np.arange(len(returns))
+if use_cetes_returns and cetes28_returns is not None:
+    rf_growth = (1 + cetes28_returns).cumprod()
+    rf_label = 'CETES 28'
+else:
+    rf_growth = (1 + risk_free_daily) ** np.arange(len(returns))
+    rf_label = 'Risk-Free'
+
 fig_growth.add_trace(go.Scatter(
     x=returns.index,
     y=rf_growth,
     mode='lines',
-    name='Risk-Free',
+    name=rf_label,
     line=dict(color='green', width=2, dash='dash')
 ))
 
@@ -644,49 +716,52 @@ st.plotly_chart(fig_growth, use_container_width=True)
 st.markdown("---")
 st.header("📊 Performance Metrics")
 
+
 def calculate_performance_metrics(portfolio_returns, benchmark_returns, risk_free_returns):
     """Calculate comprehensive performance metrics."""
     # Annualize
     n_days = len(portfolio_returns)
     n_years = n_days / 252
-    
+
     # Returns
     mean_return = portfolio_returns.mean() * 252
-    
+
     # Volatility
     volatility = portfolio_returns.std() * np.sqrt(252)
-    
+
     # Sharpe Ratio
     excess_returns = portfolio_returns - risk_free_returns
     sharpe = excess_returns.mean() / excess_returns.std() * np.sqrt(252)
-    
+
     # Max Drawdown
     cumulative = (1 + portfolio_returns).cumprod()
     running_max = cumulative.expanding().max()
     drawdown = (cumulative - running_max) / running_max
     max_drawdown = drawdown.min()
-    
+
     # Beta and Alpha
     if benchmark_returns is not None:
         cov_matrix = np.cov(portfolio_returns, benchmark_returns)
         beta = cov_matrix[0, 1] / cov_matrix[1, 1]
-        
+
         benchmark_mean = benchmark_returns.mean() * 252
-        alpha = mean_return - (risk_free_annual + beta * (benchmark_mean - risk_free_annual))
-        
+        alpha = mean_return - (risk_free_annual + beta *
+                               (benchmark_mean - risk_free_annual))
+
         # Jensen's Alpha
         excess_port = portfolio_returns - risk_free_returns
         excess_bench = benchmark_returns - risk_free_returns
-        
+
         from scipy import stats
         slope, intercept, _, _, _ = stats.linregress(excess_bench, excess_port)
         jensen_alpha = intercept * 252
-        
+
         # Information Ratio
         excess_over_bench = portfolio_returns - benchmark_returns
         tracking_error = excess_over_bench.std() * np.sqrt(252)
-        info_ratio = (excess_over_bench.mean() * 252) / tracking_error if tracking_error > 0 else 0
-        
+        info_ratio = (excess_over_bench.mean() * 252) / \
+            tracking_error if tracking_error > 0 else 0
+
         # Treynor Ratio
         treynor = (mean_return - risk_free_annual) / beta if beta != 0 else 0
     else:
@@ -695,11 +770,11 @@ def calculate_performance_metrics(portfolio_returns, benchmark_returns, risk_fre
         jensen_alpha = np.nan
         info_ratio = np.nan
         treynor = np.nan
-    
+
     # Holding period return
     total_return = cumulative.iloc[-1] - 1
     avg_annual_return = (1 + total_return) ** (1 / n_years) - 1
-    
+
     return {
         'Sharpe Ratio': sharpe,
         'Max Drawdown': max_drawdown,
@@ -724,7 +799,11 @@ if benchmark_value is not None:
 else:
     benchmark_returns_series = None
 
-risk_free_returns_series = pd.Series(risk_free_daily, index=tangency_returns.index)
+# Use CETES 28 returns if available, otherwise constant risk-free rate
+if use_cetes_returns and cetes28_returns is not None:
+    risk_free_returns_series = cetes28_returns.reindex(tangency_returns.index, method='ffill')
+else:
+    risk_free_returns_series = pd.Series(risk_free_daily, index=tangency_returns.index)
 
 # Calculate metrics
 tangency_metrics = calculate_performance_metrics(
@@ -761,6 +840,8 @@ if benchmark_metrics:
 metrics_df = pd.DataFrame(metrics_data)
 
 # Format the table
+
+
 def format_metric(val):
     if pd.isna(val):
         return 'N/A'
@@ -770,6 +851,7 @@ def format_metric(val):
         return f'{val:.3f}'
     else:
         return f'{val:.2f}'
+
 
 st.dataframe(
     metrics_df.style.format({
@@ -816,7 +898,7 @@ with col3:
         '50/50': optimal_50_value.values,
         'Benchmark': benchmark_value.values if benchmark_value is not None else np.nan
     })
-    
+
     portfolio_csv = portfolio_values.to_csv(index=False)
     st.download_button(
         label="💼 Download Portfolio Values (CSV)",
