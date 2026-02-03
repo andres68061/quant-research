@@ -44,13 +44,13 @@ def ensure_sectors_directory() -> None:
 
 def fetch_sector_info(symbol: str) -> Dict[str, str]:
     """
-    Fetch sector and industry classification for a single symbol.
+    Fetch sector, industry, and asset type classification for a single symbol.
     
     Args:
         symbol: Stock ticker symbol
         
     Returns:
-        Dict with keys: sector, industry, industryKey, sectorKey
+        Dict with keys: sector, industry, industryKey, sectorKey, quoteType
         Returns 'Unknown' for missing fields
         
     Example:
@@ -60,7 +60,8 @@ def fetch_sector_info(symbol: str) -> Dict[str, str]:
             'sector': 'Technology',
             'industry': 'Consumer Electronics',
             'industryKey': 'consumer-electronics',
-            'sectorKey': 'technology'
+            'sectorKey': 'technology',
+            'quoteType': 'EQUITY'
         }
     """
     try:
@@ -72,9 +73,10 @@ def fetch_sector_info(symbol: str) -> Dict[str, str]:
             'industry': info.get('industry', UNKNOWN_LABEL),
             'industryKey': info.get('industryKey', UNKNOWN_LABEL),
             'sectorKey': info.get('sectorKey', UNKNOWN_LABEL),
+            'quoteType': info.get('quoteType', UNKNOWN_LABEL),
         }
         
-        logger.info(f"✅ Fetched sector for {symbol}: {result['sector']}")
+        logger.info(f"✅ Fetched sector for {symbol}: {result['sector']} ({result['quoteType']})")
         return result
         
     except Exception as e:
@@ -84,6 +86,7 @@ def fetch_sector_info(symbol: str) -> Dict[str, str]:
             'industry': UNKNOWN_LABEL,
             'industryKey': UNKNOWN_LABEL,
             'sectorKey': UNKNOWN_LABEL,
+            'quoteType': UNKNOWN_LABEL,
         }
 
 
@@ -100,15 +103,15 @@ def fetch_sectors_batch(
         
     Returns:
         DataFrame with columns: symbol, sector, industry, industryKey,
-        sectorKey, last_updated
+        sectorKey, quoteType, last_updated
         
     Example:
         >>> df = fetch_sectors_batch(['AAPL', 'MSFT', 'JPM'])
         >>> print(df)
-           symbol       sector              industry
-        0   AAPL   Technology  Consumer Electronics
-        1   MSFT   Technology              Software
-        2    JPM   Financials                 Banks
+           symbol       sector              industry  quoteType
+        0   AAPL   Technology  Consumer Electronics     EQUITY
+        1   MSFT   Technology              Software     EQUITY
+        2    JPM   Financials                 Banks     EQUITY
     """
     import time
     
@@ -123,6 +126,7 @@ def fetch_sectors_batch(
             'industry': info['industry'],
             'industryKey': info['industryKey'],
             'sectorKey': info['sectorKey'],
+            'quoteType': info['quoteType'],
             'last_updated': datetime.now().isoformat(),
         }
         records.append(record)
@@ -152,6 +156,7 @@ def load_sector_classifications() -> Optional[pd.DataFrame]:
         - industry: Yahoo Finance industry (e.g., 'Software')
         - industryKey: Industry key code
         - sectorKey: Sector key code
+        - quoteType: Asset type (EQUITY, ETF, INDEX, MUTUALFUND, etc.)
         - last_updated: ISO timestamp of last fetch
     """
     ensure_sectors_directory()
@@ -182,6 +187,7 @@ def save_sector_classifications(df: pd.DataFrame) -> None:
         - industry
         - industryKey
         - sectorKey
+        - quoteType
         - last_updated
     """
     ensure_sectors_directory()
@@ -358,6 +364,41 @@ def get_sector_for_symbol(symbol: str) -> Tuple[str, str]:
         row.iloc[0]['sector'],
         row.iloc[0]['industry']
     )
+
+
+def get_asset_type_for_symbol(symbol: str) -> str:
+    """
+    Get asset type (quoteType) for a single symbol.
+    
+    Args:
+        symbol: Stock ticker symbol
+        
+    Returns:
+        Asset type: 'EQUITY', 'ETF', 'INDEX', 'MUTUALFUND', or 'Unknown'
+        
+    Example:
+        >>> asset_type = get_asset_type_for_symbol('SPY')
+        >>> print(asset_type)
+        ETF
+    """
+    df = load_sector_classifications()
+    
+    if df is None or df.empty:
+        logger.warning(f"No sector data available for {symbol}")
+        return UNKNOWN_LABEL
+    
+    # Check if quoteType column exists (backwards compatibility)
+    if 'quoteType' not in df.columns:
+        logger.warning("quoteType column not found - run fetch_sectors.py to update")
+        return UNKNOWN_LABEL
+    
+    row = df[df['symbol'] == symbol]
+    
+    if row.empty:
+        logger.warning(f"Symbol {symbol} not found in sector classifications")
+        return UNKNOWN_LABEL
+    
+    return row.iloc[0]['quoteType']
 
 
 def get_symbols_by_sector(sector: str) -> List[str]:

@@ -31,14 +31,23 @@ data/sectors/sector_classifications.parquet
 | `industry` | string | Yahoo Finance industry | `Consumer Electronics` |
 | `industryKey` | string | Industry key code | `consumer-electronics` |
 | `sectorKey` | string | Sector key code | `technology` |
+| `quoteType` | string | Asset type from Yahoo | `EQUITY`, `ETF`, `INDEX` |
 | `last_updated` | string (ISO) | Last fetch timestamp | `2026-01-26T10:30:00` |
 
 ### Unknown Labels
 Stocks without classification data are labeled as `"Unknown"` in all fields. This can happen for:
 - Delisted stocks
 - Very new IPOs
-- ETFs/funds (not stocks)
 - API failures
+
+### Quote Types
+The `quoteType` field identifies the asset type:
+- `EQUITY` - Regular stocks
+- `ETF` - Exchange-traded funds
+- `INDEX` - Market indices (^GSPC, ^IXIC, etc.)
+- `MUTUALFUND` - Mutual funds
+- `CRYPTOCURRENCY` - Crypto assets
+- `Unknown` - Data not available
 
 ## Refresh Policy
 

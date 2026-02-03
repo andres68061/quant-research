@@ -116,33 +116,58 @@ def load_data():
         st.stop()
 
 
-def categorize_asset_type(symbol):
+def categorize_asset_type(symbol, df_sectors=None):
     """
-    Categorize a symbol as Stock, Commodity, or ETF.
+    Categorize a symbol as Stock, ETF, Commodity, or Index.
+    
+    Uses actual quoteType from Yahoo Finance stored in sector classifications.
+    Falls back to pattern matching if data not available.
     
     Args:
         symbol: Ticker symbol
+        df_sectors: DataFrame with sector classifications (optional)
         
     Returns:
-        str: 'Stock', 'Commodity', 'ETF', or 'Index'
+        str: 'Stock', 'ETF', 'Commodity', 'Index', or 'Fund'
     """
-    # Commodities (common patterns)
-    commodities = ['GC=F', 'SI=F', 'CL=F', 'NG=F', 'HG=F', 'PL=F', 'PA=F']
-    if symbol in commodities or '=F' in symbol:
+    # Try to get from sector classifications first (most accurate)
+    if df_sectors is not None and 'quoteType' in df_sectors.columns:
+        row = df_sectors[df_sectors['symbol'] == symbol]
+        if not row.empty:
+            quote_type = row.iloc[0]['quoteType']
+            
+            # Map Yahoo quoteType to our categories
+            if quote_type == 'EQUITY':
+                return 'Stock'
+            elif quote_type == 'ETF':
+                return 'ETF'
+            elif quote_type == 'INDEX':
+                return 'Index'
+            elif quote_type == 'MUTUALFUND':
+                return 'Fund'
+            elif quote_type == 'CRYPTOCURRENCY':
+                return 'Crypto'
+            elif quote_type != 'Unknown':
+                # Return the actual type if it's something else
+                return quote_type
+    
+    # Fallback to pattern matching (for backwards compatibility)
+    # Commodities (futures with =F suffix)
+    if '=F' in symbol:
         return 'Commodity'
     
-    # Indices
+    # Indices (^ prefix)
     if symbol.startswith('^'):
         return 'Index'
     
-    # ETFs (common patterns - 3 letters or known ETFs)
+    # Known ETFs (explicit list for common ones)
     common_etfs = ['SPY', 'QQQ', 'IWM', 'DIA', 'VOO', 'VTI', 'AGG', 'BND', 
                    'GLD', 'SLV', 'USO', 'TLT', 'EEM', 'VWO', 'XLE', 'XLF',
                    'XLK', 'XLV', 'XLI', 'XLP', 'XLY', 'XLU', 'XLB', 'XLRE']
-    if symbol in common_etfs or (len(symbol) == 3 and symbol.isupper()):
+    if symbol in common_etfs:
         return 'ETF'
     
-    # Default to stock
+    # Default to stock (most common)
     return 'Stock'
 
 
@@ -690,11 +715,12 @@ def main():
         
         # Filter by asset type
         for symbol in all_symbols:
-            asset_type = categorize_asset_type(symbol)
+            asset_type = categorize_asset_type(symbol, df_sectors)
             if (asset_type == 'Stock' and 'Stocks' in asset_types) or \
                (asset_type == 'ETF' and 'ETFs' in asset_types) or \
                (asset_type == 'Commodity' and 'Commodities' in asset_types) or \
-               (asset_type == 'Index' and 'Indices' in asset_types):
+               (asset_type == 'Index' and 'Indices' in asset_types) or \
+               (asset_type == 'Fund' and 'Stocks' in asset_types):  # Include funds with stocks
                 available_symbols.append(symbol)
         
         # Sector/Industry Filter (only for stocks)
@@ -727,8 +753,9 @@ def main():
                 filtered_stocks = set()
                 
                 for symbol in available_symbols:
-                    if categorize_asset_type(symbol) != 'Stock':
-                        # Keep non-stocks
+                    asset_type = categorize_asset_type(symbol, df_sectors)
+                    if asset_type != 'Stock':
+                        # Keep non-stocks (ETFs, Commodities, Indices)
                         filtered_stocks.add(symbol)
                         continue
                     
@@ -792,7 +819,7 @@ def main():
             # Group by type
             by_type = {}
             for symbol in selected_symbols:
-                asset_type = categorize_asset_type(symbol)
+                asset_type = categorize_asset_type(symbol, df_sectors)
                 if asset_type not in by_type:
                     by_type[asset_type] = []
                 by_type[asset_type].append(symbol)
@@ -858,7 +885,7 @@ def main():
                 # Create detailed table
                 asset_details = []
                 for symbol in selected_symbols:
-                    asset_type = categorize_asset_type(symbol)
+                    asset_type = categorize_asset_type(symbol, df_sectors)
                     
                     if asset_type == 'Stock' and df_sectors is not None:
                         stock_info = df_sectors[df_sectors['symbol'] == symbol]
