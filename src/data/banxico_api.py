@@ -180,8 +180,12 @@ def get_cetes28_returns(
     # Convert percentage to decimal
     df["value"] = df["value"] / 100
     
-    # Create daily date range
-    date_range = pd.date_range(start=start_date, end=end_date, freq="D")
+    # Create daily date range (timezone-aware to match price database)
+    date_range = pd.date_range(start=start_date, end=end_date, freq="D", tz="America/New_York")
+    
+    # Make df index timezone-aware if it isn't already
+    if df.index.tz is None:
+        df.index = df.index.tz_localize("America/New_York")
     
     # Reindex and forward-fill (CETES is published weekly)
     df_daily = df.reindex(date_range, method="ffill")
@@ -230,8 +234,12 @@ def get_usdmxn_rate(
     """
     df = fetch_banxico_series(USDMXN_SERIES, start_date, end_date, api_key)
     
-    # Create daily date range
-    date_range = pd.date_range(start=start_date, end=end_date, freq="D")
+    # Create daily date range (timezone-aware to match price database)
+    date_range = pd.date_range(start=start_date, end=end_date, freq="D", tz="America/New_York")
+    
+    # Make df index timezone-aware if it isn't already
+    if df.index.tz is None:
+        df.index = df.index.tz_localize("America/New_York")
     
     # Reindex and forward-fill
     series = df["value"].reindex(date_range, method="ffill")
