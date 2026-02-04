@@ -57,173 +57,433 @@ mode = st.sidebar.selectbox(
 # ============================================================================
 
 if mode == "2D Matrix Multiplication":
-    st.header("📐 2D Matrix Multiplication")
+    st.header("📐 2D Matrix Multiplication: Visual & Geometric")
     
     st.markdown("""
-    **Learn how matrix multiplication works step by step.**
+    **See matrix multiplication as both algebra AND geometry!**
     
-    For matrices A (m×n) and B (n×p), the result C = A × B is (m×p).
-    Each element C[i,j] = sum of A[i,:] · B[:,j] (dot product of row i and column j).
+    Matrix multiplication transforms vectors in 2D space. Watch how it works both numerically and visually.
     """)
     
-    col1, col2 = st.columns(2)
+    # Simpler default: 2x2 matrices for clearer visualization
+    st.sidebar.markdown("### 🎛️ Matrix Setup")
     
-    with col1:
-        st.subheader("Matrix A")
-        m = st.slider("Rows (m)", 1, 5, 2, key="m")
-        n = st.slider("Columns (n)", 1, 5, 3, key="n")
+    use_simple = st.sidebar.checkbox("Use Simple 2×2 Example", value=True)
+    
+    if use_simple:
+        st.info("💡 **Simple Mode:** Using 2×2 matrices for clearer geometric visualization")
         
-        st.markdown("**Enter values for Matrix A:**")
-        A = np.zeros((m, n))
+        col1, col2 = st.columns(2)
         
-        for i in range(m):
-            cols = st.columns(n)
-            for j in range(n):
-                A[i, j] = cols[j].number_input(
-                    f"A[{i},{j}]",
-                    value=float(np.random.randint(1, 10)),
-                    key=f"A_{i}_{j}",
-                    label_visibility="collapsed"
-                )
-    
-    with col2:
-        st.subheader("Matrix B")
-        p = st.slider("Columns (p)", 1, 5, 2, key="p")
+        with col1:
+            st.markdown("### Matrix A (Transformation)")
+            st.latex(r"""
+            A = \begin{bmatrix}
+            a_{11} & a_{12} \\
+            a_{21} & a_{22}
+            \end{bmatrix}
+            """)
+            
+            a11 = st.number_input("a₁₁", value=2.0, key="a11")
+            a12 = st.number_input("a₁₂", value=0.0, key="a12")
+            a21 = st.number_input("a₂₁", value=0.0, key="a21")
+            a22 = st.number_input("a₂₂", value=1.0, key="a22")
+            
+            A = np.array([[a11, a12], [a21, a22]])
         
-        st.markdown(f"**Enter values for Matrix B:** (must have {n} rows)")
-        B = np.zeros((n, p))
+        with col2:
+            st.markdown("### Vector v (Input)")
+            st.latex(r"""
+            v = \begin{bmatrix}
+            v_1 \\
+            v_2
+            \end{bmatrix}
+            """)
+            
+            v1 = st.number_input("v₁", value=1.0, key="v1")
+            v2 = st.number_input("v₂", value=1.0, key="v2")
+            
+            v = np.array([[v1], [v2]])
         
-        for i in range(n):
-            cols = st.columns(p)
-            for j in range(p):
-                B[i, j] = cols[j].number_input(
-                    f"B[{i},{j}]",
-                    value=float(np.random.randint(1, 10)),
-                    key=f"B_{i}_{j}",
-                    label_visibility="collapsed"
-                )
+        # Calculate result
+        result = A @ v
+        
+        st.markdown("---")
+        st.markdown("### 📐 The Calculation")
+        
+        st.latex(rf"""
+        A \times v = \begin{bmatrix}
+        {a11:.1f} & {a12:.1f} \\
+        {a21:.1f} & {a22:.1f}
+        \end{bmatrix}
+        \times
+        \begin{bmatrix}
+        {v1:.1f} \\
+        {v2:.1f}
+        \end{bmatrix}
+        =
+        \begin{bmatrix}
+        {a11:.1f} \times {v1:.1f} + {a12:.1f} \times {v2:.1f} \\
+        {a21:.1f} \times {v1:.1f} + {a22:.1f} \times {v2:.1f}
+        \end{bmatrix}
+        =
+        \begin{bmatrix}
+        {result[0,0]:.2f} \\
+        {result[1,0]:.2f}
+        \end{bmatrix}
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Row 1 calculation:**")
+            st.code(f"""
+First element:  {a11:.1f} × {v1:.1f} + {a12:.1f} × {v2:.1f}
+              = {a11*v1:.2f} + {a12*v2:.2f}
+              = {result[0,0]:.2f}
+            """)
+        
+        with col2:
+            st.markdown("**Row 2 calculation:**")
+            st.code(f"""
+Second element: {a21:.1f} × {v1:.1f} + {a22:.1f} × {v2:.1f}
+              = {a21*v1:.2f} + {a22*v2:.2f}
+              = {result[1,0]:.2f}
+            """)
+        
+        # 2D Geometric Visualization
+        st.markdown("---")
+        st.markdown("### 🎨 Geometric Visualization on 2D Plane")
+        
+        fig = go.Figure()
+        
+        # Draw axes
+        axis_range = max(5, abs(v1)*2, abs(v2)*2, abs(result[0,0])*1.5, abs(result[1,0])*1.5)
+        
+        fig.add_trace(go.Scatter(
+            x=[-axis_range, axis_range],
+            y=[0, 0],
+            mode='lines',
+            line=dict(color='gray', width=1),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=[0, 0],
+            y=[-axis_range, axis_range],
+            mode='lines',
+            line=dict(color='gray', width=1),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+        
+        # Original vector v (blue)
+        fig.add_trace(go.Scatter(
+            x=[0, v1],
+            y=[0, v2],
+            mode='lines+markers+text',
+            line=dict(color='blue', width=4),
+            marker=dict(size=[0, 15], symbol='arrow', angleref='previous'),
+            text=['', f'v = ({v1:.1f}, {v2:.1f})'],
+            textposition='top center',
+            textfont=dict(size=14, color='blue'),
+            name='Original Vector v',
+            showlegend=True
+        ))
+        
+        # Transformed vector (red)
+        fig.add_trace(go.Scatter(
+            x=[0, result[0,0]],
+            y=[0, result[1,0]],
+            mode='lines+markers+text',
+            line=dict(color='red', width=4),
+            marker=dict(size=[0, 15], symbol='arrow', angleref='previous'),
+            text=['', f'Av = ({result[0,0]:.1f}, {result[1,0]:.1f})'],
+            textposition='top center',
+            textfont=dict(size=14, color='red'),
+            name='Transformed Vector Av',
+            showlegend=True
+        ))
+        
+        # Show basis vectors and their transformations
+        # Original basis: e1 = (1,0), e2 = (0,1)
+        e1_transformed = A @ np.array([[1], [0]])
+        e2_transformed = A @ np.array([[0], [1]])
+        
+        # Original e1 (dashed)
+        fig.add_trace(go.Scatter(
+            x=[0, 1],
+            y=[0, 0],
+            mode='lines',
+            line=dict(color='lightblue', width=2, dash='dash'),
+            name='e₁ = (1,0)',
+            showlegend=True
+        ))
+        
+        # Transformed e1
+        fig.add_trace(go.Scatter(
+            x=[0, e1_transformed[0,0]],
+            y=[0, e1_transformed[1,0]],
+            mode='lines+markers',
+            line=dict(color='cyan', width=3),
+            marker=dict(size=[0, 10]),
+            name=f'Ae₁ = ({e1_transformed[0,0]:.1f}, {e1_transformed[1,0]:.1f})',
+            showlegend=True
+        ))
+        
+        # Original e2 (dashed)
+        fig.add_trace(go.Scatter(
+            x=[0, 0],
+            y=[0, 1],
+            mode='lines',
+            line=dict(color='lightgreen', width=2, dash='dash'),
+            name='e₂ = (0,1)',
+            showlegend=True
+        ))
+        
+        # Transformed e2
+        fig.add_trace(go.Scatter(
+            x=[0, e2_transformed[0,0]],
+            y=[0, e2_transformed[1,0]],
+            mode='lines+markers',
+            line=dict(color='green', width=3),
+            marker=dict(size=[0, 10]),
+            name=f'Ae₂ = ({e2_transformed[0,0]:.1f}, {e2_transformed[1,0]:.1f})',
+            showlegend=True
+        ))
+        
+        fig.update_layout(
+            title="Matrix Multiplication as Geometric Transformation",
+            xaxis=dict(
+                range=[-axis_range, axis_range],
+                title="X-axis",
+                zeroline=True,
+                zerolinewidth=2,
+                zerolinecolor='black',
+                gridcolor='lightgray'
+            ),
+            yaxis=dict(
+                range=[-axis_range, axis_range],
+                title="Y-axis",
+                zeroline=True,
+                zerolinewidth=2,
+                zerolinecolor='black',
+                gridcolor='lightgray',
+                scaleanchor="x",
+                scaleratio=1
+            ),
+            height=600,
+            showlegend=True,
+            legend=dict(x=0.02, y=0.98),
+            plot_bgcolor='white'
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("""
+        **🔍 What you're seeing:**
+        - **Blue arrow**: Original vector **v**
+        - **Red arrow**: Transformed vector **Av** (result of multiplication)
+        - **Dashed lines**: Original basis vectors e₁=(1,0) and e₂=(0,1)
+        - **Solid cyan/green**: Transformed basis vectors
+        
+        **💡 Key Insight:** Matrix multiplication transforms the entire coordinate system!
+        The matrix A tells you where the basis vectors go, and any vector v follows along.
+        """)
+        
+        # Show common transformations
+        st.markdown("---")
+        st.markdown("### 🎯 Try These Common Transformations")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("🔄 Rotation 45°"):
+                st.session_state.a11 = 0.707
+                st.session_state.a12 = -0.707
+                st.session_state.a21 = 0.707
+                st.session_state.a22 = 0.707
+                st.rerun()
+        
+        with col2:
+            if st.button("📏 Scale 2x"):
+                st.session_state.a11 = 2.0
+                st.session_state.a12 = 0.0
+                st.session_state.a21 = 0.0
+                st.session_state.a22 = 2.0
+                st.rerun()
+        
+        with col3:
+            if st.button("↔️ Shear"):
+                st.session_state.a11 = 1.0
+                st.session_state.a12 = 0.5
+                st.session_state.a21 = 0.0
+                st.session_state.a22 = 1.0
+                st.rerun()
     
-    # Calculate result
-    C = A @ B
-    
-    st.markdown("---")
-    st.subheader("Result: C = A × B")
-    
-    # Display matrices side by side
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        st.markdown("**Matrix A**")
+    else:
+        # Advanced mode: general matrix multiplication
+        st.info("💡 **Advanced Mode:** General matrix multiplication")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Matrix A")
+            m = st.slider("Rows (m)", 1, 4, 2, key="m")
+            n = st.slider("Columns (n)", 1, 4, 2, key="n")
+            
+            st.markdown("**Enter values for Matrix A:**")
+            A = np.zeros((m, n))
+            
+            for i in range(m):
+                cols = st.columns(n)
+                for j in range(n):
+                    A[i, j] = cols[j].number_input(
+                        f"A[{i},{j}]",
+                        value=float(1 if i == j else 0),
+                        key=f"A_{i}_{j}",
+                        label_visibility="collapsed"
+                    )
+        
+        with col2:
+            st.subheader("Matrix B")
+            p = st.slider("Columns (p)", 1, 4, 2, key="p")
+            
+            st.markdown(f"**Enter values for Matrix B:** (must have {n} rows)")
+            B = np.zeros((n, p))
+            
+            for i in range(n):
+                cols = st.columns(p)
+                for j in range(p):
+                    B[i, j] = cols[j].number_input(
+                        f"B[{i},{j}]",
+                        value=float(1 if i == j else 0),
+                        key=f"B_{i}_{j}",
+                        label_visibility="collapsed"
+                    )
+        
+        # Calculate result
+        C = A @ B
+        
+        st.markdown("---")
+        st.markdown("### 📊 Matrix Equation")
+        
+        # Build LaTeX representation
+        A_latex = " \\\\ ".join([" & ".join([f"{A[i,j]:.1f}" for j in range(n)]) for i in range(m)])
+        B_latex = " \\\\ ".join([" & ".join([f"{B[i,j]:.1f}" for j in range(p)]) for i in range(n)])
+        C_latex = " \\\\ ".join([" & ".join([f"{C[i,j]:.1f}" for j in range(p)]) for i in range(m)])
+        
+        st.latex(rf"""
+        \begin{{bmatrix}}
+        {A_latex}
+        \end{{bmatrix}}
+        \times
+        \begin{{bmatrix}}
+        {B_latex}
+        \end{{bmatrix}}
+        =
+        \begin{{bmatrix}}
+        {C_latex}
+        \end{{bmatrix}}
+        """)
+        
+        st.caption(f"Shape: ({m}×{n}) × ({n}×{p}) = ({m}×{p})")
+        
+        # Step-by-step calculation
+        st.markdown("---")
+        st.subheader("📝 Step-by-Step Calculation")
+        
+        result_i = st.slider("Select result row (i)", 0, m-1, 0)
+        result_j = st.slider("Select result column (j)", 0, p-1, 0)
+        
+        st.markdown(f"### Calculating C[{result_i},{result_j}]")
+        
+        # Show the calculation
+        row_A = A[result_i, :]
+        col_B = B[:, result_j]
+        
+        # Build calculation string
+        calc_parts = [f"{row_A[k]:.1f} × {col_B[k]:.1f}" for k in range(n)]
+        calc_string = " + ".join(calc_parts)
+        
+        st.latex(rf"""
+        C[{result_i},{result_j}] = {calc_string} = {C[result_i, result_j]:.2f}
+        """)
+        
+        calculation_steps = []
+        running_sum = 0
+        
+        for k in range(n):
+            product = row_A[k] * col_B[k]
+            running_sum += product
+            calculation_steps.append({
+                'Step': k + 1,
+                f'A[{result_i},{k}]': row_A[k],
+                f'B[{k},{result_j}]': col_B[k],
+                'Product': product,
+                'Running Sum': running_sum
+            })
+        
         st.dataframe(
-            pd.DataFrame(A).style.format("{:.2f}"),
+            pd.DataFrame(calculation_steps).style.format({
+                col: '{:.2f}' for col in calculation_steps[0].keys() if col != 'Step'
+            }).background_gradient(subset=['Running Sum'], cmap='Blues'),
             use_container_width=True
         )
-        st.caption(f"Shape: {A.shape}")
-    
-    with col2:
-        st.markdown("**Matrix B**")
-        st.dataframe(
-            pd.DataFrame(B).style.format("{:.2f}"),
-            use_container_width=True
+        
+        # Visual representation
+        st.markdown("---")
+        st.subheader("🎨 Visual Representation")
+        
+        # Create heatmaps
+        fig = make_subplots(
+            rows=1, cols=3,
+            subplot_titles=("Matrix A", "Matrix B", "Result C"),
+            horizontal_spacing=0.15
         )
-        st.caption(f"Shape: {B.shape}")
-    
-    with col3:
-        st.markdown("**Result C**")
-        st.dataframe(
-            pd.DataFrame(C).style.format("{:.2f}").background_gradient(cmap='RdYlGn'),
-            use_container_width=True
+        
+        # Matrix A heatmap
+        fig.add_trace(
+            go.Heatmap(
+                z=A,
+                colorscale='Blues',
+                showscale=False,
+                text=A,
+                texttemplate='%{text:.1f}',
+                textfont={"size": 14}
+            ),
+            row=1, col=1
         )
-        st.caption(f"Shape: {C.shape}")
-    
-    # Step-by-step calculation
-    st.markdown("---")
-    st.subheader("📝 Step-by-Step Calculation")
-    
-    result_i = st.slider("Select result row (i)", 0, m-1, 0)
-    result_j = st.slider("Select result column (j)", 0, p-1, 0)
-    
-    st.markdown(f"### Calculating C[{result_i},{result_j}]")
-    
-    # Show the calculation
-    row_A = A[result_i, :]
-    col_B = B[:, result_j]
-    
-    calculation_steps = []
-    running_sum = 0
-    
-    for k in range(n):
-        product = row_A[k] * col_B[k]
-        running_sum += product
-        calculation_steps.append({
-            'Step': k + 1,
-            f'A[{result_i},{k}]': row_A[k],
-            f'B[{k},{result_j}]': col_B[k],
-            'Product': product,
-            'Running Sum': running_sum
-        })
-    
-    st.dataframe(
-        pd.DataFrame(calculation_steps).style.format({
-            f'A[{result_i},{k}]': '{:.2f}' for k in range(n)
-        }).background_gradient(subset=['Running Sum'], cmap='Blues'),
-        use_container_width=True
-    )
-    
-    st.success(f"**Final Result: C[{result_i},{result_j}] = {C[result_i, result_j]:.2f}**")
-    
-    # Visual representation
-    st.markdown("---")
-    st.subheader("🎨 Visual Representation")
-    
-    # Create heatmaps
-    fig = make_subplots(
-        rows=1, cols=3,
-        subplot_titles=("Matrix A", "Matrix B", "Result C"),
-        horizontal_spacing=0.15
-    )
-    
-    # Matrix A heatmap
-    fig.add_trace(
-        go.Heatmap(
-            z=A,
-            colorscale='Blues',
-            showscale=False,
-            text=A,
-            texttemplate='%{text:.1f}',
-            textfont={"size": 14}
-        ),
-        row=1, col=1
-    )
-    
-    # Matrix B heatmap
-    fig.add_trace(
-        go.Heatmap(
-            z=B,
-            colorscale='Greens',
-            showscale=False,
-            text=B,
-            texttemplate='%{text:.1f}',
-            textfont={"size": 14}
-        ),
-        row=1, col=2
-    )
-    
-    # Result C heatmap
-    fig.add_trace(
-        go.Heatmap(
-            z=C,
-            colorscale='RdYlGn',
-            showscale=True,
-            text=C,
-            texttemplate='%{text:.1f}',
-            textfont={"size": 14}
-        ),
-        row=1, col=3
-    )
-    
-    fig.update_layout(height=400)
-    st.plotly_chart(fig, use_container_width=True)
+        
+        # Matrix B heatmap
+        fig.add_trace(
+            go.Heatmap(
+                z=B,
+                colorscale='Greens',
+                showscale=False,
+                text=B,
+                texttemplate='%{text:.1f}',
+                textfont={"size": 14}
+            ),
+            row=1, col=2
+        )
+        
+        # Result C heatmap
+        fig.add_trace(
+            go.Heatmap(
+                z=C,
+                colorscale='RdYlGn',
+                showscale=True,
+                text=C,
+                texttemplate='%{text:.1f}',
+                textfont={"size": 14}
+            ),
+            row=1, col=3
+        )
+        
+        fig.update_layout(height=400)
+        st.plotly_chart(fig, use_container_width=True)
 
 # ============================================================================
 # MODE 2: 3D GEOMETRIC TRANSFORMATIONS
