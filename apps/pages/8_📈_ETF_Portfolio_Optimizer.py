@@ -525,7 +525,8 @@ fig_ef.add_trace(go.Scatter(
 ))
 
 # Capital Allocation Line (CAL)
-max_vol = max(ef_vols) * 1.3
+# Limit CAL extension to avoid extreme y-axis values
+max_vol = max(ef_vols) * 1.2  # Reduced from 1.3
 cal_vols = np.linspace(0, max_vol, 100)
 
 # Lending CAL (up to tangency)
@@ -554,10 +555,19 @@ fig_ef.add_trace(go.Scatter(
     hovertemplate='CAL<br>Vol: %{x:.2f}%<br>Ret: %{y:.2f}%<extra></extra>'
 ))
 
+# Calculate appropriate y-axis range
+max_return_displayed = max(
+    max(ef_returns),
+    tangency_return * 100,
+    max(mean_returns_risky.values * 100)
+)
+y_axis_max = max_return_displayed + 20  # Add 20% buffer as requested
+
 fig_ef.update_layout(
     title="Efficient Frontier with Capital Allocation Line",
     xaxis_title="Volatility (Annual %)",
     yaxis_title="Expected Return (Annual %)",
+    yaxis=dict(range=[min(0, risk_free_annual * 100 - 5), y_axis_max]),
     height=600,
     hovermode='closest',
     showlegend=True,
