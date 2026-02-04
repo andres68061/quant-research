@@ -290,6 +290,30 @@ mean_returns = returns.mean() * 252  # Annualized
 cov_matrix = returns.cov() * 252     # Annualized
 std_devs = returns.std() * np.sqrt(252)  # Annualized
 
+# Filter assets with expected returns >= risk-free rate
+# (Rational investors wouldn't hold risky assets with returns below risk-free rate)
+valid_assets_mask = mean_returns >= risk_free_annual
+valid_assets_list = mean_returns[valid_assets_mask].index.tolist()
+
+if len(valid_assets_list) < 2:
+    st.error(
+        f"❌ Not enough risky assets with returns above risk-free rate ({risk_free_annual*100:.2f}%). "
+        f"Only {len(valid_assets_list)} asset(s) qualify. Need at least 2."
+    )
+    st.info(f"Assets below risk-free rate: {mean_returns[~valid_assets_mask].index.tolist()}")
+    st.stop()
+
+# Filter data to only include valid risky assets
+returns_risky = returns[valid_assets_list].copy()
+mean_returns_risky = mean_returns[valid_assets_list]
+cov_matrix_risky = cov_matrix.loc[valid_assets_list, valid_assets_list]
+std_devs_risky = std_devs[valid_assets_list]
+
+st.info(
+    f"ℹ️ Using {len(valid_assets_list)} risky assets with returns ≥ risk-free rate. "
+    f"Excluded: {len(valid_assets) - len(valid_assets_list)} asset(s)."
+)
+
 # ============================================================================
 # EFFICIENT FRONTIER CALCULATION
 # ============================================================================
@@ -397,28 +421,32 @@ def find_tangency_portfolio(mean_returns, cov_matrix, risk_free_rate):
     return result.x
 
 
-# Calculate efficient frontier
+# Calculate efficient frontier (using only risky assets with returns >= risk-free rate)
 with st.spinner("🔄 Calculating Efficient Frontier..."):
     efficient_portfolios, min_var_point = calculate_efficient_frontier(
-        mean_returns.values,
-        cov_matrix.values,
+        mean_returns_risky.values,
+        cov_matrix_risky.values,
         risk_free_annual
     )
 
     # Find tangency portfolio
-    tangency_weights = find_tangency_portfolio(
-        mean_returns.values,
-        cov_matrix.values,
+    tangency_weights_risky = find_tangency_portfolio(
+        mean_returns_risky.values,
+        cov_matrix_risky.values,
         risk_free_annual
     )
 
     tangency_return, tangency_std = portfolio_stats(
-        tangency_weights,
-        mean_returns.values,
-        cov_matrix.values
+        tangency_weights_risky,
+        mean_returns_risky.values,
+        cov_matrix_risky.values
     )
 
     tangency_sharpe = (tangency_return - risk_free_annual) / tangency_std
+    
+    # Create full weights vector (including zeros for excluded assets)
+    tangency_weights_full = pd.Series(0.0, index=valid_assets)
+    tangency_weights_full[valid_assets_list] = tangency_weights_risky
 
 # ============================================================================
 # DISPLAY: EFFICIENT FRONTIER
@@ -484,14 +512,14 @@ fig_ef.add_trace(go.Scatter(
     hovertemplate='Tangency<br>Vol: %{x:.2f}%<br>Ret: %{y:.2f}%<extra></extra>'
 ))
 
-# Individual Assets
+# Individual Risky Assets (only those with returns >= risk-free rate)
 fig_ef.add_trace(go.Scatter(
-    x=std_devs.values * 100,
-    y=mean_returns.values * 100,
+    x=std_devs_risky.values * 100,
+    y=mean_returns_risky.values * 100,
     mode='markers+text',
-    name='Individual Assets',
+    name='Risky Assets',
     marker=dict(size=10, color='green'),
-    text=valid_assets,
+    text=valid_assets_list,
     textposition='top center',
     hovertemplate='%{text}<br>Vol: %{x:.2f}%<br>Ret: %{y:.2f}%<extra></extra>'
 ))
@@ -545,8 +573,8 @@ st.plotly_chart(fig_ef, use_container_width=True)
 st.markdown("### 🎯 Tangency Portfolio Weights")
 
 weights_df = pd.DataFrame({
-    'Asset': valid_assets,
-    'Weight (%)': tangency_weights * 100
+    'Asset': tangency_weights_full.index,
+    'Weight (%)': tangency_weights_full.values * 100
 }).sort_values('Weight (%)', ascending=False)
 
 col1, col2 = st.columns([1, 1])
@@ -626,16 +654,16 @@ def simulate_portfolio_with_rebalancing(returns_df, weights, rebalance_freq='Ann
     return pd.Series(portfolio_value, index=dates)
 
 
-# Simulate tangency portfolio
+# Simulate tangency portfolio (using only risky assets)
 tangency_value = simulate_portfolio_with_rebalancing(
-    returns[valid_assets],
-    tangency_weights,
+    returns_risky,
+    tangency_weights_risky,
     rebalance_freq
 )
 
 # Simulate 50/50 portfolio (50% risk-free, 50% tangency)
-optimal_50_weights = tangency_weights * 0.5
-optimal_50_returns = returns[valid_assets].copy()
+optimal_50_weights = tangency_weights_risky * 0.5
+optimal_50_returns = returns_risky.copy()
 
 # Use CETES 28 returns if available, otherwise constant risk-free rate
 if use_cetes_returns and cetes28_returns is not None:
