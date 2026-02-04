@@ -232,8 +232,17 @@ use_cetes_returns = st.sidebar.checkbox(
 # DATA PREPARATION
 # ============================================================================
 
+# Convert dates to timezone-aware to match DataFrame index
+if df_prices.index.tz is not None:
+    # Make dates timezone-aware
+    start_date_tz = pd.Timestamp(start_date).tz_localize(df_prices.index.tz)
+    end_date_tz = pd.Timestamp(end_date).tz_localize(df_prices.index.tz)
+else:
+    start_date_tz = start_date
+    end_date_tz = end_date
+
 # Filter data by date range
-df_prices_filtered = df_prices.loc[start_date:end_date, selected_assets].copy()
+df_prices_filtered = df_prices.loc[start_date_tz:end_date_tz, selected_assets].copy()
 
 # Remove assets with insufficient data
 min_data_points = 252  # At least 1 year
