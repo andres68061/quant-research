@@ -111,25 +111,25 @@ if mode == "2D Matrix Multiplication":
         st.markdown("---")
         st.markdown("### 📐 The Calculation")
         
-        st.latex(rf"""
+        st.latex(r"""
         A \times v = \begin{bmatrix}
-        {a11:.1f} & {a12:.1f} \\
-        {a21:.1f} & {a22:.1f}
+        """ + f"{a11:.1f}" + r""" & """ + f"{a12:.1f}" + r""" \\
+        """ + f"{a21:.1f}" + r""" & """ + f"{a22:.1f}" + r"""
         \end{bmatrix}
         \times
         \begin{bmatrix}
-        {v1:.1f} \\
-        {v2:.1f}
+        """ + f"{v1:.1f}" + r""" \\
+        """ + f"{v2:.1f}" + r"""
         \end{bmatrix}
         =
         \begin{bmatrix}
-        {a11:.1f} \times {v1:.1f} + {a12:.1f} \times {v2:.1f} \\
-        {a21:.1f} \times {v1:.1f} + {a22:.1f} \times {v2:.1f}
+        """ + f"{a11:.1f}" + r""" \times """ + f"{v1:.1f}" + r""" + """ + f"{a12:.1f}" + r""" \times """ + f"{v2:.1f}" + r""" \\
+        """ + f"{a21:.1f}" + r""" \times """ + f"{v1:.1f}" + r""" + """ + f"{a22:.1f}" + r""" \times """ + f"{v2:.1f}" + r"""
         \end{bmatrix}
         =
         \begin{bmatrix}
-        {result[0,0]:.2f} \\
-        {result[1,0]:.2f}
+        """ + f"{result[0,0]:.2f}" + r""" \\
+        """ + f"{result[1,0]:.2f}" + r"""
         \end{bmatrix}
         """)
         
@@ -374,19 +374,11 @@ Second element: {a21:.1f} × {v1:.1f} + {a22:.1f} × {v2:.1f}
         B_latex = " \\\\ ".join([" & ".join([f"{B[i,j]:.1f}" for j in range(p)]) for i in range(n)])
         C_latex = " \\\\ ".join([" & ".join([f"{C[i,j]:.1f}" for j in range(p)]) for i in range(m)])
         
-        st.latex(rf"""
-        \begin{{bmatrix}}
-        {A_latex}
-        \end{{bmatrix}}
-        \times
-        \begin{{bmatrix}}
-        {B_latex}
-        \end{{bmatrix}}
-        =
-        \begin{{bmatrix}}
-        {C_latex}
-        \end{{bmatrix}}
-        """)
+        st.latex(r"\begin{bmatrix}" + A_latex + r"\end{bmatrix}" +
+                 r"\times" +
+                 r"\begin{bmatrix}" + B_latex + r"\end{bmatrix}" +
+                 r"=" +
+                 r"\begin{bmatrix}" + C_latex + r"\end{bmatrix}")
         
         st.caption(f"Shape: ({m}×{n}) × ({n}×{p}) = ({m}×{p})")
         
@@ -404,12 +396,10 @@ Second element: {a21:.1f} × {v1:.1f} + {a22:.1f} × {v2:.1f}
         col_B = B[:, result_j]
         
         # Build calculation string
-        calc_parts = [f"{row_A[k]:.1f} × {col_B[k]:.1f}" for k in range(n)]
+        calc_parts = [f"{row_A[k]:.1f} \\times {col_B[k]:.1f}" for k in range(n)]
         calc_string = " + ".join(calc_parts)
         
-        st.latex(rf"""
-        C[{result_i},{result_j}] = {calc_string} = {C[result_i, result_j]:.2f}
-        """)
+        st.latex(f"C[{result_i},{result_j}] = {calc_string} = {C[result_i, result_j]:.2f}")
         
         calculation_steps = []
         running_sum = 0
