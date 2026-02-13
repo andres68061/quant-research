@@ -352,12 +352,50 @@ Rebalancing: Quarterly
 - 🪴 Cotton - Cotton price
 - 🍬 Sugar - Sugar price
 
-#### Analysis Types
+#### Analysis Types (14 Comprehensive Modules)
 
+**Professional Quant Analytics:**
 1. **Price Trends**: Historical charts, statistics
-2. **Returns Analysis**: Cumulative returns, Sharpe ratios
-3. **Correlation Matrix**: Inter-commodity correlations
-4. **Normalized Comparison**: Rebased to 100 for easy comparison
+2. **Returns Analysis (Arithmetic)**: Arithmetic returns, Sharpe ratios
+3. **Log Returns Analysis** ✨: Log vs arithmetic comparison, modeling foundation
+4. **Cumulative Wealth (NAV)** ✨: Dollar-based P&L tracking, CAGR
+5. **Drawdown Analysis** ✨: Peak-to-trough risk, recovery time
+6. **Risk Metrics Dashboard** ✨: 13 comprehensive metrics (Sharpe, Sortino, Calmar, VaR, CVaR, etc.)
+7. **Rolling Metrics** ✨: Time-varying risk, regime detection
+8. **Return Distribution** ✨: Q-Q plots, normality testing, tail risk
+9. **Ratio Analysis** ✨: Gold/Silver ratio, cross-commodity spreads, mean reversion signals
+10. **ML Price Prediction** 🤖✨: XGBoost vs LSTM, walk-forward validation, full transparency
+11. **Correlation Matrix**: Inter-commodity correlations
+12. **Normalized Comparison**: Rebased to 100 for easy comparison
+13. **Seasonality Analysis**: Monthly patterns and trends
+14. **Multi-Period Performance** ✨: 8 time horizons (1M to Since Inception)
+
+✨ = New in February 2026  
+🤖 = Machine Learning  
+See `docs/COMMODITIES_ENHANCEMENT_SUMMARY.md` and `docs/ML_PRICE_PREDICTION.md`
+
+#### 🤖 Machine Learning Price Prediction
+
+**Predict commodity price direction (up/down tomorrow) using ML.**
+
+**Models:**
+- 🌳 **XGBoost Classifier**: Tree-based, excellent for tabular data
+- 🧠 **LSTM Neural Network**: Sequential model for temporal patterns
+
+**Features:**
+- Walk-forward validation (expanding window)
+- Full transparency on data preparation
+- Comprehensive evaluation metrics
+- Feature importance analysis
+- Compare both models side-by-side
+
+**What makes this different:**
+- ✅ **Transparent**: Explicitly documents what we did and didn't do
+- ✅ **No look-ahead bias**: All features properly lagged
+- ✅ **Keeps outliers**: Reports them, user decides on treatment
+- ✅ **Educational**: Detailed interpretation guides
+
+See `docs/ML_PRICE_PREDICTION.md` for complete documentation.
 
 #### Why ETFs for Precious Metals?
 - No API key required
