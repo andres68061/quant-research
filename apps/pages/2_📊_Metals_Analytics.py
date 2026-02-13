@@ -2306,9 +2306,9 @@ elif analysis_type == "ML Price Prediction":
             
             col1, col2 = st.columns(2)
             with col1:
-                st.metric("Down Days (0)", f"{dist['class_0_count']} ({dist['class_0_pct']:.1f}%)")
+                st.metric("Down Days (0)", f"{dist.get('class_0_count', 0)} ({dist.get('class_0_pct', 0):.1f}%)")
             with col2:
-                st.metric("Up Days (1)", f"{dist['class_1_count']} ({dist['class_1_pct']:.1f}%)")
+                st.metric("Up Days (1)", f"{dist.get('class_1_count', 0)} ({dist.get('class_1_pct', 0):.1f}%)")
             
             if dist['is_imbalanced']:
                 st.warning(f"⚠️ {dist['recommendation']}")
@@ -2583,9 +2583,9 @@ elif analysis_type == "ML Price Prediction":
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("Down Days (0)", f"{dist['class_0_count']} ({dist['class_0_pct']:.1f}%)")
+                    st.metric("Down Days (0)", f"{dist.get('class_0_count', 0)} ({dist.get('class_0_pct', 0):.1f}%)")
                 with col2:
-                    st.metric("Up Days (1)", f"{dist['class_1_count']} ({dist['class_1_pct']:.1f}%)")
+                    st.metric("Up Days (1)", f"{dist.get('class_1_count', 0)} ({dist.get('class_1_pct', 0):.1f}%)")
                 
                 if dist['is_imbalanced']:
                     st.warning(f"⚠️ {dist['recommendation']}")

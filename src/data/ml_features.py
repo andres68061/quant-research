@@ -312,6 +312,8 @@ def check_class_imbalance(y: pd.Series, threshold: float = 0.65) -> Dict:
             'is_imbalanced': True,
             'class_0_pct': 0.0 if 0 not in counts else 100.0,
             'class_1_pct': 0.0 if 1 not in counts else 100.0,
+            'class_0_count': counts.get(0, 0),
+            'class_1_count': counts.get(1, 0),
             'recommendation': 'Only one class present - cannot train classifier',
         }
     
