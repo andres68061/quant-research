@@ -62,10 +62,13 @@ def calculate_downside_deviation_expanding(returns: pd.Series) -> pd.Series:
     """
     # Get only negative returns
     negative_returns = returns.copy()
-    negative_returns[negative_returns > 0] = np.nan
+    negative_returns[negative_returns >= 0] = 0  # Set non-negative to 0 instead of NaN
     
     # Calculate expanding std of negative returns
     expanding_dd = negative_returns.expanding().std() * np.sqrt(252)
+    
+    # Fill NaN with 0 (no downside deviation at start)
+    expanding_dd = expanding_dd.fillna(0)
     
     return expanding_dd
 
@@ -86,10 +89,13 @@ def calculate_downside_deviation_rolling(returns: pd.Series, window: int = 21) -
     """
     # Get only negative returns
     negative_returns = returns.copy()
-    negative_returns[negative_returns > 0] = np.nan
+    negative_returns[negative_returns >= 0] = 0  # Set non-negative to 0 instead of NaN
     
     # Calculate rolling std of negative returns
     rolling_dd = negative_returns.rolling(window).std() * np.sqrt(252)
+    
+    # Fill NaN with 0 (no downside deviation when window has no data or only positive returns)
+    rolling_dd = rolling_dd.fillna(0)
     
     return rolling_dd
 
@@ -124,7 +130,7 @@ def create_ml_features(
     logger.info(f"Creating ML features for {symbol}, {len(prices)} data points")
     
     # Forward fill missing prices (commodities don't gap randomly)
-    prices = prices.fillna(method='ffill')
+    prices = prices.ffill()
     
     df = pd.DataFrame(index=prices.index)
     
@@ -424,7 +430,7 @@ def create_ml_features_with_transparency(
     }
     
     # Forward fill
-    prices_filled = prices.fillna(method='ffill')
+    prices_filled = prices.ffill()
     
     # Calculate log returns for outlier check
     log_returns = np.log(prices_filled / prices_filled.shift(1))
