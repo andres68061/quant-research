@@ -2217,31 +2217,50 @@ elif analysis_type == "ML Price Prediction":
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🤖 ML Configuration")
     
-    # Calculate dynamic limits based on available data
-    available_days = len(date_filtered_df)
-    max_train_days = int(available_days * 0.8)  # 80% for training
-    max_test_days = int(available_days * 0.1)   # Max 10% for single test period
-    max_sequence = min(252, int(available_days * 0.2))  # Max 20% or 1 year
-    
-    st.sidebar.info(f"""
-    **Available Data:** {available_days} days
-    
-    **Dynamic Limits (80% rule):**
-    - Max training: {max_train_days} days
-    - Max test period: {max_test_days} days
-    - Max sequence: {max_sequence} days
-    """)
-    
-    # Data frequency (future enhancement)
+    # Data frequency selector (BEFORE calculating limits)
     data_freq = st.sidebar.selectbox(
         "Data Frequency",
-        ["Daily", "Weekly (Coming Soon)", "Monthly (Coming Soon)"],
-        help="Frequency of data points (currently daily only)",
-        disabled=False
+        ["Daily", "Weekly", "Monthly"],
+        help="Frequency of data points for ML training"
     )
     
-    if data_freq != "Daily":
-        st.sidebar.warning("⚠️ Weekly/Monthly frequency coming soon!")
+    # Resample data based on frequency
+    original_len = len(date_filtered_df)
+    if data_freq == "Weekly":
+        date_filtered_df = date_filtered_df.resample('W-FRI').last()  # Weekly, Friday close
+        st.sidebar.success(f"""
+        ✅ **Resampled to Weekly**
+        - {original_len} days → {len(date_filtered_df)} weeks
+        - Friday closing prices
+        - ~5x faster training!
+        """)
+    elif data_freq == "Monthly":
+        date_filtered_df = date_filtered_df.resample('M').last()  # Monthly, end of month
+        st.sidebar.success(f"""
+        ✅ **Resampled to Monthly**
+        - {original_len} days → {len(date_filtered_df)} months
+        - End-of-month prices
+        - ~21x faster training!
+        """)
+    elif data_freq == "Daily":
+        st.sidebar.info(f"📅 **Daily frequency:** {original_len} days")
+    
+    # Calculate dynamic limits based on available data (AFTER resampling)
+    available_periods = len(date_filtered_df)
+    max_train_periods = int(available_periods * 0.8)  # 80% for training
+    max_test_periods = int(available_periods * 0.1)   # Max 10% for single test period
+    max_sequence = min(252, int(available_periods * 0.2))  # Max 20% or 1 year
+    
+    freq_label = {"Daily": "days", "Weekly": "weeks", "Monthly": "months"}[data_freq]
+    
+    st.sidebar.info(f"""
+    **Available Data:** {available_periods} {freq_label}
+    
+    **Dynamic Limits (80% rule):**
+    - Max training: {max_train_periods} {freq_label}
+    - Max test: {max_test_periods} {freq_label}
+    - Max sequence: {max_sequence} {freq_label}
+    """)
     
     model_choice = st.sidebar.selectbox(
         "Model",
@@ -2250,21 +2269,21 @@ elif analysis_type == "ML Price Prediction":
     )
     
     initial_train = st.sidebar.number_input(
-        "Initial Training Days",
+        f"Initial Training Periods ({freq_label})",
         min_value=30,
-        max_value=max_train_days,
-        value=min(252, max_train_days),  # Default 1 year or max available
-        step=21,
-        help=f"Initial training period (max {max_train_days} = 80% of {available_days} days)"
+        max_value=max_train_periods,
+        value=min(252, max_train_periods),
+        step=21 if data_freq == "Daily" else 4,  # Weekly: 4 weeks, Daily: 21 days
+        help=f"Initial training period (max {max_train_periods} = 80% of data)"
     )
     
     test_period = st.sidebar.number_input(
-        "Test Period Days",
+        f"Test Period ({freq_label})",
         min_value=1,
-        max_value=max_test_days,
-        value=min(5, max_test_days),
+        max_value=max_test_periods,
+        value=min(5, max_test_periods) if data_freq == "Daily" else min(1, max_test_periods),
         step=1,
-        help=f"Test period (max {max_test_days} = 10% of data)"
+        help=f"Test period (max {max_test_periods})"
     )
     
     # Model-specific parameters
