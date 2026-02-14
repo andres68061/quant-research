@@ -2861,7 +2861,8 @@ elif analysis_type == "ML Price Prediction":
         max_value=max_train_periods,
         value=default_train,
         step=21 if data_freq == "Daily" else 4,
-        help=f"How many past {freq_label} to train on (expanding window)"
+        help=f"How many past {freq_label} to train on (expanding window)",
+        key=f"train_size_{data_freq}"  # Reset when frequency changes
     )
     
     test_size = st.sidebar.number_input(
@@ -2870,7 +2871,8 @@ elif analysis_type == "ML Price Prediction":
         max_value=max_test_periods,
         value=default_test,
         step=1,
-        help=f"How many {freq_label} to test on each iteration"
+        help=f"How many {freq_label} to test on each iteration",
+        key=f"test_size_{data_freq}"  # Reset when frequency changes
     )
     
     seq_len = None
@@ -2881,7 +2883,8 @@ elif analysis_type == "ML Price Prediction":
             max_value=max_sequence,
             value=default_seq,
             step=10 if data_freq == "Daily" else 4,
-            help=f"LSTM lookback: how many {freq_label} in each input sample"
+            help=f"LSTM lookback: how many {freq_label} in each input sample",
+            key=f"seq_len_{data_freq}"  # Reset when frequency changes
         )
     
     st.sidebar.markdown("""
@@ -2939,7 +2942,8 @@ elif analysis_type == "ML Price Prediction":
             max_value=max_test_periods,
             value=test_size,  # Default: same as test_size
             step=1,
-            help=f"How far to move window forward (default = test_size for no overlap)"
+            help=f"How far to move window forward (default = test_size for no overlap)",
+            key=f"step_size_{data_freq}"  # Reset when frequency changes
         )
         
         st.caption("""
@@ -2959,7 +2963,8 @@ elif analysis_type == "ML Price Prediction":
             max_value=int(train_size * 0.3),
             value=0,
             step=10 if data_freq == "Daily" else 2,
-            help=f"Slice of training for hyperparameter tuning (0 = no validation)"
+            help=f"Slice of training for hyperparameter tuning (0 = no validation)",
+            key=f"val_size_{data_freq}"  # Reset when frequency changes
         )
         
         st.caption("""
