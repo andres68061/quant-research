@@ -2226,10 +2226,10 @@ elif analysis_type == "ML Price Prediction":
     initial_train = st.sidebar.number_input(
         "Initial Training Days",
         min_value=30,
-        max_value=252,
+        max_value=2520,  # Allow up to ~10 years
         value=63,
         step=21,
-        help="Initial training period (~3 months = 63 days)"
+        help="Initial training period (63 days = 3 months, 252 = 1 year, 504 = 2 years)"
     )
     
     test_period = st.sidebar.number_input(
@@ -2240,6 +2240,41 @@ elif analysis_type == "ML Price Prediction":
         step=1,
         help="Test period (5 days = 1 week)"
     )
+    
+    # LSTM-specific parameters (only show if LSTM is selected)
+    lstm_sequence = None
+    if model_choice in ["Compare Both", "LSTM Only"]:
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### 🧠 LSTM Parameters")
+        
+        lstm_sequence = st.sidebar.number_input(
+            "LSTM Sequence Length",
+            min_value=20,
+            max_value=252,
+            value=60,
+            step=10,
+            help="Number of days LSTM looks back (60 days = ~3 months)"
+        )
+        
+        st.sidebar.info(f"""
+        **LSTM Recommendations:**
+        - Initial training: ≥{lstm_sequence + 100} days
+        - Current: {initial_train} days
+        """)
+    
+    # Model-specific recommendations
+    if model_choice == "XGBoost Only":
+        st.sidebar.info("""
+        **XGBoost works well with:**
+        - Initial training: 63-252 days
+        - Can handle limited data
+        """)
+    elif model_choice == "Compare Both":
+        st.sidebar.warning(f"""
+        **Note:** LSTM needs more data than XGBoost!
+        - XGBoost: 63+ days OK
+        - LSTM: {lstm_sequence + 100}+ days recommended
+        """)
     
     # Run button
     run_ml = st.sidebar.button("🚀 Run ML Prediction", type="primary")
@@ -2320,10 +2355,14 @@ elif analysis_type == "ML Price Prediction":
         
         if model_choice == "Compare Both":
             with st.spinner("Training XGBoost and LSTM models (this may take 2-3 minutes)..."):
+                # Prepare LSTM params
+                lstm_params = {'sequence_length': lstm_sequence} if lstm_sequence else {}
+                
                 results = compare_models(
                     features_df,
                     initial_train_days=initial_train,
                     test_days=test_period,
+                    lstm_params=lstm_params,
                     verbose=False,
                 )
             
@@ -2523,7 +2562,7 @@ elif analysis_type == "ML Price Prediction":
             model_type = "xgboost" if model_choice == "XGBoost Only" else "lstm"
             model_emoji = "🌳" if model_type == "xgboost" else "🧠"
             
-            with st.spinner(f"Training {model_choice} model..."):
+            with st.spinner(f"Creating features for {commodity_name}..."):
                 # Create features
                 price_series = date_filtered_df[symbol].dropna()
                 features_df, metadata = create_ml_features_with_transparency(
@@ -2533,8 +2572,28 @@ elif analysis_type == "ML Price Prediction":
                 
                 st.success(f"✅ Features: {metadata['final_rows']} rows, {metadata['total_features']} features")
             
-            # Show transparency section
-            with st.expander("📋 Data Preparation Transparency", expanded=True):
+            # Run model
+            with st.spinner(f"Training {model_choice} model..."):
+                # Prepare model params
+                model_params = {}
+                if model_type == "lstm" and lstm_sequence:
+                    model_params['sequence_length'] = lstm_sequence
+                
+                results = run_walk_forward_validation(
+                    features_df,
+                    model_type=model_type,
+                    initial_train_days=initial_train,
+                    test_days=test_period,
+                    model_params=model_params,
+                    verbose=False,
+                )
+            
+            if 'error' in results:
+                st.error(f"❌ {results['error']}")
+                st.stop()
+            
+            # Show transparency section (collapsed by default, after training)
+            with st.expander("📋 Data Preparation Transparency"):
                 st.markdown("### What We Did")
                 
                 col1, col2 = st.columns(2)
@@ -2591,22 +2650,6 @@ elif analysis_type == "ML Price Prediction":
                     st.warning(f"⚠️ {dist['recommendation']}")
                 else:
                     st.success(f"✅ {dist['recommendation']}")
-            
-            # Run model
-            st.markdown("---")
-            
-            with st.spinner(f"Training {model_choice} model..."):
-                results = run_walk_forward_validation(
-                    features_df,
-                    model_type=model_type,
-                    initial_train_days=initial_train,
-                    test_days=test_period,
-                    verbose=False,
-                )
-            
-            if 'error' in results:
-                st.error(f"❌ {results['error']}")
-                st.stop()
             
             # Display results
             st.markdown(f"### {model_emoji} {model_choice} Results")
