@@ -120,38 +120,7 @@ for symbol, config in COMMODITIES_CONFIG.items():
 # Sidebar controls
 st.sidebar.header("⚙️ Analysis Settings")
 
-# Commodity selection
-available_commodities = [symbol_to_display.get(col, col) for col in df.columns]
-default_selection = [
-    symbol_to_display.get("GLD", "Gold (GLD ETF)"),
-    symbol_to_display.get("SLV", "Silver (SLV ETF)"),
-    symbol_to_display.get("COPPER", "Copper"),
-]
-# Filter defaults to only those that exist
-default_selection = [
-    d for d in default_selection if d in available_commodities]
-
-selected_display = st.sidebar.multiselect(
-    "Select Assets",
-    available_commodities,
-    default=default_selection,
-    help="Choose which assets to analyze",
-)
-
-# Convert back to symbols
-selected_commodities = [display_to_symbol.get(d, d) for d in selected_display]
-
-# Data resampling
-resample_freq = st.sidebar.selectbox(
-    "Data Frequency",
-    ["Daily", "Weekly", "Monthly"],
-    index=0,
-    help="Resample data to different frequencies",
-)
-
-freq_map = {"Daily": "D", "Weekly": "W", "Monthly": "ME"}
-
-# Analysis type
+# Analysis type selector (moved to top for better UX)
 analysis_type = st.sidebar.selectbox(
     "Analysis Type",
     [
@@ -172,6 +141,47 @@ analysis_type = st.sidebar.selectbox(
     ],
     help="Type of analysis to perform",
 )
+
+# Smart defaults based on analysis type
+if analysis_type == "ML Price Prediction":
+    # ML needs single commodity - default to Silver
+    ml_default = [symbol_to_display.get("SLV", "Silver (SLV ETF)")]
+    ml_default = [d for d in ml_default if d in available_commodities]
+    
+    if not ml_default:
+        # Fallback to first available
+        ml_default = [available_commodities[0]] if available_commodities else []
+    
+    default_for_ml = ml_default
+else:
+    # Other analyses can use multiple commodities
+    default_for_ml = [
+        symbol_to_display.get("GLD", "Gold (GLD ETF)"),
+        symbol_to_display.get("SLV", "Silver (SLV ETF)"),
+        symbol_to_display.get("COPPER", "Copper"),
+    ]
+    default_for_ml = [d for d in default_for_ml if d in available_commodities]
+
+# Commodity selection
+selected_display = st.sidebar.multiselect(
+    "Select Assets",
+    available_commodities,
+    default=default_for_ml,
+    help="Choose which assets to analyze" + (" (ML requires exactly 1 asset)" if analysis_type == "ML Price Prediction" else ""),
+)
+
+# Convert back to symbols
+selected_commodities = [display_to_symbol.get(d, d) for d in selected_display]
+
+# Data resampling
+resample_freq = st.sidebar.selectbox(
+    "Data Frequency",
+    ["Daily", "Weekly", "Monthly"],
+    index=0,
+    help="Resample data to different frequencies",
+)
+
+freq_map = {"Daily": "D", "Weekly": "W", "Monthly": "ME"}
 
 if not selected_commodities:
     st.warning("Please select at least one commodity")
@@ -2626,6 +2636,23 @@ elif analysis_type == "ML Price Prediction":
 
     freq_label = {"Daily": "days", "Weekly": "weeks",
                   "Monthly": "months"}[data_freq]
+    
+    # Smart defaults for fast training (30-60 seconds)
+    if data_freq == "Daily":
+        default_train = min(252, max_train_periods)  # 1 year
+        default_test = min(5, max_test_periods)      # 1 week
+        default_seq = min(60, max_sequence)          # 2-3 months
+        est_time = "~30-60 seconds"
+    elif data_freq == "Weekly":
+        default_train = min(104, max_train_periods)  # 2 years
+        default_test = min(4, max_test_periods)      # 1 month
+        default_seq = min(26, max_sequence)          # 6 months
+        est_time = "~15-30 seconds"
+    else:  # Monthly
+        default_train = min(60, max_train_periods)   # 5 years
+        default_test = min(3, max_test_periods)      # 3 months
+        default_seq = min(12, max_sequence)          # 1 year
+        est_time = "~10-20 seconds"
 
     st.sidebar.info(f"""
     **Available Data:** {available_periods} {freq_label}
@@ -2634,12 +2661,14 @@ elif analysis_type == "ML Price Prediction":
     - Max train_size: {max_train_periods} {freq_label}
     - Max test_size: {max_test_periods} {freq_label}
     - Max seq_len: {max_sequence} {freq_label}
+    
+    **⚡ Quick Start Defaults:** Pre-configured for {est_time} training time
     """)
     
     model_choice = st.sidebar.selectbox(
         "Model",
-        ["Compare Both", "XGBoost Only", "LSTM Only"],
-        help="Compare both models or run individually"
+        ["XGBoost Only", "LSTM Only", "Compare Both"],
+        help="XGBoost Only is fastest (~15s), Compare Both takes 2x longer"
     )
     
     # ============================================================================
@@ -2656,7 +2685,7 @@ elif analysis_type == "ML Price Prediction":
         "1️⃣ Training Window (train_size)",
         min_value=30,
         max_value=max_train_periods,
-        value=min(252, max_train_periods),
+        value=default_train,
         step=21 if data_freq == "Daily" else 4,
         help=f"How many past {freq_label} to train on (expanding window)"
     )
@@ -2665,7 +2694,7 @@ elif analysis_type == "ML Price Prediction":
         "2️⃣ Test Window (test_size)",
         min_value=1,
         max_value=max_test_periods,
-        value=min(5, max_test_periods) if data_freq == "Daily" else min(1, max_test_periods),
+        value=default_test,
         step=1,
         help=f"How many {freq_label} to test on each iteration"
     )
@@ -2676,7 +2705,7 @@ elif analysis_type == "ML Price Prediction":
             "3️⃣ Sequence Length (seq_len)",
             min_value=20,
             max_value=max_sequence,
-            value=min(60, max_sequence),
+            value=default_seq,
             step=10 if data_freq == "Daily" else 4,
             help=f"LSTM lookback: how many {freq_label} in each input sample"
         )
