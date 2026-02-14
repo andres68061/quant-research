@@ -2575,71 +2575,15 @@ elif analysis_type == "ML Price Prediction":
 
     st.markdown(f"### 🎯 Predicting: {commodity_name}")
     
-    # ============================================================================
-    # DETECT REGIME FIRST (Before configuration)
-    # ============================================================================
-    st.markdown("### 🎯 Step 1: Detect Current Market Regime")
-    
-    with st.spinner("Analyzing current market conditions..."):
-        # Calculate rolling volatility to detect regime
-        price_series = date_filtered_df[symbol].dropna()
-        returns = np.log(price_series / price_series.shift(1)).dropna()
-        
-        # Calculate volatility for regime detection (use 63-day window)
-        rolling_vol = returns.rolling(63).std() * np.sqrt(252)
-        current_vol = rolling_vol.iloc[-1] * 100
-        
-        # Import regime functions
-        from data.ml_features import classify_volatility_regime, get_regime_trading_recommendation
-        
-        current_regime = classify_volatility_regime(current_vol / 100, rolling_vol)
-        regime_rec = get_regime_trading_recommendation(current_regime)
-    
-    # Display detected regime prominently
-    regime_color_map = {
-        "Low Volatility": "success",
-        "Medium Volatility": "info",
-        "High Volatility": "warning"
-    }
-    
-    regime_method = getattr(st, regime_color_map[current_regime])
-    regime_method(f"""
-    **{regime_rec['emoji']} Current Regime: {current_regime}**
-    
-    Current volatility: **{current_vol:.1f}%** annualized
-    
-    **🎯 Regime-Based Recommendations:**
-    - 📊 Data frequency: **{regime_rec['frequency']}**
-    - 🤖 Best model: **{regime_rec['model']}**
-    - 📅 Training period: **{regime_rec['training']}**
-    - 🎯 Focus features: {regime_rec['features']}
-    
-    **These recommendations are now applied as defaults in the sidebar! ➡️**
-    """)
-    
-    # Show current date range info
     st.markdown("---")
-    st.markdown("### 📅 Step 2: Review Data Range")
+    st.markdown("### 📅 Step 1: Select Data Scope")
     
     st.info(f"""
-    📅 **Current Date Range:** {date_filtered_df.index[0].strftime('%Y-%m-%d')} to {date_filtered_df.index[-1].strftime('%Y-%m-%d')}
+    📅 **Available Data Range:** {date_filtered_df.index[0].strftime('%Y-%m-%d')} to {date_filtered_df.index[-1].strftime('%Y-%m-%d')}
     
-    **Total periods available:** {len(date_filtered_df)} days ({len(date_filtered_df) / 365.25:.1f} years)
+    **Total:** {len(date_filtered_df)} days ({len(date_filtered_df) / 365.25:.1f} years)
     
-    💡 **Tip:** Adjust "Training Data Selection" in sidebar if you want more/less history.
-    """)
-    
-    st.markdown("---")
-    st.markdown("### 🚀 Step 3: Configure & Run (Sidebar →)")
-    
-    st.info("""
-    **Ready to run with regime-optimized defaults!**
-    
-    Check the sidebar → All parameters are pre-configured based on the detected regime.
-    
-    You can:
-    - ✅ Click "Run ML Prediction" immediately (recommended)
-    - 📝 Or customize parameters first if needed
+    👈 **Configure data selection in sidebar first**, then regime will be detected on your chosen timeframe.
     """)
 
     # Check data availability
@@ -2655,33 +2599,10 @@ elif analysis_type == "ML Price Prediction":
         st.stop()
 
     # ============================================================================
-    # SIDEBAR CONFIGURATION (Regime info at top)
+    # SIDEBAR CONFIGURATION (Data selection FIRST, then detect regime)
     # ============================================================================
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🤖 ML Configuration")
-    
-    st.sidebar.success(f"""
-    ✅ **Regime Detected: {current_regime}**
-    
-    Defaults below are optimized for current market conditions.
-    """)
-    
-    # ============================================================================
-    # REGIME-AWARE DEFAULT INDEXES (Before UI elements)
-    # ============================================================================
-    # Set default indexes based on detected regime (not values yet)
-    if current_regime == "Low Volatility":
-        default_freq_index = 0  # Daily (more precision in stable markets)
-        default_lookback_index = 1  # 5 years (stable regime, can use more history)
-        default_model_index = 0  # XGBoost (faster, sufficient for low vol)
-    elif current_regime == "Medium Volatility":
-        default_freq_index = 1  # Weekly (balance precision/noise)
-        default_lookback_index = 1  # 5 years (balanced)
-        default_model_index = 0  # XGBoost
-    else:  # High Volatility
-        default_freq_index = 2  # Monthly (reduce noise)
-        default_lookback_index = 2  # 3 years (recent regime-specific)
-        default_model_index = 1  # LSTM (better for volatility)
     
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 📅 Training Data Selection")
@@ -2728,7 +2649,7 @@ elif analysis_type == "ML Price Prediction":
             "Last 3 Years (Current Regime Focus)",
             "Last 2 Years (Very Recent Only)",
         ],
-        index=default_lookback_index,  # Regime-aware default
+        index=1,  # Default: Last 5 Years (sensible for most cases)
         help="How much historical data to use for training. Shorter = faster + more regime-specific."
     )
     
@@ -2763,7 +2684,7 @@ elif analysis_type == "ML Price Prediction":
     data_freq = st.sidebar.selectbox(
         "Data Frequency",
         ["Daily", "Weekly", "Monthly"],
-        index=default_freq_index,  # Regime-aware default
+        index=0,  # Default: Daily (most common)
         help="Frequency of data points for ML training"
     )
 
@@ -2847,9 +2768,78 @@ elif analysis_type == "ML Price Prediction":
     model_choice = st.sidebar.selectbox(
         "Model",
         ["XGBoost Only", "LSTM Only", "Compare Both"],
-        index=default_model_index,  # Regime-aware default
+        index=0,  # Default: XGBoost (fastest)
         help="XGBoost Only is fastest (~15s), Compare Both takes 2x longer"
     )
+    
+    # ============================================================================
+    # DETECT REGIME (After data filtering, for information only)
+    # ============================================================================
+    st.markdown("---")
+    st.markdown("### 🎯 Step 2: Market Regime Analysis")
+    
+    with st.spinner("Analyzing market regime on selected data..."):
+        # Calculate rolling volatility to detect regime
+        price_series = date_filtered_df[symbol].dropna()
+        returns = np.log(price_series / price_series.shift(1)).dropna()
+        
+        # Calculate volatility for regime detection (use 63-day window)
+        rolling_vol = returns.rolling(min(63, len(returns)//2)).std() * np.sqrt(252)
+        current_vol = rolling_vol.iloc[-1] * 100
+        
+        # Import regime functions
+        from data.ml_features import classify_volatility_regime, get_regime_trading_recommendation
+        
+        current_regime = classify_volatility_regime(current_vol / 100, rolling_vol)
+        regime_rec = get_regime_trading_recommendation(current_regime)
+    
+    # Display detected regime
+    regime_color_map = {
+        "Low Volatility": "success",
+        "Medium Volatility": "info",
+        "High Volatility": "warning"
+    }
+    
+    regime_method = getattr(st, regime_color_map[current_regime])
+    regime_method(f"""
+    **{regime_rec['emoji']} Detected Regime: {current_regime}**
+    
+    Based on your selected data: {len(date_filtered_df)} {freq_label}  
+    Current volatility: **{current_vol:.1f}%** annualized
+    
+    **📊 Regime Insights:**
+    - **Recommended frequency:** {regime_rec['frequency']}  
+      (You selected: {data_freq})
+    - **Recommended model:** {regime_rec['model']}  
+      (You selected: {model_choice})
+    - **Focus features:** {regime_rec['features']}
+    - **Risk management:** {regime_rec['risk']}
+    """)
+    
+    # Check alignment
+    freq_match = (current_regime == "Low Volatility" and data_freq == "Daily") or \
+                 (current_regime == "Medium Volatility" and data_freq == "Weekly") or \
+                 (current_regime == "High Volatility" and data_freq == "Monthly")
+    
+    if not freq_match:
+        st.info(f"""
+        💡 **Tip:** Your settings work, but consider:
+        - {current_regime} typically performs better with {regime_rec['frequency']} data
+        - You can change "Data Frequency" in sidebar and re-run
+        """)
+    
+    st.markdown("---")
+    st.markdown("### 🚀 Step 3: Run Training")
+    
+    st.info("""
+    **Ready to train!**
+    
+    ✅ Data selected and filtered  
+    ✅ Regime analyzed  
+    ✅ Parameters configured in sidebar  
+    
+    Click "Run ML Prediction" in sidebar when ready →
+    """)
     
     # ============================================================================
     # CORE PARAMETERS (Required for Walk-Forward Validation)
