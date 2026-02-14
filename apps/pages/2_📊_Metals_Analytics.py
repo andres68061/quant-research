@@ -2777,6 +2777,22 @@ elif analysis_type == "ML Price Prediction":
     )
     
     # ============================================================================
+    # VIEW MODE SELECTION
+    # ============================================================================
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 📊 View Mode")
+    
+    view_mode = st.sidebar.radio(
+        "Select Mode",
+        ["🔧 Interactive (Run Custom)", "⚡ Quick View (Pre-computed)"],
+        index=0,
+        help="""
+        **Interactive:** Customize parameters and train models (30 sec - 30 min)
+        **Quick View:** Instant results from pre-computed cache (< 1 sec)
+        """
+    )
+    
+    # ============================================================================
     # DETECT REGIME (After data filtering, for information only)
     # ============================================================================
     st.markdown("---")
@@ -2835,15 +2851,85 @@ elif analysis_type == "ML Price Prediction":
     st.markdown("---")
     st.markdown("### 🚀 Step 3: Run Training")
     
-    st.info("""
-    **Ready to train!**
-    
-    ✅ Data selected and filtered  
-    ✅ Regime analyzed  
-    ✅ Parameters configured in sidebar  
-    
-    Click "Run ML Prediction" in sidebar when ready →
-    """)
+    # ============================================================================
+    # QUICK VIEW MODE: Load Pre-computed Results
+    # ============================================================================
+    if view_mode == "⚡ Quick View (Pre-computed)":
+        st.info("""
+        **⚡ Quick View Mode:** Loading pre-computed results (instant!)
+        
+        These results were pre-calculated with optimized parameters for fast demonstration.
+        Switch to "Interactive" mode to customize parameters and train your own models.
+        """)
+        
+        from utils.ml_cache import load_ml_results, list_cached_results
+        
+        # Try to load cached results
+        cache_model_type = "compare" if model_choice == "Compare Both" else ("xgboost" if model_choice == "XGBoost Only" else "lstm")
+        cached = load_ml_results(symbol, data_freq, cache_model_type)
+        
+        if cached is None:
+            # Show available cache
+            available_cache = list_cached_results()
+            
+            if not available_cache:
+                st.warning("""
+                ❌ **No cached results found**
+                
+                The cache directory is empty. To use Quick View:
+                1. Switch to "Interactive" mode
+                2. Run training with your desired parameters
+                3. Results will be auto-cached for future Quick View
+                
+                Or run the pre-computation notebook: `notebooks/07_precompute_ml_results.ipynb`
+                """)
+            else:
+                st.warning(f"""
+                ❌ **No cached results for:** {symbol} / {data_freq} / {model_choice}
+                
+                **Available cached results:**
+                """)
+                for sym, freq, mtype, path in available_cache:
+                    st.markdown(f"- {sym} / {freq} / {mtype}")
+                
+                st.info("""
+                **To generate cache for this combination:**
+                1. Switch to "Interactive" mode
+                2. Run training
+                3. Return to Quick View
+                """)
+            
+            st.stop()
+        
+        # Display cached results
+        st.success(f"""
+        ✅ **Loaded cached results**
+        
+        **Settings used:**
+        - Symbol: {cached['metadata'].get('symbol', symbol)}
+        - Frequency: {cached['metadata'].get('freq', data_freq)}
+        - Date computed: {cached['metadata'].get('date', 'Unknown')}
+        """)
+        
+        results = cached['results']
+        metadata = cached.get('metadata', {})
+        
+        # Continue to results display section (skip training logic below)
+        # The display logic is the same for both modes
+        
+    # ============================================================================
+    # INTERACTIVE MODE: Run Training
+    # ============================================================================
+    else:
+        st.info("""
+        **Ready to train!**
+        
+        ✅ Data selected and filtered  
+        ✅ Regime analyzed  
+        ✅ Parameters configured in sidebar  
+        
+        Click "Run ML Prediction" in sidebar when ready →
+        """)
     
     # ============================================================================
     # CORE PARAMETERS (Required for Walk-Forward Validation)
@@ -3128,10 +3214,10 @@ elif analysis_type == "ML Price Prediction":
         XGBoost and LSTM trained independently.
         """)
 
-    # Run button
-    run_ml = st.sidebar.button("🚀 Run ML Prediction", type="primary")
+        # Run button (only show in Interactive mode)
+        run_ml = st.sidebar.button("🚀 Run ML Prediction", type="primary")
 
-    if run_ml:
+        if run_ml:
         # Regime already detected above, skip duplicate detection
         st.markdown("---")
         st.markdown("### 🤖 Training Models")
@@ -3313,6 +3399,27 @@ elif analysis_type == "ML Price Prediction":
             progress_bar.empty()
             progress_text.empty()
             status_placeholder.success(f"✅ **Training complete!** Processed {actual_splits} splits for each model")
+            
+            # Cache results for Quick View
+            try:
+                from utils.ml_cache import save_ml_results
+                from datetime import datetime
+                
+                cache_metadata = {
+                    'symbol': symbol,
+                    'freq': data_freq,
+                    'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'train_size': train_size,
+                    'test_size': test_size,
+                    'seq_len': seq_len,
+                    'max_splits': max_splits,
+                    'actual_splits': actual_splits,
+                }
+                
+                save_ml_results(symbol, data_freq, "compare", results, cache_metadata)
+                st.caption("💾 Results cached for Quick View mode")
+            except Exception as e:
+                st.caption(f"⚠️ Failed to cache results: {e}")
 
             # Display comparison
             st.markdown("### 📊 Model Comparison Results")
@@ -3532,6 +3639,10 @@ elif analysis_type == "ML Price Prediction":
                 progress = current / total
                 progress_bar.progress(progress)
                 progress_text.text(f"Training split {current}/{total}... ({progress*100:.0f}% complete)")
+                # Force Streamlit to update UI immediately (especially for slow LSTM)
+                if current % 5 == 0 or current == total:  # Update every 5 splits or at end
+                    import time
+                    time.sleep(0.01)  # Give UI time to refresh
             
             # Prepare model params
             model_params = {}
@@ -3563,6 +3674,28 @@ elif analysis_type == "ML Price Prediction":
             progress_bar.empty()
             progress_text.empty()
             status_placeholder.success(f"✅ **Training complete!** Processed {actual_splits} splits")
+            
+            # Cache results for Quick View
+            try:
+                from utils.ml_cache import save_ml_results
+                from datetime import datetime
+                
+                cache_metadata = {
+                    'symbol': symbol,
+                    'freq': data_freq,
+                    'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'train_size': train_size,
+                    'test_size': test_size,
+                    'seq_len': seq_len,
+                    'max_splits': max_splits,
+                    'actual_splits': actual_splits,
+                    'model_type': model_type,
+                }
+                
+                save_ml_results(symbol, data_freq, model_type, results, cache_metadata)
+                st.caption("💾 Results cached for Quick View mode")
+            except Exception as e:
+                st.caption(f"⚠️ Failed to cache results: {e}")
 
             if 'error' in results:
                 st.error(f"❌ {results['error']}")
