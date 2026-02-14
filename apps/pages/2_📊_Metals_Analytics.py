@@ -2777,22 +2777,6 @@ elif analysis_type == "ML Price Prediction":
     )
     
     # ============================================================================
-    # VIEW MODE SELECTION
-    # ============================================================================
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 📊 View Mode")
-    
-    view_mode = st.sidebar.radio(
-        "Select Mode",
-        ["🔧 Interactive (Run Custom)", "⚡ Quick View (Pre-computed)"],
-        index=0,
-        help="""
-        **Interactive:** Customize parameters and train models (30 sec - 30 min)
-        **Quick View:** Instant results from pre-computed cache (< 1 sec)
-        """
-    )
-    
-    # ============================================================================
     # DETECT REGIME (After data filtering, for information only)
     # ============================================================================
     st.markdown("---")
@@ -2851,85 +2835,15 @@ elif analysis_type == "ML Price Prediction":
     st.markdown("---")
     st.markdown("### 🚀 Step 3: Run Training")
     
-    # ============================================================================
-    # QUICK VIEW MODE: Load Pre-computed Results
-    # ============================================================================
-    if view_mode == "⚡ Quick View (Pre-computed)":
-        st.info("""
-        **⚡ Quick View Mode:** Loading pre-computed results (instant!)
-        
-        These results were pre-calculated with optimized parameters for fast demonstration.
-        Switch to "Interactive" mode to customize parameters and train your own models.
-        """)
-        
-        from utils.ml_cache import load_ml_results, list_cached_results
-        
-        # Try to load cached results
-        cache_model_type = "compare" if model_choice == "Compare Both" else ("xgboost" if model_choice == "XGBoost Only" else "lstm")
-        cached = load_ml_results(symbol, data_freq, cache_model_type)
-        
-        if cached is None:
-            # Show available cache
-            available_cache = list_cached_results()
-            
-            if not available_cache:
-                st.warning("""
-                ❌ **No cached results found**
-                
-                The cache directory is empty. To use Quick View:
-                1. Switch to "Interactive" mode
-                2. Run training with your desired parameters
-                3. Results will be auto-cached for future Quick View
-                
-                Or run the pre-computation notebook: `notebooks/07_precompute_ml_results.ipynb`
-                """)
-            else:
-                st.warning(f"""
-                ❌ **No cached results for:** {symbol} / {data_freq} / {model_choice}
-                
-                **Available cached results:**
-                """)
-                for sym, freq, mtype, path in available_cache:
-                    st.markdown(f"- {sym} / {freq} / {mtype}")
-                
-                st.info("""
-                **To generate cache for this combination:**
-                1. Switch to "Interactive" mode
-                2. Run training
-                3. Return to Quick View
-                """)
-            
-            st.stop()
-        
-        # Display cached results
-        st.success(f"""
-        ✅ **Loaded cached results**
-        
-        **Settings used:**
-        - Symbol: {cached['metadata'].get('symbol', symbol)}
-        - Frequency: {cached['metadata'].get('freq', data_freq)}
-        - Date computed: {cached['metadata'].get('date', 'Unknown')}
-        """)
-        
-        results = cached['results']
-        metadata = cached.get('metadata', {})
-        
-        # Continue to results display section (skip training logic below)
-        # The display logic is the same for both modes
-        
-    # ============================================================================
-    # INTERACTIVE MODE: Run Training
-    # ============================================================================
-    else:
-        st.info("""
-        **Ready to train!**
-        
-        ✅ Data selected and filtered  
-        ✅ Regime analyzed  
-        ✅ Parameters configured in sidebar  
-        
-        Click "Run ML Prediction" in sidebar when ready →
-        """)
+    st.info("""
+    **Ready to train!**
+    
+    ✅ Data selected and filtered  
+    ✅ Regime analyzed  
+    ✅ Parameters configured in sidebar  
+    
+    Click "Run ML Prediction" in sidebar when ready →
+    """)
     
     # ============================================================================
     # CORE PARAMETERS (Required for Walk-Forward Validation)
@@ -3218,491 +3132,82 @@ elif analysis_type == "ML Price Prediction":
         run_ml = st.sidebar.button("🚀 Run ML Prediction", type="primary")
 
         if run_ml:
-        # Regime already detected above, skip duplicate detection
-        st.markdown("---")
-        st.markdown("### 🤖 Training Models")
-
-        with st.spinner(f"Creating features for {commodity_name}..."):
-            # Create features
-            features_df, metadata = create_ml_features_with_transparency(
-                price_series,
-                symbol=symbol
-            )
-
-            st.success(
-                f"✅ Features created: {metadata['final_rows']} rows, {metadata['total_features']} features")
-        
-        # ============================================================================
-        # DATA SUFFICIENCY CHECK
-        # ============================================================================
-        # Check if we have enough data for walk-forward validation
-        available_rows = len(features_df)
-        
-        # Calculate minimum required rows
-        if model_choice in ["Compare Both", "LSTM Only"]:
-            # LSTM needs: train_size + seq_len + test_size (seq_len for first window)
-            min_required = train_size + seq_len + test_size
-            model_req_msg = f"LSTM requires train_size ({train_size}) + seq_len ({seq_len}) + test_size ({test_size})"
-        else:
-            # XGBoost needs: train_size + test_size
-            min_required = train_size + test_size
-            model_req_msg = f"XGBoost requires train_size ({train_size}) + test_size ({test_size})"
-        
-        if available_rows < min_required:
-            st.error(f"""
-            ❌ **Insufficient data for walk-forward validation**
-            
-            **Data Available:**
-            - After feature creation: **{available_rows} {freq_label}**
-            
-            **Data Required:**
-            - {model_req_msg}
-            - **Minimum needed: {min_required} {freq_label}**
-            
-            **Gap: Need {min_required - available_rows} more {freq_label}**
-            
-            **Solutions:**
-            1. **Reduce train_size** (currently {train_size}) → try {max(30, train_size - 20)}
-            2. **Reduce seq_len** (currently {seq_len if seq_len else 'N/A'}) → try {max(20, seq_len - 10) if seq_len else 'N/A'}
-            3. **Use Daily frequency** instead of {data_freq} (more data points)
-            4. **Extend date range** to include more history
-            
-            **Quick Fix:** Try train_size={max(30, available_rows - test_size - (seq_len if seq_len else 0) - 10)}
-            """)
-            st.stop()
-        
-        # Show data sufficiency status
-        margin = available_rows - min_required
-        margin_pct = (margin / min_required) * 100
-        
-        if margin_pct < 20:
-            st.warning(f"""
-            ⚠️ **Tight data margin:** Only {margin} extra {freq_label} ({margin_pct:.1f}% buffer)
-            
-            This allows only ~{margin // test_size} walk-forward splits.
-            
-            **Recommended:** Reduce parameters or increase date range for more robust validation.
-            """)
-        else:
-            st.success(f"""
-            ✅ **Sufficient data:** {available_rows} {freq_label} available, {min_required} {freq_label} required
-            
-            **Margin:** {margin} extra {freq_label} ({margin_pct:.0f}% buffer)
-            
-            **Estimated walk-forward splits:** ~{max((available_rows - train_size) // test_size, 1)}
-            """)
-
-        # Show transparency section
-        with st.expander("📋 Data Preparation Transparency", expanded=True):
-            st.markdown("### What We Did")
-
-            col1, col2 = st.columns(2)
-
-            with col1:
-                st.markdown("#### ✅ Completed:")
-                for item in metadata['transparency']['data_prep_completed']:
-                    st.markdown(f"- ✓ {item}")
-
-            with col2:
-                st.markdown("#### ❌ NOT Done:")
-                for item in metadata['transparency']['data_prep_NOT_done']:
-                    st.markdown(f"- ✗ {item}")
-
-            st.markdown("#### ⚠️ To Be Decided:")
-            for item in metadata['transparency']['to_be_decided']:
-                st.markdown(f"- ? {item}")
-
-            # Outlier analysis
+            # Regime already detected above, skip duplicate detection
             st.markdown("---")
-            st.markdown("### 🔍 Outlier Analysis")
+            st.markdown("### 🤖 Training Models")
 
-            outliers = metadata['outliers']
+            with st.spinner(f"Creating features for {commodity_name}..."):
+                # Create features
+                features_df, metadata = create_ml_features_with_transparency(
+                    price_series,
+                    symbol=symbol
+                )
 
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Total Returns", outliers['total_returns'])
-            with col2:
-                st.metric(
-                    "Outliers (>3σ)", f"{outliers['outlier_count']} ({outliers['outlier_pct']:.2f}%)")
-            with col3:
-                st.metric("Min Return", f"{outliers['min_return']:.2f}%")
-            with col4:
-                st.metric("Max Return", f"{outliers['max_return']:.2f}%")
-
-            st.info(f"""
-            **Interpretation:** {outliers['interpretation']}
-            
-            **Action Taken:** {outliers['action_taken']}
-            """)
-
-            # Class distribution
-            st.markdown("---")
-            st.markdown("### ⚖️ Class Distribution (Up vs Down Days)")
-
-            dist = metadata['class_distribution']
-
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric(
-                    "Down Days (0)", f"{dist.get('class_0_count', 0)} ({dist.get('class_0_pct', 0):.1f}%)")
-            with col2:
-                st.metric(
-                    "Up Days (1)", f"{dist.get('class_1_count', 0)} ({dist.get('class_1_pct', 0):.1f}%)")
-
-            if dist['is_imbalanced']:
-                st.warning(f"⚠️ {dist['recommendation']}")
+                st.success(
+                    f"✅ Features created: {metadata['final_rows']} rows, {metadata['total_features']} features")
+        
+            # ============================================================================
+            # DATA SUFFICIENCY CHECK
+            # ============================================================================
+            # Check if we have enough data for walk-forward validation
+            available_rows = len(features_df)
+        
+            # Calculate minimum required rows
+            if model_choice in ["Compare Both", "LSTM Only"]:
+                # LSTM needs: train_size + seq_len + test_size (seq_len for first window)
+                min_required = train_size + seq_len + test_size
+                model_req_msg = f"LSTM requires train_size ({train_size}) + seq_len ({seq_len}) + test_size ({test_size})"
             else:
-                st.success(f"✅ {dist['recommendation']}")
-
-        # Run model(s)
-        st.markdown("---")
-
-        if model_choice == "Compare Both":
-            # Show progress placeholder
-            progress_bar = st.progress(0)
-            progress_text = st.empty()
-            status_placeholder = st.empty()
+                # XGBoost needs: train_size + test_size
+                min_required = train_size + test_size
+                model_req_msg = f"XGBoost requires train_size ({train_size}) + test_size ({test_size})"
+        
+            if available_rows < min_required:
+                st.error(f"""
+                ❌ **Insufficient data for walk-forward validation**
             
-            status_placeholder.info(f"🚀 **Starting training:** {actual_splits} splits per model (2x total)")
+                **Data Available:**
+                - After feature creation: **{available_rows} {freq_label}**
             
-            def update_progress(current, total, model_name=""):
-                """Update progress bar and text"""
-                progress = current / total
-                progress_bar.progress(progress)
-                progress_text.text(f"Training {model_name} split {current}/{total}... ({progress*100:.0f}% complete)")
+                **Data Required:**
+                - {model_req_msg}
+                - **Minimum needed: {min_required} {freq_label}**
             
-            # Prepare model params
-            xgb_params = {
-                'n_estimators': xgb_n_estimators,
-                'max_depth': xgb_max_depth,
-                'learning_rate': xgb_learning_rate,
-            }
-
-            lstm_params = {
-                'sequence_length': seq_len,
-                'hidden_units': lstm_hidden_units,
-                'dropout_rate': lstm_dropout,
-                'epochs': lstm_epochs,
-            } if seq_len else {}
-
-            results = compare_models(
-                features_df,
-                initial_train_days=train_size,
-                test_days=test_size,
-                max_splits=max_splits,
-                xgb_params=xgb_params,
-                lstm_params=lstm_params,
-                verbose=False,
-                progress_callback=update_progress,
-            )
+                **Gap: Need {min_required - available_rows} more {freq_label}**
             
-            progress_bar.empty()
-            progress_text.empty()
-            status_placeholder.success(f"✅ **Training complete!** Processed {actual_splits} splits for each model")
+                **Solutions:**
+                1. **Reduce train_size** (currently {train_size}) → try {max(30, train_size - 20)}
+                2. **Reduce seq_len** (currently {seq_len if seq_len else 'N/A'}) → try {max(20, seq_len - 10) if seq_len else 'N/A'}
+                3. **Use Daily frequency** instead of {data_freq} (more data points)
+                4. **Extend date range** to include more history
             
-            # Cache results for Quick View
-            try:
-                from utils.ml_cache import save_ml_results
-                from datetime import datetime
-                
-                cache_metadata = {
-                    'symbol': symbol,
-                    'freq': data_freq,
-                    'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'train_size': train_size,
-                    'test_size': test_size,
-                    'seq_len': seq_len,
-                    'max_splits': max_splits,
-                    'actual_splits': actual_splits,
-                }
-                
-                save_ml_results(symbol, data_freq, "compare", results, cache_metadata)
-                st.caption("💾 Results cached for Quick View mode")
-            except Exception as e:
-                st.caption(f"⚠️ Failed to cache results: {e}")
-
-            # Display comparison
-            st.markdown("### 📊 Model Comparison Results")
-
-            xgb_metrics = results['xgboost']['overall_metrics']
-            lstm_metrics = results['lstm']['overall_metrics']
-
-            # Summary metrics
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                st.markdown("#### 🌳 XGBoost")
-                st.metric("Accuracy", f"{xgb_metrics['accuracy']:.2%}")
-                st.metric("Precision", f"{xgb_metrics['precision']:.2%}")
-                st.metric("Recall", f"{xgb_metrics['recall']:.2%}")
-                st.metric("F1 Score", f"{xgb_metrics['f1_score']:.2%}")
-                if xgb_metrics.get('roc_auc'):
-                    st.metric("ROC AUC", f"{xgb_metrics['roc_auc']:.3f}")
-
-            with col2:
-                st.markdown("#### 🧠 LSTM")
-                st.metric("Accuracy", f"{lstm_metrics['accuracy']:.2%}")
-                st.metric("Precision", f"{lstm_metrics['precision']:.2%}")
-                st.metric("Recall", f"{lstm_metrics['recall']:.2%}")
-                st.metric("F1 Score", f"{lstm_metrics['f1_score']:.2%}")
-                if lstm_metrics.get('roc_auc'):
-                    st.metric("ROC AUC", f"{lstm_metrics['roc_auc']:.3f}")
-
-            with col3:
-                st.markdown("#### 🏆 Winner")
-                winner_name = results['winner'].upper()
-                margin = results['margin']
-
-                if results['winner'] == 'tie':
-                    st.info("🤝 **TIE**\n\nBoth models perform equally")
-                else:
-                    emoji = "🌳" if results['winner'] == 'xgboost' else "🧠"
-                    st.success(
-                        f"{emoji} **{winner_name}**\n\n+{margin:.2f}% advantage")
-
-                # Baseline comparison
-                st.markdown("---")
-                st.caption("**Baseline (Random):** 50%")
-
-                xgb_lift = (xgb_metrics['accuracy'] - 0.5) * 100
-                lstm_lift = (lstm_metrics['accuracy'] - 0.5) * 100
-
-                st.caption(f"**XGBoost Lift:** +{xgb_lift:.1f}%")
-                st.caption(f"**LSTM Lift:** +{lstm_lift:.1f}%")
-
-            # Confusion matrices
-            st.markdown("---")
-            st.markdown("### 📊 Confusion Matrices")
-
-            col1, col2 = st.columns(2)
-
-            with col1:
-                st.markdown("#### 🌳 XGBoost")
-
-                cm_xgb = np.array([
-                    [xgb_metrics['true_negatives'], xgb_metrics['false_positives']],
-                    [xgb_metrics['false_negatives'], xgb_metrics['true_positives']]
-                ])
-
-                fig_cm_xgb = go.Figure(data=go.Heatmap(
-                    z=cm_xgb,
-                    x=['Predicted Down', 'Predicted Up'],
-                    y=['Actual Down', 'Actual Up'],
-                    text=cm_xgb,
-                    texttemplate="%{text}",
-                    colorscale="Blues",
-                ))
-
-                fig_cm_xgb.update_layout(
-                    title="XGBoost Confusion Matrix",
-                    height=400,
-                )
-
-                st.plotly_chart(fig_cm_xgb, use_container_width=True)
-
-            with col2:
-                st.markdown("#### 🧠 LSTM")
-
-                cm_lstm = np.array([
-                    [lstm_metrics['true_negatives'],
-                        lstm_metrics['false_positives']],
-                    [lstm_metrics['false_negatives'],
-                        lstm_metrics['true_positives']]
-                ])
-
-                fig_cm_lstm = go.Figure(data=go.Heatmap(
-                    z=cm_lstm,
-                    x=['Predicted Down', 'Predicted Up'],
-                    y=['Actual Down', 'Actual Up'],
-                    text=cm_lstm,
-                    texttemplate="%{text}",
-                    colorscale="Purples",
-                ))
-
-                fig_cm_lstm.update_layout(
-                    title="LSTM Confusion Matrix",
-                    height=400,
-                )
-
-                st.plotly_chart(fig_cm_lstm, use_container_width=True)
-
-            # Prediction accuracy over time
-            st.markdown("---")
-            st.markdown("### 📈 Accuracy Over Walk-Forward Splits")
-
-            xgb_split_df = pd.DataFrame(results['xgboost']['split_metrics'])
-            lstm_split_df = pd.DataFrame(results['lstm']['split_metrics'])
-
-            fig_acc = go.Figure()
-
-            fig_acc.add_trace(go.Scatter(
-                x=xgb_split_df['split'],
-                y=xgb_split_df['accuracy'] * 100,
-                mode='lines+markers',
-                name='XGBoost',
-                line=dict(color='blue', width=2),
-                marker=dict(size=8),
-            ))
-
-            fig_acc.add_trace(go.Scatter(
-                x=lstm_split_df['split'],
-                y=lstm_split_df['accuracy'] * 100,
-                mode='lines+markers',
-                name='LSTM',
-                line=dict(color='purple', width=2),
-                marker=dict(size=8),
-            ))
-
-            fig_acc.add_hline(
-                y=50,
-                line_dash="dash",
-                line_color="gray",
-                annotation_text="Random (50%)"
-            )
-
-            fig_acc.update_layout(
-                title="Prediction Accuracy by Split (Expanding Window)",
-                xaxis_title="Split Number",
-                yaxis_title="Accuracy (%)",
-                height=500,
-                template="plotly_white",
-            )
-
-            st.plotly_chart(fig_acc, use_container_width=True)
-
-            # Feature importance (XGBoost only)
-            if results['xgboost']['feature_importance'] is not None:
-                st.markdown("---")
-                st.markdown("### 📊 XGBoost Feature Importance")
-
-                feat_imp = results['xgboost']['feature_importance']
-
-                fig_imp = go.Figure(go.Bar(
-                    x=feat_imp.values[:15],  # Top 15
-                    y=feat_imp.index[:15],
-                    orientation='h',
-                    marker_color='lightblue',
-                ))
-
-                fig_imp.update_layout(
-                    title="Top 15 Most Important Features",
-                    xaxis_title="Importance Score",
-                    yaxis_title="Feature",
-                    height=500,
-                    template="plotly_white",
-                )
-
-                st.plotly_chart(fig_imp, use_container_width=True)
-
-            # Model comparison table
-            st.markdown("---")
-            st.markdown("### 📋 Detailed Metrics Comparison")
-
-            comparison_data = []
-            for model_name, model_results in [('XGBoost', results['xgboost']), ('LSTM', results['lstm'])]:
-                metrics = model_results['overall_metrics']
-                comparison_data.append({
-                    'Model': model_name,
-                    'Accuracy': f"{metrics['accuracy']:.2%}",
-                    'Precision': f"{metrics['precision']:.2%}",
-                    'Recall': f"{metrics['recall']:.2%}",
-                    'F1 Score': f"{metrics['f1_score']:.2%}",
-                    'ROC AUC': f"{metrics.get('roc_auc', 0):.3f}" if metrics.get('roc_auc') else 'N/A',
-                    'True Positives': metrics['true_positives'],
-                    'True Negatives': metrics['true_negatives'],
-                    'False Positives': metrics['false_positives'],
-                    'False Negatives': metrics['false_negatives'],
-                })
-
-            st.dataframe(pd.DataFrame(comparison_data),
-                         use_container_width=True, hide_index=True)
-
-        elif model_choice in ["XGBoost Only", "LSTM Only"]:
-            model_type = "xgboost" if model_choice == "XGBoost Only" else "lstm"
-            model_emoji = "🌳" if model_type == "xgboost" else "🧠"
-            
-            # Show progress placeholder
-            progress_placeholder = st.empty()
-            status_placeholder = st.empty()
-            
-            status_placeholder.info(f"🚀 **Starting training:** {actual_splits} splits with {model_choice}")
-
-            # Run model
-            status_placeholder.info(f"🚀 **Starting training:** {actual_splits} splits with {model_choice}")
-            
-            # Create progress bar
-            progress_bar = st.progress(0)
-            progress_text = st.empty()
-            
-            def update_progress(current, total):
-                """Update progress bar and text"""
-                progress = current / total
-                progress_bar.progress(progress)
-                progress_text.text(f"Training split {current}/{total}... ({progress*100:.0f}% complete)")
-                # Force Streamlit to update UI immediately (especially for slow LSTM)
-                if current % 5 == 0 or current == total:  # Update every 5 splits or at end
-                    import time
-                    time.sleep(0.01)  # Give UI time to refresh
-            
-            # Prepare model params
-            model_params = {}
-            if model_type == "xgboost":
-                model_params = {
-                    'n_estimators': xgb_n_estimators,
-                    'max_depth': xgb_max_depth,
-                    'learning_rate': xgb_learning_rate,
-                }
-            elif model_type == "lstm" and seq_len:
-                model_params = {
-                    'sequence_length': seq_len,
-                    'hidden_units': lstm_hidden_units,
-                    'dropout_rate': lstm_dropout,
-                    'epochs': lstm_epochs,
-                }
-
-            results = run_walk_forward_validation(
-                features_df,
-                model_type=model_type,
-                initial_train_days=train_size,
-                test_days=test_size,
-                max_splits=max_splits,
-                model_params=model_params,
-                verbose=False,
-                progress_callback=update_progress,
-            )
-            
-            progress_bar.empty()
-            progress_text.empty()
-            status_placeholder.success(f"✅ **Training complete!** Processed {actual_splits} splits")
-            
-            # Cache results for Quick View
-            try:
-                from utils.ml_cache import save_ml_results
-                from datetime import datetime
-                
-                cache_metadata = {
-                    'symbol': symbol,
-                    'freq': data_freq,
-                    'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'train_size': train_size,
-                    'test_size': test_size,
-                    'seq_len': seq_len,
-                    'max_splits': max_splits,
-                    'actual_splits': actual_splits,
-                    'model_type': model_type,
-                }
-                
-                save_ml_results(symbol, data_freq, model_type, results, cache_metadata)
-                st.caption("💾 Results cached for Quick View mode")
-            except Exception as e:
-                st.caption(f"⚠️ Failed to cache results: {e}")
-
-            if 'error' in results:
-                st.error(f"❌ {results['error']}")
+                **Quick Fix:** Try train_size={max(30, available_rows - test_size - (seq_len if seq_len else 0) - 10)}
+                """)
                 st.stop()
+        
+            # Show data sufficiency status
+            margin = available_rows - min_required
+            margin_pct = (margin / min_required) * 100
+        
+            if margin_pct < 20:
+                st.warning(f"""
+                ⚠️ **Tight data margin:** Only {margin} extra {freq_label} ({margin_pct:.1f}% buffer)
+            
+                This allows only ~{margin // test_size} walk-forward splits.
+            
+                **Recommended:** Reduce parameters or increase date range for more robust validation.
+                """)
+            else:
+                st.success(f"""
+                ✅ **Sufficient data:** {available_rows} {freq_label} available, {min_required} {freq_label} required
+            
+                **Margin:** {margin} extra {freq_label} ({margin_pct:.0f}% buffer)
+            
+                **Estimated walk-forward splits:** ~{max((available_rows - train_size) // test_size, 1)}
+                """)
 
-            # Show transparency section (collapsed by default, after training)
-            with st.expander("📋 Data Preparation Transparency"):
+            # Show transparency section
+            with st.expander("📋 Data Preparation Transparency", expanded=True):
                 st.markdown("### What We Did")
 
                 col1, col2 = st.columns(2)
@@ -3740,7 +3245,7 @@ elif analysis_type == "ML Price Prediction":
 
                 st.info(f"""
                 **Interpretation:** {outliers['interpretation']}
-                
+            
                 **Action Taken:** {outliers['action_taken']}
                 """)
 
@@ -3763,755 +3268,1121 @@ elif analysis_type == "ML Price Prediction":
                 else:
                     st.success(f"✅ {dist['recommendation']}")
 
-            # Display results
-            st.markdown(f"### {model_emoji} {model_choice} Results")
-
-            metrics = results['overall_metrics']
-
-            # Key metrics
-            col1, col2, col3, col4 = st.columns(4)
-
-            with col1:
-                st.metric("Accuracy", f"{metrics['accuracy']:.2%}")
-            with col2:
-                st.metric("Precision", f"{metrics['precision']:.2%}")
-            with col3:
-                st.metric("Recall", f"{metrics['recall']:.2%}")
-            with col4:
-                st.metric("F1 Score", f"{metrics['f1_score']:.2%}")
-
-            # Baseline comparison
-            baseline = 0.5
-            lift = (metrics['accuracy'] - baseline) * 100
-
-            if lift > 2:
-                st.success(
-                    f"✅ Model beats random baseline by **{lift:.1f}%** (Good!)")
-            elif lift > 0:
-                st.info(
-                    f"ℹ️ Model beats random baseline by **{lift:.1f}%** (Modest improvement)")
-            else:
-                st.warning(
-                    f"⚠️ Model does NOT beat random baseline (accuracy < 50%)")
-
-            # Confusion matrix
+            # Run model(s)
             st.markdown("---")
-            st.markdown("### 📊 Confusion Matrix")
 
-            cm = np.array([
-                [metrics['true_negatives'], metrics['false_positives']],
-                [metrics['false_negatives'], metrics['true_positives']]
-            ])
+            if model_choice == "Compare Both":
+                # Show progress placeholder
+                progress_bar = st.progress(0)
+                progress_text = st.empty()
+                status_placeholder = st.empty()
+            
+                status_placeholder.info(f"🚀 **Starting training:** {actual_splits} splits per model (2x total)")
+            
+                def update_progress(current, total, model_name=""):
+                    """Update progress bar and text"""
+                    progress = current / total
+                    progress_bar.progress(progress)
+                    progress_text.text(f"Training {model_name} split {current}/{total}... ({progress*100:.0f}% complete)")
+            
+                # Prepare model params
+                xgb_params = {
+                    'n_estimators': xgb_n_estimators,
+                    'max_depth': xgb_max_depth,
+                    'learning_rate': xgb_learning_rate,
+                }
 
-            fig_cm = go.Figure(data=go.Heatmap(
-                z=cm,
-                x=['Predicted Down', 'Predicted Up'],
-                y=['Actual Down', 'Actual Up'],
-                text=cm,
-                texttemplate="%{text}",
-                colorscale="Blues" if model_type == "xgboost" else "Purples",
-                colorbar=dict(title="Count"),
-            ))
+                lstm_params = {
+                    'sequence_length': seq_len,
+                    'hidden_units': lstm_hidden_units,
+                    'dropout_rate': lstm_dropout,
+                    'epochs': lstm_epochs,
+                } if seq_len else {}
 
-            fig_cm.update_layout(
-                title=f"{model_choice} Confusion Matrix",
-                height=500,
-                template="plotly_white",
-            )
+                results = compare_models(
+                    features_df,
+                    initial_train_days=train_size,
+                    test_days=test_size,
+                    max_splits=max_splits,
+                    xgb_params=xgb_params,
+                    lstm_params=lstm_params,
+                    verbose=False,
+                    progress_callback=update_progress,
+                )
+            
+                progress_bar.empty()
+                progress_text.empty()
+                status_placeholder.success(f"✅ **Training complete!** Processed {actual_splits} splits for each model")
 
-            st.plotly_chart(fig_cm, use_container_width=True)
+                # Display comparison
+                st.markdown("### 📊 Model Comparison Results")
 
-            # Accuracy by split
-            st.markdown("---")
-            st.markdown("### 📈 Accuracy by Walk-Forward Split")
+                xgb_metrics = results['xgboost']['overall_metrics']
+                lstm_metrics = results['lstm']['overall_metrics']
 
-            split_df = pd.DataFrame(results['split_metrics'])
+                # Summary metrics
+                col1, col2, col3 = st.columns(3)
 
-            fig_acc = go.Figure()
+                with col1:
+                    st.markdown("#### 🌳 XGBoost")
+                    st.metric("Accuracy", f"{xgb_metrics['accuracy']:.2%}")
+                    st.metric("Precision", f"{xgb_metrics['precision']:.2%}")
+                    st.metric("Recall", f"{xgb_metrics['recall']:.2%}")
+                    st.metric("F1 Score", f"{xgb_metrics['f1_score']:.2%}")
+                    if xgb_metrics.get('roc_auc'):
+                        st.metric("ROC AUC", f"{xgb_metrics['roc_auc']:.3f}")
 
-            fig_acc.add_trace(go.Scatter(
-                x=split_df['split'],
-                y=split_df['accuracy'] * 100,
-                mode='lines+markers',
-                name=model_choice,
-                line=dict(color='blue' if model_type ==
-                          'xgboost' else 'purple', width=2),
-                marker=dict(size=8),
-            ))
+                with col2:
+                    st.markdown("#### 🧠 LSTM")
+                    st.metric("Accuracy", f"{lstm_metrics['accuracy']:.2%}")
+                    st.metric("Precision", f"{lstm_metrics['precision']:.2%}")
+                    st.metric("Recall", f"{lstm_metrics['recall']:.2%}")
+                    st.metric("F1 Score", f"{lstm_metrics['f1_score']:.2%}")
+                    if lstm_metrics.get('roc_auc'):
+                        st.metric("ROC AUC", f"{lstm_metrics['roc_auc']:.3f}")
 
-            fig_acc.add_hline(y=50, line_dash="dash",
-                              line_color="gray", annotation_text="Random")
+                with col3:
+                    st.markdown("#### 🏆 Winner")
+                    winner_name = results['winner'].upper()
+                    margin = results['margin']
 
-            fig_acc.update_layout(
-                title=f"{model_choice} - Accuracy Over Time",
-                xaxis_title="Split Number",
-                yaxis_title="Accuracy (%)",
-                height=500,
-                template="plotly_white",
-            )
+                    if results['winner'] == 'tie':
+                        st.info("🤝 **TIE**\n\nBoth models perform equally")
+                    else:
+                        emoji = "🌳" if results['winner'] == 'xgboost' else "🧠"
+                        st.success(
+                            f"{emoji} **{winner_name}**\n\n+{margin:.2f}% advantage")
 
-            st.plotly_chart(fig_acc, use_container_width=True)
+                    # Baseline comparison
+                    st.markdown("---")
+                    st.caption("**Baseline (Random):** 50%")
 
-            # Feature importance (XGBoost only)
-            if model_type == "xgboost" and results['feature_importance'] is not None:
+                    xgb_lift = (xgb_metrics['accuracy'] - 0.5) * 100
+                    lstm_lift = (lstm_metrics['accuracy'] - 0.5) * 100
+
+                    st.caption(f"**XGBoost Lift:** +{xgb_lift:.1f}%")
+                    st.caption(f"**LSTM Lift:** +{lstm_lift:.1f}%")
+
+                # Confusion matrices
                 st.markdown("---")
-                st.markdown("### 📊 Feature Importance")
+                st.markdown("### 📊 Confusion Matrices")
 
-                feat_imp = results['feature_importance']
+                col1, col2 = st.columns(2)
 
-                fig_imp = go.Figure(go.Bar(
-                    x=feat_imp.values[:15],
-                    y=feat_imp.index[:15],
-                    orientation='h',
-                    marker_color='lightblue',
-                    text=[f"{v:.3f}" for v in feat_imp.values[:15]],
-                    textposition='outside',
+                with col1:
+                    st.markdown("#### 🌳 XGBoost")
+
+                    cm_xgb = np.array([
+                        [xgb_metrics['true_negatives'], xgb_metrics['false_positives']],
+                        [xgb_metrics['false_negatives'], xgb_metrics['true_positives']]
+                    ])
+
+                    fig_cm_xgb = go.Figure(data=go.Heatmap(
+                        z=cm_xgb,
+                        x=['Predicted Down', 'Predicted Up'],
+                        y=['Actual Down', 'Actual Up'],
+                        text=cm_xgb,
+                        texttemplate="%{text}",
+                        colorscale="Blues",
+                    ))
+
+                    fig_cm_xgb.update_layout(
+                        title="XGBoost Confusion Matrix",
+                        height=400,
+                    )
+
+                    st.plotly_chart(fig_cm_xgb, use_container_width=True)
+
+                with col2:
+                    st.markdown("#### 🧠 LSTM")
+
+                    cm_lstm = np.array([
+                        [lstm_metrics['true_negatives'],
+                            lstm_metrics['false_positives']],
+                        [lstm_metrics['false_negatives'],
+                            lstm_metrics['true_positives']]
+                    ])
+
+                    fig_cm_lstm = go.Figure(data=go.Heatmap(
+                        z=cm_lstm,
+                        x=['Predicted Down', 'Predicted Up'],
+                        y=['Actual Down', 'Actual Up'],
+                        text=cm_lstm,
+                        texttemplate="%{text}",
+                        colorscale="Purples",
+                    ))
+
+                    fig_cm_lstm.update_layout(
+                        title="LSTM Confusion Matrix",
+                        height=400,
+                    )
+
+                    st.plotly_chart(fig_cm_lstm, use_container_width=True)
+
+                # Prediction accuracy over time
+                st.markdown("---")
+                st.markdown("### 📈 Accuracy Over Walk-Forward Splits")
+
+                xgb_split_df = pd.DataFrame(results['xgboost']['split_metrics'])
+                lstm_split_df = pd.DataFrame(results['lstm']['split_metrics'])
+
+                fig_acc = go.Figure()
+
+                fig_acc.add_trace(go.Scatter(
+                    x=xgb_split_df['split'],
+                    y=xgb_split_df['accuracy'] * 100,
+                    mode='lines+markers',
+                    name='XGBoost',
+                    line=dict(color='blue', width=2),
+                    marker=dict(size=8),
                 ))
 
-                fig_imp.update_layout(
-                    title="Top 15 Most Important Features",
-                    xaxis_title="Importance Score",
-                    yaxis_title="Feature",
-                    height=600,
+                fig_acc.add_trace(go.Scatter(
+                    x=lstm_split_df['split'],
+                    y=lstm_split_df['accuracy'] * 100,
+                    mode='lines+markers',
+                    name='LSTM',
+                    line=dict(color='purple', width=2),
+                    marker=dict(size=8),
+                ))
+
+                fig_acc.add_hline(
+                    y=50,
+                    line_dash="dash",
+                    line_color="gray",
+                    annotation_text="Random (50%)"
+                )
+
+                fig_acc.update_layout(
+                    title="Prediction Accuracy by Split (Expanding Window)",
+                    xaxis_title="Split Number",
+                    yaxis_title="Accuracy (%)",
+                    height=500,
                     template="plotly_white",
                 )
 
-                st.plotly_chart(fig_imp, use_container_width=True)
+                st.plotly_chart(fig_acc, use_container_width=True)
 
-        # Interpretation guide
-        with st.expander("ℹ️ Understanding ML Prediction Results"):
-            st.markdown("""
-            ### How to Interpret These Results
-            
-            **Accuracy:**
-            - 50% = Random guess (baseline)
-            - 52-55% = Weak signal (marginally profitable)
-            - 55-60% = Decent signal (potentially profitable)
-            - 60%+ = Strong signal (excellent if consistent)
-            
-            **Precision:**
-            - When model predicts UP, how often is it correct?
-            - High precision = fewer false alarms
-            
-            **Recall:**
-            - Of all actual UP days, how many did model catch?
-            - High recall = doesn't miss opportunities
-            
-            **F1 Score:**
-            - Harmonic mean of precision and recall
-            - Balanced metric
-            
-            **ROC AUC:**
-            - 0.5 = Random
-            - 0.6-0.7 = Weak
-            - 0.7-0.8 = Good
-            - 0.8+ = Excellent
-            
-            ### Walk-Forward Validation
-            
-            **Why expanding window?**
-            - Uses all available historical data
-            - More realistic (in production, you'd use all past data)
-            - Training set grows over time
-            
-            **Why 1-week test periods?**
-            - Practical for trading decisions
-            - Enough to evaluate short-term accuracy
-            - Multiple splits for robustness
-            
-            ### XGBoost vs LSTM
-            
-            **XGBoost tends to win when:**
-            - Limited data (<1000 samples)
-            - Features are well-engineered
-            - Relationships are non-linear but not deeply sequential
-            
-            **LSTM tends to win when:**
-            - Long sequences (1000+ samples)
-            - Strong sequential dependencies
-            - Complex temporal patterns
-            
-            For commodities, XGBoost usually performs as well or better than LSTM.
-            
-            ### Feature Importance (XGBoost)
-            
-            Tells you which features matter most:
-            - High importance = model relies on this heavily
-            - Low importance = could potentially remove
-            
-            Common patterns:
-            - Recent returns (1d, 5d) usually important
-            - Volatility regime indicators
-            - Mean reversion signals (distance from MA)
-            """)
+                # Feature importance (XGBoost only)
+                if results['xgboost']['feature_importance'] is not None:
+                    st.markdown("---")
+                    st.markdown("### 📊 XGBoost Feature Importance")
 
-            st.markdown("---")
-            st.markdown("### 🔍 Data Preparation Transparency")
+                    feat_imp = results['xgboost']['feature_importance']
 
-            st.markdown("""
-            #### ✅ What We DID:
-            
-            1. **Forward filled missing data**
-               - Commodities trade continuously
-               - Gaps are typically weekends/holidays
-            
-            2. **Used LOG returns (not arithmetic)**
-               - Time-additive: `log(P_t / P_{t-1})`
-               - Better for ML and time-series
-               - More symmetric distribution
-            
-            3. **Mixed expanding and rolling windows**
-               - Expanding: Long-term baseline (e.g., `downside_dev_expanding`)
-               - Rolling: Recent regime (e.g., `vol_21d`, `downside_dev_21d`)
-               - Best of both worlds
-            
-            4. **All features LAGGED**
-               - No look-ahead bias
-               - Every feature uses only past data
-               - Example: `log_return_1d = yesterday's return`
-            
-            5. **Dropped rows with NaN in features**
-               - Ensures complete feature matrix
-               - Typically first ~200 rows (for 200-day MA)
-            
-            6. **StandardScaler for LSTM only**
-               - Neural networks need scaling
-               - Fit on training data only (no leakage)
-               - XGBoost doesn't need scaling (tree-based)
-            
-            7. **Auto-balanced class weights**
-               - Detects if >65% one class
-               - Applies `class_weight='balanced'` automatically
-            """)
+                    fig_imp = go.Figure(go.Bar(
+                        x=feat_imp.values[:15],  # Top 15
+                        y=feat_imp.index[:15],
+                        orientation='h',
+                        marker_color='lightblue',
+                    ))
 
-            st.markdown("""
-            #### ❌ What We DID NOT Do:
-            
-            1. **NO outlier removal/capping**
-               - All data kept (including extreme returns)
-               - We REPORT outliers but don't remove them
-               - You decide: Keep / Cap / Winsorize
-            
-            2. **NO PCA or dimensionality reduction**
-               - All features are interpretable
-               - ~15 features is manageable
-               - Can add if needed
-            
-            3. **NO Box-Cox transforms**
-               - Log returns already approximately normal
-               - Additional transforms add complexity
-            
-            4. **NO synthetic data (SMOTE)**
-               - Class imbalance handled by weights
-               - SMOTE can introduce artifacts in time series
-            
-            5. **NO hyperparameter tuning**
-               - Using sensible defaults
-               - XGBoost: `max_depth=3`, `n_estimators=100`
-               - LSTM: `hidden_units=64`, `dropout=0.3`
-            
-            6. **NO ensemble methods**
-               - Not combining multiple models (yet)
-               - Could stack XGBoost + LSTM predictions
-            """)
+                    fig_imp.update_layout(
+                        title="Top 15 Most Important Features",
+                        xaxis_title="Importance Score",
+                        yaxis_title="Feature",
+                        height=500,
+                        template="plotly_white",
+                    )
 
-            st.markdown("""
-            #### ⚠️ To Be DECIDED (By You):
-            
-            1. **Outlier Treatment**
-               - Check outlier report above
-               - Options: Keep all / Cap at 3σ / Winsorize 1%/99%
-               - Current: Keeping all (transparent)
-            
-            2. **Hyperparameter Tuning**
-               - Current: Using defaults
-               - Consider if accuracy < 52%
-               - Risk: Overfitting to specific period
-            
-            3. **Additional Features**
-               - Ratio features (Gold/Silver, Copper/Gold)
-               - Cross-asset features (SPY, VIX, DXY)
-               - More technical indicators (MACD, Bollinger Bands)
-            
-            4. **Model Selection**
-               - Current: XGBoost + LSTM
-               - Could try: LightGBM, CatBoost, Transformers
-               - Could ensemble: Combine predictions
-            
-            5. **Class Imbalance Strategy**
-               - Current: Auto class_weight='balanced'
-               - Alternative: Adjust threshold (0.4 or 0.6 instead of 0.5)
-               - Alternative: Oversample minority class
-            """)
+                    st.plotly_chart(fig_imp, use_container_width=True)
 
-            st.markdown("---")
-            st.markdown("### ⚠️ Important Disclaimers")
+                # Model comparison table
+                st.markdown("---")
+                st.markdown("### 📋 Detailed Metrics Comparison")
 
-            st.warning("""
-            **This is Educational/Research Code:**
-            
-            - ❌ Not production-ready for live trading
-            - ❌ No transaction costs included
-            - ❌ No slippage modeling
-            - ❌ No position sizing or risk management
-            
-            **Before Using for Trading:**
-            
-            1. Paper trade first (at least 3 months)
-            2. Add transaction costs (0.1-0.5% per trade)
-            3. Implement stop losses and position sizing
-            4. Monitor performance out-of-sample
-            5. Understand that backtest ≠ live performance
-            
-            **Even 55% accuracy can be profitable with:**
-            - Proper risk management
-            - Position sizing (Kelly criterion)
-            - Stop losses
-            - Transaction cost awareness
-            """)
+                comparison_data = []
+                for model_name, model_results in [('XGBoost', results['xgboost']), ('LSTM', results['lstm'])]:
+                    metrics = model_results['overall_metrics']
+                    comparison_data.append({
+                        'Model': model_name,
+                        'Accuracy': f"{metrics['accuracy']:.2%}",
+                        'Precision': f"{metrics['precision']:.2%}",
+                        'Recall': f"{metrics['recall']:.2%}",
+                        'F1 Score': f"{metrics['f1_score']:.2%}",
+                        'ROC AUC': f"{metrics.get('roc_auc', 0):.3f}" if metrics.get('roc_auc') else 'N/A',
+                        'True Positives': metrics['true_positives'],
+                        'True Negatives': metrics['true_negatives'],
+                        'False Positives': metrics['false_positives'],
+                        'False Negatives': metrics['false_negatives'],
+                    })
 
-            st.markdown("---")
-            st.markdown("### 📚 Learn More")
+                st.dataframe(pd.DataFrame(comparison_data),
+                             use_container_width=True, hide_index=True)
 
+            elif model_choice in ["XGBoost Only", "LSTM Only"]:
+                model_type = "xgboost" if model_choice == "XGBoost Only" else "lstm"
+                model_emoji = "🌳" if model_type == "xgboost" else "🧠"
+            
+                # Show progress placeholder
+                progress_placeholder = st.empty()
+                status_placeholder = st.empty()
+            
+                status_placeholder.info(f"🚀 **Starting training:** {actual_splits} splits with {model_choice}")
+
+                # Run model
+                status_placeholder.info(f"🚀 **Starting training:** {actual_splits} splits with {model_choice}")
+            
+                # Create progress bar
+                progress_bar = st.progress(0)
+                progress_text = st.empty()
+            
+                def update_progress(current, total):
+                    """Update progress bar and text"""
+                    progress = current / total
+                    progress_bar.progress(progress)
+                    progress_text.text(f"Training split {current}/{total}... ({progress*100:.0f}% complete)")
+                    # Force Streamlit to update UI immediately (especially for slow LSTM)
+                    if current % 5 == 0 or current == total:  # Update every 5 splits or at end
+                        import time
+                        time.sleep(0.01)  # Give UI time to refresh
+            
+                # Prepare model params
+                model_params = {}
+                if model_type == "xgboost":
+                    model_params = {
+                        'n_estimators': xgb_n_estimators,
+                        'max_depth': xgb_max_depth,
+                        'learning_rate': xgb_learning_rate,
+                    }
+                elif model_type == "lstm" and seq_len:
+                    model_params = {
+                        'sequence_length': seq_len,
+                        'hidden_units': lstm_hidden_units,
+                        'dropout_rate': lstm_dropout,
+                        'epochs': lstm_epochs,
+                    }
+
+                results = run_walk_forward_validation(
+                    features_df,
+                    model_type=model_type,
+                    initial_train_days=train_size,
+                    test_days=test_size,
+                    max_splits=max_splits,
+                    model_params=model_params,
+                    verbose=False,
+                    progress_callback=update_progress,
+                )
+            
+                progress_bar.empty()
+                progress_text.empty()
+                status_placeholder.success(f"✅ **Training complete!** Processed {actual_splits} splits")
+
+                if 'error' in results:
+                    st.error(f"❌ {results['error']}")
+                    st.stop()
+
+                # Show transparency section (collapsed by default, after training)
+                with st.expander("📋 Data Preparation Transparency"):
+                    st.markdown("### What We Did")
+
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        st.markdown("#### ✅ Completed:")
+                        for item in metadata['transparency']['data_prep_completed']:
+                            st.markdown(f"- ✓ {item}")
+
+                    with col2:
+                        st.markdown("#### ❌ NOT Done:")
+                        for item in metadata['transparency']['data_prep_NOT_done']:
+                            st.markdown(f"- ✗ {item}")
+
+                    st.markdown("#### ⚠️ To Be Decided:")
+                    for item in metadata['transparency']['to_be_decided']:
+                        st.markdown(f"- ? {item}")
+
+                    # Outlier analysis
+                    st.markdown("---")
+                    st.markdown("### 🔍 Outlier Analysis")
+
+                    outliers = metadata['outliers']
+
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Total Returns", outliers['total_returns'])
+                    with col2:
+                        st.metric(
+                            "Outliers (>3σ)", f"{outliers['outlier_count']} ({outliers['outlier_pct']:.2f}%)")
+                    with col3:
+                        st.metric("Min Return", f"{outliers['min_return']:.2f}%")
+                    with col4:
+                        st.metric("Max Return", f"{outliers['max_return']:.2f}%")
+
+                    st.info(f"""
+                    **Interpretation:** {outliers['interpretation']}
+                
+                    **Action Taken:** {outliers['action_taken']}
+                    """)
+
+                    # Class distribution
+                    st.markdown("---")
+                    st.markdown("### ⚖️ Class Distribution (Up vs Down Days)")
+
+                    dist = metadata['class_distribution']
+
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric(
+                            "Down Days (0)", f"{dist.get('class_0_count', 0)} ({dist.get('class_0_pct', 0):.1f}%)")
+                    with col2:
+                        st.metric(
+                            "Up Days (1)", f"{dist.get('class_1_count', 0)} ({dist.get('class_1_pct', 0):.1f}%)")
+
+                    if dist['is_imbalanced']:
+                        st.warning(f"⚠️ {dist['recommendation']}")
+                    else:
+                        st.success(f"✅ {dist['recommendation']}")
+
+                # Display results
+                st.markdown(f"### {model_emoji} {model_choice} Results")
+
+                metrics = results['overall_metrics']
+
+                # Key metrics
+                col1, col2, col3, col4 = st.columns(4)
+
+                with col1:
+                    st.metric("Accuracy", f"{metrics['accuracy']:.2%}")
+                with col2:
+                    st.metric("Precision", f"{metrics['precision']:.2%}")
+                with col3:
+                    st.metric("Recall", f"{metrics['recall']:.2%}")
+                with col4:
+                    st.metric("F1 Score", f"{metrics['f1_score']:.2%}")
+
+                # Baseline comparison
+                baseline = 0.5
+                lift = (metrics['accuracy'] - baseline) * 100
+
+                if lift > 2:
+                    st.success(
+                        f"✅ Model beats random baseline by **{lift:.1f}%** (Good!)")
+                elif lift > 0:
+                    st.info(
+                        f"ℹ️ Model beats random baseline by **{lift:.1f}%** (Modest improvement)")
+                else:
+                    st.warning(
+                        f"⚠️ Model does NOT beat random baseline (accuracy < 50%)")
+
+                # Confusion matrix
+                st.markdown("---")
+                st.markdown("### 📊 Confusion Matrix")
+
+                cm = np.array([
+                    [metrics['true_negatives'], metrics['false_positives']],
+                    [metrics['false_negatives'], metrics['true_positives']]
+                ])
+
+                fig_cm = go.Figure(data=go.Heatmap(
+                    z=cm,
+                    x=['Predicted Down', 'Predicted Up'],
+                    y=['Actual Down', 'Actual Up'],
+                    text=cm,
+                    texttemplate="%{text}",
+                    colorscale="Blues" if model_type == "xgboost" else "Purples",
+                    colorbar=dict(title="Count"),
+                ))
+
+                fig_cm.update_layout(
+                    title=f"{model_choice} Confusion Matrix",
+                    height=500,
+                    template="plotly_white",
+                )
+
+                st.plotly_chart(fig_cm, use_container_width=True)
+
+                # Accuracy by split
+                st.markdown("---")
+                st.markdown("### 📈 Accuracy by Walk-Forward Split")
+
+                split_df = pd.DataFrame(results['split_metrics'])
+
+                fig_acc = go.Figure()
+
+                fig_acc.add_trace(go.Scatter(
+                    x=split_df['split'],
+                    y=split_df['accuracy'] * 100,
+                    mode='lines+markers',
+                    name=model_choice,
+                    line=dict(color='blue' if model_type ==
+                              'xgboost' else 'purple', width=2),
+                    marker=dict(size=8),
+                ))
+
+                fig_acc.add_hline(y=50, line_dash="dash",
+                                  line_color="gray", annotation_text="Random")
+
+                fig_acc.update_layout(
+                    title=f"{model_choice} - Accuracy Over Time",
+                    xaxis_title="Split Number",
+                    yaxis_title="Accuracy (%)",
+                    height=500,
+                    template="plotly_white",
+                )
+
+                st.plotly_chart(fig_acc, use_container_width=True)
+
+                # Feature importance (XGBoost only)
+                if model_type == "xgboost" and results['feature_importance'] is not None:
+                    st.markdown("---")
+                    st.markdown("### 📊 Feature Importance")
+
+                    feat_imp = results['feature_importance']
+
+                    fig_imp = go.Figure(go.Bar(
+                        x=feat_imp.values[:15],
+                        y=feat_imp.index[:15],
+                        orientation='h',
+                        marker_color='lightblue',
+                        text=[f"{v:.3f}" for v in feat_imp.values[:15]],
+                        textposition='outside',
+                    ))
+
+                    fig_imp.update_layout(
+                        title="Top 15 Most Important Features",
+                        xaxis_title="Importance Score",
+                        yaxis_title="Feature",
+                        height=600,
+                        template="plotly_white",
+                    )
+
+                    st.plotly_chart(fig_imp, use_container_width=True)
+
+            # Interpretation guide
+            with st.expander("ℹ️ Understanding ML Prediction Results"):
+                st.markdown("""
+                ### How to Interpret These Results
+            
+                **Accuracy:**
+                - 50% = Random guess (baseline)
+                - 52-55% = Weak signal (marginally profitable)
+                - 55-60% = Decent signal (potentially profitable)
+                - 60%+ = Strong signal (excellent if consistent)
+            
+                **Precision:**
+                - When model predicts UP, how often is it correct?
+                - High precision = fewer false alarms
+            
+                **Recall:**
+                - Of all actual UP days, how many did model catch?
+                - High recall = doesn't miss opportunities
+            
+                **F1 Score:**
+                - Harmonic mean of precision and recall
+                - Balanced metric
+            
+                **ROC AUC:**
+                - 0.5 = Random
+                - 0.6-0.7 = Weak
+                - 0.7-0.8 = Good
+                - 0.8+ = Excellent
+            
+                ### Walk-Forward Validation
+            
+                **Why expanding window?**
+                - Uses all available historical data
+                - More realistic (in production, you'd use all past data)
+                - Training set grows over time
+            
+                **Why 1-week test periods?**
+                - Practical for trading decisions
+                - Enough to evaluate short-term accuracy
+                - Multiple splits for robustness
+            
+                ### XGBoost vs LSTM
+            
+                **XGBoost tends to win when:**
+                - Limited data (<1000 samples)
+                - Features are well-engineered
+                - Relationships are non-linear but not deeply sequential
+            
+                **LSTM tends to win when:**
+                - Long sequences (1000+ samples)
+                - Strong sequential dependencies
+                - Complex temporal patterns
+            
+                For commodities, XGBoost usually performs as well or better than LSTM.
+            
+                ### Feature Importance (XGBoost)
+            
+                Tells you which features matter most:
+                - High importance = model relies on this heavily
+                - Low importance = could potentially remove
+            
+                Common patterns:
+                - Recent returns (1d, 5d) usually important
+                - Volatility regime indicators
+                - Mean reversion signals (distance from MA)
+                """)
+
+                st.markdown("---")
+                st.markdown("### 🔍 Data Preparation Transparency")
+
+                st.markdown("""
+                #### ✅ What We DID:
+            
+                1. **Forward filled missing data**
+                   - Commodities trade continuously
+                   - Gaps are typically weekends/holidays
+            
+                2. **Used LOG returns (not arithmetic)**
+                   - Time-additive: `log(P_t / P_{t-1})`
+                   - Better for ML and time-series
+                   - More symmetric distribution
+            
+                3. **Mixed expanding and rolling windows**
+                   - Expanding: Long-term baseline (e.g., `downside_dev_expanding`)
+                   - Rolling: Recent regime (e.g., `vol_21d`, `downside_dev_21d`)
+                   - Best of both worlds
+            
+                4. **All features LAGGED**
+                   - No look-ahead bias
+                   - Every feature uses only past data
+                   - Example: `log_return_1d = yesterday's return`
+            
+                5. **Dropped rows with NaN in features**
+                   - Ensures complete feature matrix
+                   - Typically first ~200 rows (for 200-day MA)
+            
+                6. **StandardScaler for LSTM only**
+                   - Neural networks need scaling
+                   - Fit on training data only (no leakage)
+                   - XGBoost doesn't need scaling (tree-based)
+            
+                7. **Auto-balanced class weights**
+                   - Detects if >65% one class
+                   - Applies `class_weight='balanced'` automatically
+                """)
+
+                st.markdown("""
+                #### ❌ What We DID NOT Do:
+            
+                1. **NO outlier removal/capping**
+                   - All data kept (including extreme returns)
+                   - We REPORT outliers but don't remove them
+                   - You decide: Keep / Cap / Winsorize
+            
+                2. **NO PCA or dimensionality reduction**
+                   - All features are interpretable
+                   - ~15 features is manageable
+                   - Can add if needed
+            
+                3. **NO Box-Cox transforms**
+                   - Log returns already approximately normal
+                   - Additional transforms add complexity
+            
+                4. **NO synthetic data (SMOTE)**
+                   - Class imbalance handled by weights
+                   - SMOTE can introduce artifacts in time series
+            
+                5. **NO hyperparameter tuning**
+                   - Using sensible defaults
+                   - XGBoost: `max_depth=3`, `n_estimators=100`
+                   - LSTM: `hidden_units=64`, `dropout=0.3`
+            
+                6. **NO ensemble methods**
+                   - Not combining multiple models (yet)
+                   - Could stack XGBoost + LSTM predictions
+                """)
+
+                st.markdown("""
+                #### ⚠️ To Be DECIDED (By You):
+            
+                1. **Outlier Treatment**
+                   - Check outlier report above
+                   - Options: Keep all / Cap at 3σ / Winsorize 1%/99%
+                   - Current: Keeping all (transparent)
+            
+                2. **Hyperparameter Tuning**
+                   - Current: Using defaults
+                   - Consider if accuracy < 52%
+                   - Risk: Overfitting to specific period
+            
+                3. **Additional Features**
+                   - Ratio features (Gold/Silver, Copper/Gold)
+                   - Cross-asset features (SPY, VIX, DXY)
+                   - More technical indicators (MACD, Bollinger Bands)
+            
+                4. **Model Selection**
+                   - Current: XGBoost + LSTM
+                   - Could try: LightGBM, CatBoost, Transformers
+                   - Could ensemble: Combine predictions
+            
+                5. **Class Imbalance Strategy**
+                   - Current: Auto class_weight='balanced'
+                   - Alternative: Adjust threshold (0.4 or 0.6 instead of 0.5)
+                   - Alternative: Oversample minority class
+                """)
+
+                st.markdown("---")
+                st.markdown("### ⚠️ Important Disclaimers")
+
+                st.warning("""
+                **This is Educational/Research Code:**
+            
+                - ❌ Not production-ready for live trading
+                - ❌ No transaction costs included
+                - ❌ No slippage modeling
+                - ❌ No position sizing or risk management
+            
+                **Before Using for Trading:**
+            
+                1. Paper trade first (at least 3 months)
+                2. Add transaction costs (0.1-0.5% per trade)
+                3. Implement stop losses and position sizing
+                4. Monitor performance out-of-sample
+                5. Understand that backtest ≠ live performance
+            
+                **Even 55% accuracy can be profitable with:**
+                - Proper risk management
+                - Position sizing (Kelly criterion)
+                - Stop losses
+                - Transaction cost awareness
+                """)
+
+                st.markdown("---")
+                st.markdown("### 📚 Learn More")
+
+                st.info("""
+                **Documentation:**
+                - `docs/ML_PRICE_PREDICTION.md` - Complete technical details
+                - `docs/ML_TRANSPARENCY_REPORT.md` - All data prep decisions
+                - `docs/ML_QUICK_START.md` - Installation and usage guide
+            
+                **Code:**
+                - `src/data/ml_features.py` - Feature engineering
+                - `src/models/commodity_direction.py` - Models and validation
+                """)
+
+        else:
             st.info("""
-            **Documentation:**
-            - `docs/ML_PRICE_PREDICTION.md` - Complete technical details
-            - `docs/ML_TRANSPARENCY_REPORT.md` - All data prep decisions
-            - `docs/ML_QUICK_START.md` - Installation and usage guide
-            
-            **Code:**
-            - `src/data/ml_features.py` - Feature engineering
-            - `src/models/commodity_direction.py` - Models and validation
+            👋 **Configure and Run ML Prediction**
+        
+            **Steps:**
+            1. Select exactly ONE commodity from sidebar
+            2. Choose date range (recommend 2+ years)
+            3. Configure ML settings in sidebar
+            4. Click **Run ML Prediction**
+        
+            **What you'll get:**
+            - ✅ XGBoost vs LSTM comparison
+            - ✅ Accuracy, precision, recall, F1
+            - ✅ Confusion matrices
+            - ✅ Feature importance (XGBoost)
+            - ✅ Walk-forward validation results
+            - ✅ Full transparency on data prep
             """)
 
-    else:
-        st.info("""
-        👋 **Configure and Run ML Prediction**
-        
-        **Steps:**
-        1. Select exactly ONE commodity from sidebar
-        2. Choose date range (recommend 2+ years)
-        3. Configure ML settings in sidebar
-        4. Click **Run ML Prediction**
-        
-        **What you'll get:**
-        - ✅ XGBoost vs LSTM comparison
-        - ✅ Accuracy, precision, recall, F1
-        - ✅ Confusion matrices
-        - ✅ Feature importance (XGBoost)
-        - ✅ Walk-forward validation results
-        - ✅ Full transparency on data prep
+            # Frequency selection guide
+            with st.expander("💡 Data Frequency Guide - Click to Expand", expanded=False):
+                st.markdown("""
+                ### 📊 Choose Your Data Frequency
+            
+                Different frequencies serve different trading strategies:
+            
+                #### 📅 Daily (High Resolution)
+                **Best for:** Day trading, short-term patterns, news impact
+            
+                **Example - Gold (20 years):**
+                - 5,040 days available
+                - Max training: ~4,000 days (~16 years)
+                - Training time: ~3 hours for full walk-forward
+                - Use case: Predict tomorrow's direction
+            
+                **Recommended settings:**
+                - XGBoost: 63-252 days training, 5 day test
+                - LSTM: 252+ days training, 60 day sequence
+            
+                ---
+            
+                #### 📈 Weekly (~5x Faster)
+                **Best for:** Swing trading, medium-term patterns, weekly momentum
+            
+                **Example - Silver (20 years):**
+                - 4,967 days → ~993 weeks
+                - Max training: ~794 weeks (~15 years)
+                - Training time: ~40 minutes (5x faster!)
+                - Use case: Predict next week's direction
+            
+                **Recommended settings:**
+                - XGBoost: 52-104 weeks training (1-2 years), 1-4 week test
+                - LSTM: 104-208 weeks training (2-4 years), 52 week sequence (1 year lookback)
+            
+                **Why Friday close?** Market standard for weekly bars
+            
+                ---
+            
+                #### 📆 Monthly (~21x Faster)
+                **Best for:** Long-term trends, macro analysis, position trading
+            
+                **Example - Copper (20 years):**
+                - 5,040 days → ~240 months
+                - Max training: ~192 months (~16 years!)
+                - Training time: ~10 minutes (21x faster!)
+                - Use case: Predict next month's direction
+            
+                **Recommended settings:**
+                - XGBoost: 24-60 months training (2-5 years), 1-3 month test
+                - LSTM: 60-120 months training (5-10 years), 12-24 month sequence
+            
+                **Perfect for:** Correlations with macro indicators (GDP, rates, inflation)
+            
+                ---
+            
+                ### 🎯 Smart Strategy Combinations
+            
+                #### Multi-Timeframe Analysis
+                1. **Daily XGBoost**: Short-term momentum (63 days)
+                2. **Weekly LSTM**: Medium-term trend (104 weeks)
+                3. **Monthly regime**: Long-term macro signal (60 months)
+                4. **Ensemble**: Combine predictions across timeframes!
+            
+                #### Trading Style Matching
+            
+                | Trading Style | Frequency | Training | Sequence | Test Period |
+                |---------------|-----------|----------|----------|-------------|
+                | Day Trading | Daily | 63-252 days | 60 days | 5 days |
+                | Swing Trading | Weekly | 104-208 weeks | 52 weeks | 1-4 weeks |
+                | Position Trading | Monthly | 60-120 months | 12-24 months | 1-3 months |
+                | Long-term Investing | Monthly | 120+ months | 24-36 months | 3-6 months |
+            
+                #### Regime Detection Strategy
+                **We have full regime detection in "Rolling Metrics" analysis!**
+            
+                Use **Rolling Volatility** to identify market regimes:
+                - 📊 **Rolling Sharpe Ratio**: Performance over time (trending vs mean-reverting)
+                - 📈 **Rolling Volatility**: Regime identification (calm vs turbulent)
+                - 📉 **Rolling Sortino**: Downside risk regimes (asymmetric risk periods)
+                - 🔗 **Rolling Correlation**: Relationship changes (diversification breakdown)
+            
+                **Regime-Based Trading Strategy:**
+                1. **Low Volatility Regime** (Calm markets)
+                   - Use Daily/Weekly data for precision
+                   - Momentum strategies work well
+                   - Higher leverage acceptable
+               
+                2. **High Volatility Regime** (Crisis/Turbulence)
+                   - Use Weekly/Monthly to filter noise
+                   - Mean reversion strategies
+                   - Reduce leverage, focus on risk management
+               
+                3. **Regime Transitions** (Volatility spikes)
+                   - Be cautious during transitions
+                   - Wait for regime confirmation
+                   - Consider ensemble predictions
+            
+                **How to use:**
+                - Go to "Rolling Metrics" analysis
+                - Check rolling volatility chart
+                - Identify current regime
+                - Adjust ML timeframe accordingly!
+            
+                ---
+            
+                ### ⚡ Training Time Comparison
+            
+                **For 20 years of Gold data:**
+            
+                | Frequency | Data Points | XGBoost Time | LSTM Time | Total (Compare) |
+                |-----------|-------------|--------------|-----------|-----------------|
+                | Daily | 5,040 | ~90 min | ~180 min | ~270 min (4.5 hrs) |
+                | Weekly | ~1,008 | ~18 min | ~36 min | ~54 min |
+                | Monthly | ~240 | ~4 min | ~8 min | ~12 min |
+            
+                **💡 Tip:** Start with **Weekly** for best balance of detail and speed!
+            
+                ---
+            
+                ### 🔬 When to Use Each Model
+            
+                #### XGBoost (Tree-Based)
+                **Strengths:**
+                - Works with limited data
+                - Fast training
+                - Feature importance
+                - Non-linear patterns
+            
+                **Best with:**
+                - Daily/Weekly data
+                - 100-1000 samples
+                - Tabular features
+            
+                #### LSTM (Neural Network)
+                **Strengths:**
+                - Learns sequences
+                - Long-term dependencies
+                - Regime persistence
+            
+                **Best with:**
+                - Weekly/Monthly data
+                - 500+ samples
+                - Temporal patterns
+            
+                **Needs more data:** If training < sequence + 100, expect warning!
+            
+                ---
+            
+                ### 📝 Example Configurations
+            
+                #### Beginner: Quick Test
+                ```
+                Frequency: Weekly
+                Training: 104 weeks (2 years)
+                Test: 4 weeks (1 month)
+                Model: XGBoost Only
+                Time: ~5 minutes
+                ```
+            
+                #### Intermediate: Balanced
+                ```
+                Frequency: Weekly
+                Training: 208 weeks (4 years)
+                Test: 1 week
+                Model: Compare Both
+                LSTM Sequence: 52 weeks
+                Time: ~30 minutes
+                ```
+            
+                #### Advanced: Maximum History
+                ```
+                Frequency: Monthly
+                Training: 180 months (15 years)
+                Test: 1 month
+                Model: Compare Both
+                LSTM Sequence: 24 months (2 years)
+                Time: ~10 minutes
+                ```
+            
+                #### Expert: Multi-Timeframe
+                - Run Daily XGBoost (short-term)
+                - Run Weekly LSTM (medium-term)
+                - Run Monthly LSTM (long-term)
+                - Compare & ensemble results!
+                """)
+
+            st.markdown("---")
+            st.caption(
+                "**Note:** First run may take 2-3 minutes for daily data. Weekly/Monthly are much faster!")
+
+
+    elif analysis_type == "Correlation Matrix":
+        st.subheader("🔗 Correlation Matrix")
+
+        # Calculate correlation matrix
+        corr_matrix = date_filtered_df[selected_commodities].corr()
+
+        # Replace symbols with display names
+        display_names = [COMMODITIES_CONFIG.get(s, {}).get(
+            "name", s) for s in corr_matrix.index]
+        corr_matrix.index = display_names
+        corr_matrix.columns = display_names
+
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=corr_matrix.values,
+                x=corr_matrix.columns,
+                y=corr_matrix.index,
+                colorscale="RdBu",
+                zmid=0,
+                text=corr_matrix.values,
+                texttemplate="%{text:.2f}",
+                textfont={"size": 10},
+                colorbar=dict(title="Correlation"),
+            )
+        )
+
+        fig.update_layout(
+            title="Commodity Price Correlations",
+            height=600,
+            template="plotly_white",
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    elif analysis_type == "Normalized Comparison":
+        st.subheader("📈 Normalized Price Comparison (Base = 100)")
+
+        # Normalize prices to start at 100
+        normalized_df = (date_filtered_df / date_filtered_df.iloc[0]) * 100
+
+        fig = go.Figure()
+
+        for symbol in selected_commodities:
+            if symbol in normalized_df.columns:
+                series = normalized_df[symbol].dropna()
+                config = COMMODITIES_CONFIG.get(symbol, {})
+
+                fig.add_trace(
+                    go.Scatter(
+                        x=series.index,
+                        y=series.values,
+                        name=config.get("name", symbol),
+                        mode="lines",
+                        line=dict(width=2),
+                    )
+                )
+
+        fig.update_layout(
+            title=f"Normalized Commodity Performance (Base = 100)",
+            xaxis_title="Date",
+            yaxis_title="Indexed Price",
+            hovermode="x unified",
+            height=600,
+            template="plotly_white",
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Performance table
+        st.markdown("### 📊 Cumulative Performance")
+
+        perf_data = []
+        for symbol in selected_commodities:
+            if symbol in normalized_df.columns:
+                series = normalized_df[symbol].dropna()
+                if len(series) > 0:
+                    config = COMMODITIES_CONFIG.get(symbol, {})
+                    total_return = series.iloc[-1] - 100
+                    perf_data.append({
+                        "Asset": config.get("name", symbol),
+                        "Start": f"100.00",
+                        "End": f"{series.iloc[-1]:.2f}",
+                        "Total Return": f"{total_return:+.2f}%",
+                    })
+
+        if perf_data:
+            st.dataframe(pd.DataFrame(perf_data),
+                         use_container_width=True, hide_index=True)
+
+    elif analysis_type == "Seasonality Analysis":
+        st.subheader("🌙 Seasonality Analysis")
+
+        st.markdown("""
+        Analyze monthly patterns in commodity returns to identify seasonal trends.
         """)
 
-        # Frequency selection guide
-        with st.expander("💡 Data Frequency Guide - Click to Expand", expanded=False):
-            st.markdown("""
-            ### 📊 Choose Your Data Frequency
-            
-            Different frequencies serve different trading strategies:
-            
-            #### 📅 Daily (High Resolution)
-            **Best for:** Day trading, short-term patterns, news impact
-            
-            **Example - Gold (20 years):**
-            - 5,040 days available
-            - Max training: ~4,000 days (~16 years)
-            - Training time: ~3 hours for full walk-forward
-            - Use case: Predict tomorrow's direction
-            
-            **Recommended settings:**
-            - XGBoost: 63-252 days training, 5 day test
-            - LSTM: 252+ days training, 60 day sequence
-            
-            ---
-            
-            #### 📈 Weekly (~5x Faster)
-            **Best for:** Swing trading, medium-term patterns, weekly momentum
-            
-            **Example - Silver (20 years):**
-            - 4,967 days → ~993 weeks
-            - Max training: ~794 weeks (~15 years)
-            - Training time: ~40 minutes (5x faster!)
-            - Use case: Predict next week's direction
-            
-            **Recommended settings:**
-            - XGBoost: 52-104 weeks training (1-2 years), 1-4 week test
-            - LSTM: 104-208 weeks training (2-4 years), 52 week sequence (1 year lookback)
-            
-            **Why Friday close?** Market standard for weekly bars
-            
-            ---
-            
-            #### 📆 Monthly (~21x Faster)
-            **Best for:** Long-term trends, macro analysis, position trading
-            
-            **Example - Copper (20 years):**
-            - 5,040 days → ~240 months
-            - Max training: ~192 months (~16 years!)
-            - Training time: ~10 minutes (21x faster!)
-            - Use case: Predict next month's direction
-            
-            **Recommended settings:**
-            - XGBoost: 24-60 months training (2-5 years), 1-3 month test
-            - LSTM: 60-120 months training (5-10 years), 12-24 month sequence
-            
-            **Perfect for:** Correlations with macro indicators (GDP, rates, inflation)
-            
-            ---
-            
-            ### 🎯 Smart Strategy Combinations
-            
-            #### Multi-Timeframe Analysis
-            1. **Daily XGBoost**: Short-term momentum (63 days)
-            2. **Weekly LSTM**: Medium-term trend (104 weeks)
-            3. **Monthly regime**: Long-term macro signal (60 months)
-            4. **Ensemble**: Combine predictions across timeframes!
-            
-            #### Trading Style Matching
-            
-            | Trading Style | Frequency | Training | Sequence | Test Period |
-            |---------------|-----------|----------|----------|-------------|
-            | Day Trading | Daily | 63-252 days | 60 days | 5 days |
-            | Swing Trading | Weekly | 104-208 weeks | 52 weeks | 1-4 weeks |
-            | Position Trading | Monthly | 60-120 months | 12-24 months | 1-3 months |
-            | Long-term Investing | Monthly | 120+ months | 24-36 months | 3-6 months |
-            
-            #### Regime Detection Strategy
-            **We have full regime detection in "Rolling Metrics" analysis!**
-            
-            Use **Rolling Volatility** to identify market regimes:
-            - 📊 **Rolling Sharpe Ratio**: Performance over time (trending vs mean-reverting)
-            - 📈 **Rolling Volatility**: Regime identification (calm vs turbulent)
-            - 📉 **Rolling Sortino**: Downside risk regimes (asymmetric risk periods)
-            - 🔗 **Rolling Correlation**: Relationship changes (diversification breakdown)
-            
-            **Regime-Based Trading Strategy:**
-            1. **Low Volatility Regime** (Calm markets)
-               - Use Daily/Weekly data for precision
-               - Momentum strategies work well
-               - Higher leverage acceptable
-               
-            2. **High Volatility Regime** (Crisis/Turbulence)
-               - Use Weekly/Monthly to filter noise
-               - Mean reversion strategies
-               - Reduce leverage, focus on risk management
-               
-            3. **Regime Transitions** (Volatility spikes)
-               - Be cautious during transitions
-               - Wait for regime confirmation
-               - Consider ensemble predictions
-            
-            **How to use:**
-            - Go to "Rolling Metrics" analysis
-            - Check rolling volatility chart
-            - Identify current regime
-            - Adjust ML timeframe accordingly!
-            
-            ---
-            
-            ### ⚡ Training Time Comparison
-            
-            **For 20 years of Gold data:**
-            
-            | Frequency | Data Points | XGBoost Time | LSTM Time | Total (Compare) |
-            |-----------|-------------|--------------|-----------|-----------------|
-            | Daily | 5,040 | ~90 min | ~180 min | ~270 min (4.5 hrs) |
-            | Weekly | ~1,008 | ~18 min | ~36 min | ~54 min |
-            | Monthly | ~240 | ~4 min | ~8 min | ~12 min |
-            
-            **💡 Tip:** Start with **Weekly** for best balance of detail and speed!
-            
-            ---
-            
-            ### 🔬 When to Use Each Model
-            
-            #### XGBoost (Tree-Based)
-            **Strengths:**
-            - Works with limited data
-            - Fast training
-            - Feature importance
-            - Non-linear patterns
-            
-            **Best with:**
-            - Daily/Weekly data
-            - 100-1000 samples
-            - Tabular features
-            
-            #### LSTM (Neural Network)
-            **Strengths:**
-            - Learns sequences
-            - Long-term dependencies
-            - Regime persistence
-            
-            **Best with:**
-            - Weekly/Monthly data
-            - 500+ samples
-            - Temporal patterns
-            
-            **Needs more data:** If training < sequence + 100, expect warning!
-            
-            ---
-            
-            ### 📝 Example Configurations
-            
-            #### Beginner: Quick Test
-            ```
-            Frequency: Weekly
-            Training: 104 weeks (2 years)
-            Test: 4 weeks (1 month)
-            Model: XGBoost Only
-            Time: ~5 minutes
-            ```
-            
-            #### Intermediate: Balanced
-            ```
-            Frequency: Weekly
-            Training: 208 weeks (4 years)
-            Test: 1 week
-            Model: Compare Both
-            LSTM Sequence: 52 weeks
-            Time: ~30 minutes
-            ```
-            
-            #### Advanced: Maximum History
-            ```
-            Frequency: Monthly
-            Training: 180 months (15 years)
-            Test: 1 month
-            Model: Compare Both
-            LSTM Sequence: 24 months (2 years)
-            Time: ~10 minutes
-            ```
-            
-            #### Expert: Multi-Timeframe
-            - Run Daily XGBoost (short-term)
-            - Run Weekly LSTM (medium-term)
-            - Run Monthly LSTM (long-term)
-            - Compare & ensemble results!
-            """)
+        # Use the full date range for seasonality (not filtered)
+        seasonality_df = filtered_df.copy()
 
-        st.markdown("---")
-        st.caption(
-            "**Note:** First run may take 2-3 minutes for daily data. Weekly/Monthly are much faster!")
+        for symbol in selected_commodities:
+            if symbol in seasonality_df.columns:
+                series = seasonality_df[symbol].dropna()
 
+                if len(series) < 24:  # Need at least 2 years
+                    st.warning(
+                        f"Not enough data for {symbol} seasonality analysis")
+                    continue
 
-elif analysis_type == "Correlation Matrix":
-    st.subheader("🔗 Correlation Matrix")
-
-    # Calculate correlation matrix
-    corr_matrix = date_filtered_df[selected_commodities].corr()
-
-    # Replace symbols with display names
-    display_names = [COMMODITIES_CONFIG.get(s, {}).get(
-        "name", s) for s in corr_matrix.index]
-    corr_matrix.index = display_names
-    corr_matrix.columns = display_names
-
-    fig = go.Figure(
-        data=go.Heatmap(
-            z=corr_matrix.values,
-            x=corr_matrix.columns,
-            y=corr_matrix.index,
-            colorscale="RdBu",
-            zmid=0,
-            text=corr_matrix.values,
-            texttemplate="%{text:.2f}",
-            textfont={"size": 10},
-            colorbar=dict(title="Correlation"),
-        )
-    )
-
-    fig.update_layout(
-        title="Commodity Price Correlations",
-        height=600,
-        template="plotly_white",
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-elif analysis_type == "Normalized Comparison":
-    st.subheader("📈 Normalized Price Comparison (Base = 100)")
-
-    # Normalize prices to start at 100
-    normalized_df = (date_filtered_df / date_filtered_df.iloc[0]) * 100
-
-    fig = go.Figure()
-
-    for symbol in selected_commodities:
-        if symbol in normalized_df.columns:
-            series = normalized_df[symbol].dropna()
-            config = COMMODITIES_CONFIG.get(symbol, {})
-
-            fig.add_trace(
-                go.Scatter(
-                    x=series.index,
-                    y=series.values,
-                    name=config.get("name", symbol),
-                    mode="lines",
-                    line=dict(width=2),
-                )
-            )
-
-    fig.update_layout(
-        title=f"Normalized Commodity Performance (Base = 100)",
-        xaxis_title="Date",
-        yaxis_title="Indexed Price",
-        hovermode="x unified",
-        height=600,
-        template="plotly_white",
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-    # Performance table
-    st.markdown("### 📊 Cumulative Performance")
-
-    perf_data = []
-    for symbol in selected_commodities:
-        if symbol in normalized_df.columns:
-            series = normalized_df[symbol].dropna()
-            if len(series) > 0:
                 config = COMMODITIES_CONFIG.get(symbol, {})
-                total_return = series.iloc[-1] - 100
-                perf_data.append({
-                    "Asset": config.get("name", symbol),
-                    "Start": f"100.00",
-                    "End": f"{series.iloc[-1]:.2f}",
-                    "Total Return": f"{total_return:+.2f}%",
+                st.markdown(f"### {config.get('name', symbol)}")
+
+                # Calculate monthly returns
+                returns = series.pct_change()
+                monthly_data = pd.DataFrame({
+                    "return": returns,
+                    "month": returns.index.month,
+                    "year": returns.index.year,
                 })
 
-    if perf_data:
-        st.dataframe(pd.DataFrame(perf_data),
-                     use_container_width=True, hide_index=True)
+                # 1. Average returns by month
+                col1, col2 = st.columns(2)
 
-elif analysis_type == "Seasonality Analysis":
-    st.subheader("🌙 Seasonality Analysis")
+                with col1:
+                    avg_by_month = monthly_data.groupby(
+                        "month")["return"].mean() * 100
+                    month_names = [
+                        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+                    ]
 
-    st.markdown("""
-    Analyze monthly patterns in commodity returns to identify seasonal trends.
-    """)
-
-    # Use the full date range for seasonality (not filtered)
-    seasonality_df = filtered_df.copy()
-
-    for symbol in selected_commodities:
-        if symbol in seasonality_df.columns:
-            series = seasonality_df[symbol].dropna()
-
-            if len(series) < 24:  # Need at least 2 years
-                st.warning(
-                    f"Not enough data for {symbol} seasonality analysis")
-                continue
-
-            config = COMMODITIES_CONFIG.get(symbol, {})
-            st.markdown(f"### {config.get('name', symbol)}")
-
-            # Calculate monthly returns
-            returns = series.pct_change()
-            monthly_data = pd.DataFrame({
-                "return": returns,
-                "month": returns.index.month,
-                "year": returns.index.year,
-            })
-
-            # 1. Average returns by month
-            col1, col2 = st.columns(2)
-
-            with col1:
-                avg_by_month = monthly_data.groupby(
-                    "month")["return"].mean() * 100
-                month_names = [
-                    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-                ]
-
-                fig_bar = go.Figure(
-                    go.Bar(
-                        x=month_names,
-                        y=avg_by_month.values,
-                        marker_color=["green" if v >
-                                      0 else "red" for v in avg_by_month.values],
+                    fig_bar = go.Figure(
+                        go.Bar(
+                            x=month_names,
+                            y=avg_by_month.values,
+                            marker_color=["green" if v >
+                                          0 else "red" for v in avg_by_month.values],
+                        )
                     )
-                )
-                fig_bar.update_layout(
-                    title="Average Return by Month",
-                    xaxis_title="Month",
-                    yaxis_title="Avg Return (%)",
+                    fig_bar.update_layout(
+                        title="Average Return by Month",
+                        xaxis_title="Month",
+                        yaxis_title="Avg Return (%)",
+                        height=400,
+                        template="plotly_white",
+                    )
+                    st.plotly_chart(fig_bar, use_container_width=True)
+
+                with col2:
+                    # 2. Returns heatmap (year x month)
+                    pivot = monthly_data.pivot_table(
+                        values="return", index="year", columns="month", aggfunc="mean"
+                    ) * 100
+
+                    fig_heat = go.Figure(
+                        data=go.Heatmap(
+                            z=pivot.values,
+                            x=month_names,
+                            y=pivot.index,
+                            colorscale="RdYlGn",
+                            zmid=0,
+                            text=pivot.values,
+                            texttemplate="%{text:.1f}",
+                            textfont={"size": 8},
+                            colorbar=dict(title="Return (%)"),
+                        )
+                    )
+                    fig_heat.update_layout(
+                        title="Returns Heatmap (Year × Month)",
+                        xaxis_title="Month",
+                        yaxis_title="Year",
+                        height=400,
+                        template="plotly_white",
+                    )
+                    st.plotly_chart(fig_heat, use_container_width=True)
+
+                # 3. Box plot of returns by month
+                fig_box = go.Figure()
+                for month in range(1, 13):
+                    month_returns = monthly_data[monthly_data["month"]
+                                                 == month]["return"] * 100
+                    fig_box.add_trace(
+                        go.Box(
+                            y=month_returns,
+                            name=month_names[month - 1],
+                            boxmean="sd",
+                        )
+                    )
+
+                fig_box.update_layout(
+                    title="Return Distribution by Month",
+                    yaxis_title="Return (%)",
                     height=400,
                     template="plotly_white",
+                    showlegend=False,
                 )
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_box, use_container_width=True)
 
-            with col2:
-                # 2. Returns heatmap (year x month)
-                pivot = monthly_data.pivot_table(
-                    values="return", index="year", columns="month", aggfunc="mean"
+                # 4. Statistics table
+                stats_by_month = monthly_data.groupby("month")["return"].agg(
+                    ["mean", "std", "min", "max", "count"]
                 ) * 100
+                stats_by_month["mean"] = stats_by_month["mean"].round(2)
+                stats_by_month["std"] = stats_by_month["std"].round(2)
+                stats_by_month["min"] = stats_by_month["min"].round(2)
+                stats_by_month["max"] = stats_by_month["max"].round(2)
+                stats_by_month.index = month_names
+                stats_by_month.columns = [
+                    "Mean (%)", "Std (%)", "Min (%)", "Max (%)", "Count"]
 
-                fig_heat = go.Figure(
-                    data=go.Heatmap(
-                        z=pivot.values,
-                        x=month_names,
-                        y=pivot.index,
-                        colorscale="RdYlGn",
-                        zmid=0,
-                        text=pivot.values,
-                        texttemplate="%{text:.1f}",
-                        textfont={"size": 8},
-                        colorbar=dict(title="Return (%)"),
-                    )
-                )
-                fig_heat.update_layout(
-                    title="Returns Heatmap (Year × Month)",
-                    xaxis_title="Month",
-                    yaxis_title="Year",
-                    height=400,
-                    template="plotly_white",
-                )
-                st.plotly_chart(fig_heat, use_container_width=True)
+                st.dataframe(stats_by_month, use_container_width=True)
 
-            # 3. Box plot of returns by month
-            fig_box = go.Figure()
-            for month in range(1, 13):
-                month_returns = monthly_data[monthly_data["month"]
-                                             == month]["return"] * 100
-                fig_box.add_trace(
-                    go.Box(
-                        y=month_returns,
-                        name=month_names[month - 1],
-                        boxmean="sd",
-                    )
-                )
+                st.markdown("---")
 
-            fig_box.update_layout(
-                title="Return Distribution by Month",
-                yaxis_title="Return (%)",
-                height=400,
-                template="plotly_white",
-                showlegend=False,
-            )
-            st.plotly_chart(fig_box, use_container_width=True)
-
-            # 4. Statistics table
-            stats_by_month = monthly_data.groupby("month")["return"].agg(
-                ["mean", "std", "min", "max", "count"]
-            ) * 100
-            stats_by_month["mean"] = stats_by_month["mean"].round(2)
-            stats_by_month["std"] = stats_by_month["std"].round(2)
-            stats_by_month["min"] = stats_by_month["min"].round(2)
-            stats_by_month["max"] = stats_by_month["max"].round(2)
-            stats_by_month.index = month_names
-            stats_by_month.columns = [
-                "Mean (%)", "Std (%)", "Min (%)", "Max (%)", "Count"]
-
-            st.dataframe(stats_by_month, use_container_width=True)
-
-            st.markdown("---")
-
-# Footer
-st.markdown("---")
-st.markdown("""
-<div style='text-align: center; color: gray;'>
-    <p>💡 <b>Tip:</b> Run <code>python scripts/update_commodities.py</code> to fetch the latest prices</p>
-</div>
-""", unsafe_allow_html=True)
+    # Footer
+    st.markdown("---")
+    st.markdown("""
+    <div style='text-align: center; color: gray;'>
+        <p>💡 <b>Tip:</b> Run <code>python scripts/update_commodities.py</code> to fetch the latest prices</p>
+    </div>
+    """, unsafe_allow_html=True)
