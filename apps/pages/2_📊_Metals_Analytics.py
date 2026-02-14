@@ -2561,6 +2561,15 @@ elif analysis_type == "ML Price Prediction":
     commodity_name = config.get("name", symbol)
 
     st.markdown(f"### 🎯 Predicting: {commodity_name}")
+    
+    # Show current date range info
+    st.info(f"""
+    📅 **Current Date Range:** {date_filtered_df.index[0].strftime('%Y-%m-%d')} to {date_filtered_df.index[-1].strftime('%Y-%m-%d')}
+    
+    **Total periods available:** {len(date_filtered_df)} days ({len(date_filtered_df) / 365.25:.1f} years)
+    
+    💡 **Tip:** If you need more data, adjust the **"📅 Chart Date Range"** above (Start Date / End Date) to include more history.
+    """)
 
     # Check data availability
     if len(date_filtered_df) < 100:
