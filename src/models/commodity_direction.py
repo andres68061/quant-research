@@ -49,6 +49,7 @@ class WalkForwardValidator:
         self,
         initial_train_days: int = 63,
         test_days: int = 5,
+        max_splits: int = 50,
     ):
         """
         Initialize walk-forward validator.
@@ -56,9 +57,11 @@ class WalkForwardValidator:
         Args:
             initial_train_days: Initial training period (default 63 = ~3 months)
             test_days: Test period length (default 5 = 1 week)
+            max_splits: Maximum number of splits (default 50 to prevent runaway training)
         """
         self.initial_train_days = initial_train_days
         self.test_days = test_days
+        self.max_splits = max_splits
         
     def create_splits(self, df: pd.DataFrame) -> list:
         """
@@ -87,6 +90,11 @@ class WalkForwardValidator:
             test_indices = df.index[train_end : train_end + self.test_days]
             
             splits.append((train_indices, test_indices))
+            
+            # Check max_splits limit
+            if len(splits) >= self.max_splits:
+                logger.info(f"Reached max_splits limit ({self.max_splits}). Stopping split generation.")
+                break
             
             # Move forward by test period
             train_end += self.test_days
@@ -398,11 +406,24 @@ def run_walk_forward_validation(
     model_type: str = "xgboost",
     initial_train_days: int = 63,
     test_days: int = 5,
+    max_splits: int = 50,
     model_params: Optional[Dict] = None,
     verbose: bool = True,
 ) -> Dict:
     """
     Run walk-forward validation with expanding window.
+    
+    Args:
+        features_df: DataFrame with features and 'target' column
+        model_type: "xgboost" or "lstm"
+        initial_train_days: Initial training period
+        test_days: Test period length
+        max_splits: Maximum number of splits (default 50, prevents runaway training)
+        model_params: Model hyperparameters (dict)
+        verbose: Print progress
+        
+    Returns:
+        Dictionary with results (metrics, predictions, split_metrics, etc.)
     
     Args:
         features_df: DataFrame with features and 'target' column
@@ -426,7 +447,7 @@ def run_walk_forward_validation(
     y = features_df['target']
     
     # Create walk-forward splits
-    validator = WalkForwardValidator(initial_train_days, test_days)
+    validator = WalkForwardValidator(initial_train_days, test_days, max_splits)
     splits = validator.create_splits(features_df)
     
     if len(splits) == 0:
@@ -446,6 +467,13 @@ def run_walk_forward_validation(
     for i, (train_idx, test_idx) in enumerate(splits):
         if verbose:
             print(f"Split {i+1}/{len(splits)}: Train={len(train_idx)}, Test={len(test_idx)}")
+        
+        # Progress indicator for Streamlit
+        try:
+            import streamlit as st
+            st.progress((i + 1) / len(splits), text=f"Training split {i+1}/{len(splits)}")
+        except:
+            pass  # Not in Streamlit context
         
         # Get train/test data
         X_train = X.loc[train_idx]
@@ -557,6 +585,7 @@ def compare_models(
     features_df: pd.DataFrame,
     initial_train_days: int = 63,
     test_days: int = 5,
+    max_splits: int = 50,
     xgb_params: Optional[Dict] = None,
     lstm_params: Optional[Dict] = None,
     verbose: bool = True,
@@ -568,7 +597,13 @@ def compare_models(
         features_df: DataFrame with features and target
         initial_train_days: Initial training period
         test_days: Test period
+        max_splits: Maximum number of splits (default 50)
         xgb_params: XGBoost parameters
+        lstm_params: LSTM parameters
+        verbose: Print progress
+        
+    Returns:
+        Dictionary with comparison results
         lstm_params: LSTM parameters
         verbose: Print progress
         
@@ -589,6 +624,7 @@ def compare_models(
         model_type="xgboost",
         initial_train_days=initial_train_days,
         test_days=test_days,
+        max_splits=max_splits,
         model_params=xgb_params or {},
         verbose=verbose,
     )
@@ -602,6 +638,7 @@ def compare_models(
         model_type="lstm",
         initial_train_days=initial_train_days,
         test_days=test_days,
+        max_splits=max_splits,
         model_params=lstm_params or {},
         verbose=verbose,
     )

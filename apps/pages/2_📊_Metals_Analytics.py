@@ -2720,6 +2720,41 @@ elif analysis_type == "ML Price Prediction":
     - `seq_len`: LSTM's memory window (e.g., 60 days = what it "sees" at once)
     """)
     
+    # Max splits control (critical for performance)
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### ⚡ Performance Control")
+    
+    max_splits = st.sidebar.number_input(
+        "Max Walk-Forward Splits",
+        min_value=10,
+        max_value=500,
+        value=50,
+        step=10,
+        help="Limit number of training iterations. Lower = faster. 50 splits ≈ 2-3 minutes for LSTM."
+    )
+    
+    est_splits = max((available_periods - train_size) // test_size, 1)
+    actual_splits = min(est_splits, max_splits)
+    
+    if est_splits > max_splits:
+        st.sidebar.warning(f"""
+        ⚠️ **Split limit active:**
+        - Possible splits: {est_splits}
+        - Will use: {actual_splits} (max_splits limit)
+        
+        **Estimated time:**
+        - XGBoost: ~{actual_splits * 0.5:.0f} seconds
+        - LSTM: ~{actual_splits * 2:.0f} seconds
+        """)
+    else:
+        st.sidebar.info(f"""
+        ✅ **Estimated splits:** {actual_splits}
+        
+        **Estimated time:**
+        - XGBoost: ~{actual_splits * 0.5:.0f} seconds
+        - LSTM: ~{actual_splits * 2:.0f} seconds
+        """)
+    
     # ============================================================================
     # OPTIONAL PARAMETERS (Advanced Walk-Forward Design)
     # ============================================================================
@@ -3108,7 +3143,13 @@ elif analysis_type == "ML Price Prediction":
         st.markdown("---")
 
         if model_choice == "Compare Both":
-            with st.spinner("Training XGBoost and LSTM models (this may take 2-3 minutes)..."):
+            # Show progress placeholder
+            progress_placeholder = st.empty()
+            status_placeholder = st.empty()
+            
+            status_placeholder.info(f"🚀 **Starting training:** {actual_splits} splits total")
+            
+            with st.spinner("Training XGBoost and LSTM models..."):
                 # Prepare model params
                 xgb_params = {
                     'n_estimators': xgb_n_estimators,
@@ -3127,10 +3168,13 @@ elif analysis_type == "ML Price Prediction":
                     features_df,
                     initial_train_days=train_size,
                     test_days=test_size,
+                    max_splits=max_splits,
                     xgb_params=xgb_params,
                     lstm_params=lstm_params,
                     verbose=False,
                 )
+            
+            status_placeholder.success(f"✅ **Training complete!** Processed {actual_splits} splits")
 
             # Display comparison
             st.markdown("### 📊 Model Comparison Results")
@@ -3331,17 +3375,12 @@ elif analysis_type == "ML Price Prediction":
         elif model_choice in ["XGBoost Only", "LSTM Only"]:
             model_type = "xgboost" if model_choice == "XGBoost Only" else "lstm"
             model_emoji = "🌳" if model_type == "xgboost" else "🧠"
-
-            with st.spinner(f"Creating features for {commodity_name}..."):
-                # Create features
-                price_series = date_filtered_df[symbol].dropna()
-                features_df, metadata = create_ml_features_with_transparency(
-                    price_series,
-                    symbol=symbol
-                )
-
-                st.success(
-                    f"✅ Features: {metadata['final_rows']} rows, {metadata['total_features']} features")
+            
+            # Show progress placeholder
+            progress_placeholder = st.empty()
+            status_placeholder = st.empty()
+            
+            status_placeholder.info(f"🚀 **Starting training:** {actual_splits} splits with {model_choice}")
 
             # Run model
             with st.spinner(f"Training {model_choice} model..."):
@@ -3366,9 +3405,12 @@ elif analysis_type == "ML Price Prediction":
                     model_type=model_type,
                     initial_train_days=train_size,
                     test_days=test_size,
+                    max_splits=max_splits,
                     model_params=model_params,
                     verbose=False,
                 )
+            
+            status_placeholder.success(f"✅ **Training complete!** Processed {actual_splits} splits")
 
             if 'error' in results:
                 st.error(f"❌ {results['error']}")
