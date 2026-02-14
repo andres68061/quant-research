@@ -2655,9 +2655,21 @@ elif analysis_type == "ML Price Prediction":
         st.stop()
 
     # ============================================================================
-    # REGIME-AWARE SMART DEFAULTS
+    # SIDEBAR CONFIGURATION (Regime info at top)
     # ============================================================================
-    # Set defaults based on detected regime
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🤖 ML Configuration")
+    
+    st.sidebar.success(f"""
+    ✅ **Regime Detected: {current_regime}**
+    
+    Defaults below are optimized for current market conditions.
+    """)
+    
+    # ============================================================================
+    # REGIME-AWARE DEFAULT INDEXES (Before UI elements)
+    # ============================================================================
+    # Set default indexes based on detected regime (not values yet)
     if current_regime == "Low Volatility":
         default_freq_index = 0  # Daily (more precision in stable markets)
         default_lookback_index = 1  # 5 years (stable regime, can use more history)
@@ -2670,18 +2682,6 @@ elif analysis_type == "ML Price Prediction":
         default_freq_index = 2  # Monthly (reduce noise)
         default_lookback_index = 2  # 3 years (recent regime-specific)
         default_model_index = 1  # LSTM (better for volatility)
-    
-    # ============================================================================
-    # SIDEBAR CONFIGURATION (Now with regime-aware defaults)
-    # ============================================================================
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 🤖 ML Configuration")
-    
-    st.sidebar.success(f"""
-    ✅ **Regime Detected: {current_regime}**
-    
-    Defaults below are optimized for current market conditions.
-    """)
     
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 📅 Training Data Selection")
@@ -2801,21 +2801,37 @@ elif analysis_type == "ML Price Prediction":
                   "Monthly": "months"}[data_freq]
     
     # Smart defaults for fast training (30-60 seconds)
+    # Ensure defaults respect minimum of 30
     if data_freq == "Daily":
-        default_train = min(252, max_train_periods)  # 1 year
-        default_test = min(5, max_test_periods)      # 1 week
-        default_seq = min(60, max_sequence)          # 2-3 months
+        default_train = max(30, min(252, max_train_periods))  # 1 year or 30 min
+        default_test = max(1, min(5, max_test_periods))      # 1 week
+        default_seq = max(20, min(60, max_sequence))          # 2-3 months
         est_time = "~30-60 seconds"
     elif data_freq == "Weekly":
-        default_train = min(104, max_train_periods)  # 2 years
-        default_test = min(4, max_test_periods)      # 1 month
-        default_seq = min(26, max_sequence)          # 6 months
+        default_train = max(30, min(104, max_train_periods))  # 2 years or 30 min
+        default_test = max(1, min(4, max_test_periods))      # 1 month
+        default_seq = max(20, min(26, max_sequence))          # 6 months
         est_time = "~15-30 seconds"
     else:  # Monthly
-        default_train = min(60, max_train_periods)   # 5 years
-        default_test = min(3, max_test_periods)      # 3 months
-        default_seq = min(12, max_sequence)          # 1 year
+        default_train = max(30, min(60, max_train_periods))   # 5 years or 30 min
+        default_test = max(1, min(3, max_test_periods))      # 3 months
+        default_seq = max(20, min(12, max_sequence))          # 1 year
         est_time = "~10-20 seconds"
+    
+    # Final safety check: if max_train_periods < 30, user needs more data
+    if max_train_periods < 30:
+        st.sidebar.error(f"""
+        ❌ **Insufficient data after resampling**
+        
+        Available: {available_periods} {freq_label}
+        Need at least: 30 {freq_label} for training
+        
+        **Solutions:**
+        1. Select longer date range at top
+        2. Use higher data frequency (Daily has more points)
+        3. Choose "Last 5 Years" or "Full History"
+        """)
+        st.stop()
 
     st.sidebar.info(f"""
     **Available Data:** {available_periods} {freq_label}
