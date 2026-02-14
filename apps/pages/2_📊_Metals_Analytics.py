@@ -2940,6 +2940,66 @@ elif analysis_type == "ML Price Prediction":
 
             st.success(
                 f"✅ Features created: {metadata['final_rows']} rows, {metadata['total_features']} features")
+        
+        # ============================================================================
+        # DATA SUFFICIENCY CHECK
+        # ============================================================================
+        # Check if we have enough data for walk-forward validation
+        available_rows = len(features_df)
+        
+        # Calculate minimum required rows
+        if model_choice in ["Compare Both", "LSTM Only"]:
+            # LSTM needs: train_size + seq_len + test_size (seq_len for first window)
+            min_required = train_size + seq_len + test_size
+            model_req_msg = f"LSTM requires train_size ({train_size}) + seq_len ({seq_len}) + test_size ({test_size})"
+        else:
+            # XGBoost needs: train_size + test_size
+            min_required = train_size + test_size
+            model_req_msg = f"XGBoost requires train_size ({train_size}) + test_size ({test_size})"
+        
+        if available_rows < min_required:
+            st.error(f"""
+            ❌ **Insufficient data for walk-forward validation**
+            
+            **Data Available:**
+            - After feature creation: **{available_rows} {freq_label}**
+            
+            **Data Required:**
+            - {model_req_msg}
+            - **Minimum needed: {min_required} {freq_label}**
+            
+            **Gap: Need {min_required - available_rows} more {freq_label}**
+            
+            **Solutions:**
+            1. **Reduce train_size** (currently {train_size}) → try {max(30, train_size - 20)}
+            2. **Reduce seq_len** (currently {seq_len if seq_len else 'N/A'}) → try {max(20, seq_len - 10) if seq_len else 'N/A'}
+            3. **Use Daily frequency** instead of {data_freq} (more data points)
+            4. **Extend date range** to include more history
+            
+            **Quick Fix:** Try train_size={max(30, available_rows - test_size - (seq_len if seq_len else 0) - 10)}
+            """)
+            st.stop()
+        
+        # Show data sufficiency status
+        margin = available_rows - min_required
+        margin_pct = (margin / min_required) * 100
+        
+        if margin_pct < 20:
+            st.warning(f"""
+            ⚠️ **Tight data margin:** Only {margin} extra {freq_label} ({margin_pct:.1f}% buffer)
+            
+            This allows only ~{margin // test_size} walk-forward splits.
+            
+            **Recommended:** Reduce parameters or increase date range for more robust validation.
+            """)
+        else:
+            st.success(f"""
+            ✅ **Sufficient data:** {available_rows} {freq_label} available, {min_required} {freq_label} required
+            
+            **Margin:** {margin} extra {freq_label} ({margin_pct:.0f}% buffer)
+            
+            **Estimated walk-forward splits:** ~{max((available_rows - train_size) // test_size, 1)}
+            """)
 
         # Show transparency section
         with st.expander("📋 Data Preparation Transparency", expanded=True):
