@@ -2600,7 +2600,83 @@ elif analysis_type == "ML Price Prediction":
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🤖 ML Configuration")
 
-    # Data frequency selector (BEFORE calculating limits)
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 📅 Training Data Selection")
+    
+    with st.sidebar.expander("ℹ️ How Much History? (Click for Guidance)", expanded=False):
+        st.markdown("""
+        **Trade-off: More Data vs. Regime Relevance**
+        
+        **Full History (20 years):**
+        - ✅ More training examples
+        - ✅ Captures multiple regimes
+        - ❌ Includes outdated patterns (2008 crisis)
+        - ❌ Slower training (950+ splits)
+        - **Use when:** Testing long-term strategy
+        
+        **Last 5 Years (Recommended Default):**
+        - ✅ Recent market structure
+        - ✅ Captures 1-2 regime transitions
+        - ✅ Reasonable training time (~250 splits)
+        - **Use when:** Balancing data quantity + relevance
+        
+        **Last 3 Years:**
+        - ✅ Focused on current regime
+        - ✅ Fast training (~150 splits)
+        - ❌ Less data for learning
+        - **Use when:** Current regime detected is stable
+        
+        **Last 2 Years:**
+        - ✅ Very regime-specific
+        - ✅ Very fast (~100 splits)
+        - ❌ Minimal training data
+        - **Use when:** Quick validation only
+        
+        **Regime Detection Insight:**
+        If current regime is "Low Volatility," training on 2008 
+        crash data may hurt performance. Use shorter lookback.
+        """)
+    
+    data_lookback = st.sidebar.selectbox(
+        "Historical Data to Use",
+        [
+            "Full History (All Regimes)",
+            "Last 5 Years (Recent Context)",
+            "Last 3 Years (Current Regime Focus)",
+            "Last 2 Years (Very Recent Only)",
+        ],
+        index=1,  # Default to 5 years
+        help="How much historical data to use for training. Shorter = faster + more regime-specific."
+    )
+    
+    # Map selection to years
+    lookback_map = {
+        "Full History (All Regimes)": None,  # Use all available
+        "Last 5 Years (Recent Context)": 5,
+        "Last 3 Years (Current Regime Focus)": 3,
+        "Last 2 Years (Very Recent Only)": 2,
+    }
+    
+    lookback_years = lookback_map[data_lookback]
+    
+    # Filter data by lookback
+    if lookback_years:
+        cutoff_date = date_filtered_df.index[-1] - pd.DateOffset(years=lookback_years)
+        date_filtered_df = date_filtered_df.loc[cutoff_date:]
+        st.sidebar.success(f"""
+        ✅ **Using last {lookback_years} years**
+        - From: {date_filtered_df.index[0].date()}
+        - To: {date_filtered_df.index[-1].date()}
+        - Total: {len(date_filtered_df)} days
+        """)
+    else:
+        st.sidebar.info(f"""
+        📅 **Using full history**
+        - From: {date_filtered_df.index[0].date()}
+        - Total: {len(date_filtered_df)} days
+        """)
+    
+    # Data frequency selector (AFTER lookback selection)
     data_freq = st.sidebar.selectbox(
         "Data Frequency",
         ["Daily", "Weekly", "Monthly"],
