@@ -3268,37 +3268,46 @@ elif analysis_type == "ML Price Prediction":
 
         if model_choice == "Compare Both":
             # Show progress placeholder
-            progress_placeholder = st.empty()
+            progress_bar = st.progress(0)
+            progress_text = st.empty()
             status_placeholder = st.empty()
             
-            status_placeholder.info(f"🚀 **Starting training:** {actual_splits} splits total")
+            status_placeholder.info(f"🚀 **Starting training:** {actual_splits} splits per model (2x total)")
             
-            with st.spinner("Training XGBoost and LSTM models..."):
-                # Prepare model params
-                xgb_params = {
-                    'n_estimators': xgb_n_estimators,
-                    'max_depth': xgb_max_depth,
-                    'learning_rate': xgb_learning_rate,
-                }
-
-                lstm_params = {
-                    'sequence_length': seq_len,
-                    'hidden_units': lstm_hidden_units,
-                    'dropout_rate': lstm_dropout,
-                    'epochs': lstm_epochs,
-                } if seq_len else {}
-
-                results = compare_models(
-                    features_df,
-                    initial_train_days=train_size,
-                    test_days=test_size,
-                    max_splits=max_splits,
-                    xgb_params=xgb_params,
-                    lstm_params=lstm_params,
-                    verbose=False,
-                )
+            def update_progress(current, total, model_name=""):
+                """Update progress bar and text"""
+                progress = current / total
+                progress_bar.progress(progress)
+                progress_text.text(f"Training {model_name} split {current}/{total}... ({progress*100:.0f}% complete)")
             
-            status_placeholder.success(f"✅ **Training complete!** Processed {actual_splits} splits")
+            # Prepare model params
+            xgb_params = {
+                'n_estimators': xgb_n_estimators,
+                'max_depth': xgb_max_depth,
+                'learning_rate': xgb_learning_rate,
+            }
+
+            lstm_params = {
+                'sequence_length': seq_len,
+                'hidden_units': lstm_hidden_units,
+                'dropout_rate': lstm_dropout,
+                'epochs': lstm_epochs,
+            } if seq_len else {}
+
+            results = compare_models(
+                features_df,
+                initial_train_days=train_size,
+                test_days=test_size,
+                max_splits=max_splits,
+                xgb_params=xgb_params,
+                lstm_params=lstm_params,
+                verbose=False,
+                progress_callback=update_progress,
+            )
+            
+            progress_bar.empty()
+            progress_text.empty()
+            status_placeholder.success(f"✅ **Training complete!** Processed {actual_splits} splits for each model")
 
             # Display comparison
             st.markdown("### 📊 Model Comparison Results")
@@ -3507,33 +3516,47 @@ elif analysis_type == "ML Price Prediction":
             status_placeholder.info(f"🚀 **Starting training:** {actual_splits} splits with {model_choice}")
 
             # Run model
-            with st.spinner(f"Training {model_choice} model..."):
-                # Prepare model params
-                model_params = {}
-                if model_type == "xgboost":
-                    model_params = {
-                        'n_estimators': xgb_n_estimators,
-                        'max_depth': xgb_max_depth,
-                        'learning_rate': xgb_learning_rate,
-                    }
-                elif model_type == "lstm" and seq_len:
-                    model_params = {
-                        'sequence_length': seq_len,
-                        'hidden_units': lstm_hidden_units,
-                        'dropout_rate': lstm_dropout,
-                        'epochs': lstm_epochs,
-                    }
-
-                results = run_walk_forward_validation(
-                    features_df,
-                    model_type=model_type,
-                    initial_train_days=train_size,
-                    test_days=test_size,
-                    max_splits=max_splits,
-                    model_params=model_params,
-                    verbose=False,
-                )
+            status_placeholder.info(f"🚀 **Starting training:** {actual_splits} splits with {model_choice}")
             
+            # Create progress bar
+            progress_bar = st.progress(0)
+            progress_text = st.empty()
+            
+            def update_progress(current, total):
+                """Update progress bar and text"""
+                progress = current / total
+                progress_bar.progress(progress)
+                progress_text.text(f"Training split {current}/{total}... ({progress*100:.0f}% complete)")
+            
+            # Prepare model params
+            model_params = {}
+            if model_type == "xgboost":
+                model_params = {
+                    'n_estimators': xgb_n_estimators,
+                    'max_depth': xgb_max_depth,
+                    'learning_rate': xgb_learning_rate,
+                }
+            elif model_type == "lstm" and seq_len:
+                model_params = {
+                    'sequence_length': seq_len,
+                    'hidden_units': lstm_hidden_units,
+                    'dropout_rate': lstm_dropout,
+                    'epochs': lstm_epochs,
+                }
+
+            results = run_walk_forward_validation(
+                features_df,
+                model_type=model_type,
+                initial_train_days=train_size,
+                test_days=test_size,
+                max_splits=max_splits,
+                model_params=model_params,
+                verbose=False,
+                progress_callback=update_progress,
+            )
+            
+            progress_bar.empty()
+            progress_text.empty()
             status_placeholder.success(f"✅ **Training complete!** Processed {actual_splits} splits")
 
             if 'error' in results:

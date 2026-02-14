@@ -409,6 +409,7 @@ def run_walk_forward_validation(
     max_splits: int = 50,
     model_params: Optional[Dict] = None,
     verbose: bool = True,
+    progress_callback = None,
 ) -> Dict:
     """
     Run walk-forward validation with expanding window.
@@ -421,6 +422,7 @@ def run_walk_forward_validation(
         max_splits: Maximum number of splits (default 50, prevents runaway training)
         model_params: Model hyperparameters (dict)
         verbose: Print progress
+        progress_callback: Optional callback function(current, total) for progress updates
         
     Returns:
         Dictionary with results (metrics, predictions, split_metrics, etc.)
@@ -465,15 +467,12 @@ def run_walk_forward_validation(
     
     # Run walk-forward
     for i, (train_idx, test_idx) in enumerate(splits):
+        # Progress callback for Streamlit
+        if progress_callback:
+            progress_callback(i + 1, len(splits))
+        
         if verbose:
             print(f"Split {i+1}/{len(splits)}: Train={len(train_idx)}, Test={len(test_idx)}")
-        
-        # Progress indicator for Streamlit
-        try:
-            import streamlit as st
-            st.progress((i + 1) / len(splits), text=f"Training split {i+1}/{len(splits)}")
-        except:
-            pass  # Not in Streamlit context
         
         # Get train/test data
         X_train = X.loc[train_idx]
@@ -589,6 +588,7 @@ def compare_models(
     xgb_params: Optional[Dict] = None,
     lstm_params: Optional[Dict] = None,
     verbose: bool = True,
+    progress_callback = None,
 ) -> Dict:
     """
     Compare XGBoost vs LSTM on the same data.
@@ -601,6 +601,7 @@ def compare_models(
         xgb_params: XGBoost parameters
         lstm_params: LSTM parameters
         verbose: Print progress
+        progress_callback: Optional callback for progress updates
         
     Returns:
         Dictionary with comparison results
@@ -619,6 +620,11 @@ def compare_models(
     if verbose:
         print("\n🌳 Training XGBoost...\n")
     
+    def xgb_progress(current, total):
+        if progress_callback:
+            # XGBoost is first half of progress
+            progress_callback(current, total * 2, "XGBoost")
+    
     xgb_results = run_walk_forward_validation(
         features_df,
         model_type="xgboost",
@@ -627,11 +633,17 @@ def compare_models(
         max_splits=max_splits,
         model_params=xgb_params or {},
         verbose=verbose,
+        progress_callback=xgb_progress,
     )
     
     # Run LSTM
     if verbose:
         print("\n🧠 Training LSTM...\n")
+    
+    def lstm_progress(current, total):
+        if progress_callback:
+            # LSTM is second half of progress
+            progress_callback(total + current, total * 2, "LSTM")
     
     lstm_results = run_walk_forward_validation(
         features_df,
@@ -641,6 +653,7 @@ def compare_models(
         max_splits=max_splits,
         model_params=lstm_params or {},
         verbose=verbose,
+        progress_callback=lstm_progress,
     )
     
     # Comparison
