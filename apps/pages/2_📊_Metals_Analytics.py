@@ -2217,6 +2217,32 @@ elif analysis_type == "ML Price Prediction":
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🤖 ML Configuration")
     
+    # Calculate dynamic limits based on available data
+    available_days = len(date_filtered_df)
+    max_train_days = int(available_days * 0.8)  # 80% for training
+    max_test_days = int(available_days * 0.1)   # Max 10% for single test period
+    max_sequence = min(252, int(available_days * 0.2))  # Max 20% or 1 year
+    
+    st.sidebar.info(f"""
+    **Available Data:** {available_days} days
+    
+    **Dynamic Limits (80% rule):**
+    - Max training: {max_train_days} days
+    - Max test period: {max_test_days} days
+    - Max sequence: {max_sequence} days
+    """)
+    
+    # Data frequency (future enhancement)
+    data_freq = st.sidebar.selectbox(
+        "Data Frequency",
+        ["Daily", "Weekly (Coming Soon)", "Monthly (Coming Soon)"],
+        help="Frequency of data points (currently daily only)",
+        disabled=False
+    )
+    
+    if data_freq != "Daily":
+        st.sidebar.warning("⚠️ Weekly/Monthly frequency coming soon!")
+    
     model_choice = st.sidebar.selectbox(
         "Model",
         ["Compare Both", "XGBoost Only", "LSTM Only"],
@@ -2226,54 +2252,119 @@ elif analysis_type == "ML Price Prediction":
     initial_train = st.sidebar.number_input(
         "Initial Training Days",
         min_value=30,
-        max_value=2520,  # Allow up to ~10 years
-        value=63,
+        max_value=max_train_days,
+        value=min(252, max_train_days),  # Default 1 year or max available
         step=21,
-        help="Initial training period (63 days = 3 months, 252 = 1 year, 504 = 2 years)"
+        help=f"Initial training period (max {max_train_days} = 80% of {available_days} days)"
     )
     
     test_period = st.sidebar.number_input(
         "Test Period Days",
         min_value=1,
-        max_value=21,
-        value=5,
+        max_value=max_test_days,
+        value=min(5, max_test_days),
         step=1,
-        help="Test period (5 days = 1 week)"
+        help=f"Test period (max {max_test_days} = 10% of data)"
     )
     
-    # LSTM-specific parameters (only show if LSTM is selected)
-    lstm_sequence = None
-    if model_choice in ["Compare Both", "LSTM Only"]:
-        st.sidebar.markdown("---")
-        st.sidebar.markdown("### 🧠 LSTM Parameters")
-        
-        lstm_sequence = st.sidebar.number_input(
-            "LSTM Sequence Length",
-            min_value=20,
-            max_value=252,
-            value=60,
+    # Model-specific parameters
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### ⚙️ Model Parameters")
+    
+    # XGBoost parameters
+    with st.sidebar.expander("🌳 XGBoost Settings", expanded=(model_choice in ["XGBoost Only", "Compare Both"])):
+        xgb_n_estimators = st.number_input(
+            "N Estimators",
+            min_value=10,
+            max_value=500,
+            value=100,
             step=10,
-            help="Number of days LSTM looks back (60 days = ~3 months)"
+            help="Number of boosting rounds (default 100)"
         )
         
-        st.sidebar.info(f"""
-        **LSTM Recommendations:**
-        - Initial training: ≥{lstm_sequence + 100} days
-        - Current: {initial_train} days
-        """)
+        xgb_max_depth = st.number_input(
+            "Max Depth",
+            min_value=1,
+            max_value=10,
+            value=3,
+            step=1,
+            help="Maximum tree depth (3 = shallow to prevent overfitting)"
+        )
+        
+        xgb_learning_rate = st.number_input(
+            "Learning Rate",
+            min_value=0.01,
+            max_value=0.3,
+            value=0.1,
+            step=0.01,
+            help="Learning rate (default 0.1)"
+        )
     
-    # Model-specific recommendations
-    if model_choice == "XGBoost Only":
+    # LSTM parameters
+    lstm_sequence = None
+    lstm_hidden_units = None
+    lstm_dropout = None
+    lstm_epochs = None
+    
+    if model_choice in ["Compare Both", "LSTM Only"]:
+        with st.sidebar.expander("🧠 LSTM Settings", expanded=True):
+            lstm_sequence = st.number_input(
+                "Sequence Length",
+                min_value=20,
+                max_value=max_sequence,
+                value=min(60, max_sequence),
+                step=10,
+                help=f"Days LSTM looks back (max {max_sequence} = 20% of data)"
+            )
+            
+            lstm_hidden_units = st.number_input(
+                "Hidden Units",
+                min_value=16,
+                max_value=256,
+                value=64,
+                step=16,
+                help="LSTM layer size (default 64)"
+            )
+            
+            lstm_dropout = st.number_input(
+                "Dropout Rate",
+                min_value=0.0,
+                max_value=0.5,
+                value=0.3,
+                step=0.05,
+                help="Dropout for regularization (default 0.3)"
+            )
+            
+            lstm_epochs = st.number_input(
+                "Max Epochs",
+                min_value=10,
+                max_value=200,
+                value=50,
+                step=10,
+                help="Training epochs (early stopping active)"
+            )
+            
+            min_lstm_train = lstm_sequence + 100
+            if initial_train < min_lstm_train:
+                st.warning(f"""
+                ⚠️ **LSTM needs more data!**
+                
+                - Sequence: {lstm_sequence} days
+                - Recommended training: ≥{min_lstm_train} days
+                - Current: {initial_train} days
+                
+                Consider increasing training days.
+                """)
+            else:
+                st.success(f"✅ Training data sufficient for LSTM")
+    
+    # Model comparison guidance
+    if model_choice == "Compare Both":
         st.sidebar.info("""
-        **XGBoost works well with:**
-        - Initial training: 63-252 days
-        - Can handle limited data
-        """)
-    elif model_choice == "Compare Both":
-        st.sidebar.warning(f"""
-        **Note:** LSTM needs more data than XGBoost!
-        - XGBoost: 63+ days OK
-        - LSTM: {lstm_sequence + 100}+ days recommended
+        **Comparing Both Models:**
+        
+        Each model will use its own parameters.
+        XGBoost and LSTM are trained independently.
         """)
     
     # Run button
@@ -2355,13 +2446,25 @@ elif analysis_type == "ML Price Prediction":
         
         if model_choice == "Compare Both":
             with st.spinner("Training XGBoost and LSTM models (this may take 2-3 minutes)..."):
-                # Prepare LSTM params
-                lstm_params = {'sequence_length': lstm_sequence} if lstm_sequence else {}
+                # Prepare model params
+                xgb_params = {
+                    'n_estimators': xgb_n_estimators,
+                    'max_depth': xgb_max_depth,
+                    'learning_rate': xgb_learning_rate,
+                }
+                
+                lstm_params = {
+                    'sequence_length': lstm_sequence,
+                    'hidden_units': lstm_hidden_units,
+                    'dropout_rate': lstm_dropout,
+                    'epochs': lstm_epochs,
+                } if lstm_sequence else {}
                 
                 results = compare_models(
                     features_df,
                     initial_train_days=initial_train,
                     test_days=test_period,
+                    xgb_params=xgb_params,
                     lstm_params=lstm_params,
                     verbose=False,
                 )
@@ -2576,8 +2679,19 @@ elif analysis_type == "ML Price Prediction":
             with st.spinner(f"Training {model_choice} model..."):
                 # Prepare model params
                 model_params = {}
-                if model_type == "lstm" and lstm_sequence:
-                    model_params['sequence_length'] = lstm_sequence
+                if model_type == "xgboost":
+                    model_params = {
+                        'n_estimators': xgb_n_estimators,
+                        'max_depth': xgb_max_depth,
+                        'learning_rate': xgb_learning_rate,
+                    }
+                elif model_type == "lstm" and lstm_sequence:
+                    model_params = {
+                        'sequence_length': lstm_sequence,
+                        'hidden_units': lstm_hidden_units,
+                        'dropout_rate': lstm_dropout,
+                        'epochs': lstm_epochs,
+                    }
                 
                 results = run_walk_forward_validation(
                     features_df,
