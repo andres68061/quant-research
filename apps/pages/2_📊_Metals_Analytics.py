@@ -2562,123 +2562,166 @@ elif analysis_type == "ML Price Prediction":
         help="Compare both models or run individually"
     )
     
-    initial_train = st.sidebar.number_input(
-        f"Initial Training Periods ({freq_label})",
+    # Core Parameters (3 essential settings)
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### ⚙️ Core Parameters")
+    
+    st.sidebar.caption("**Only 3 settings needed for walk-forward validation:**")
+    
+    # 1. Training window length (train_size)
+    train_size = st.sidebar.number_input(
+        "Training Window Length",
         min_value=30,
         max_value=max_train_periods,
         value=min(252, max_train_periods),
-        step=21 if data_freq == "Daily" else 4,  # Weekly: 4 weeks, Daily: 21 days
-        help=f"Initial training period (max {max_train_periods} = 80% of data)"
+        step=21 if data_freq == "Daily" else 4,
+        help=f"How many past {freq_label} to train on (max {max_train_periods})"
     )
     
-    test_period = st.sidebar.number_input(
-        f"Test Period ({freq_label})",
+    # 2. Test window length (test_size)
+    test_size = st.sidebar.number_input(
+        "Test Window Length",
         min_value=1,
         max_value=max_test_periods,
         value=min(5, max_test_periods) if data_freq == "Daily" else min(1, max_test_periods),
         step=1,
-        help=f"Test period (max {max_test_periods})"
+        help=f"How many future {freq_label} to evaluate each round"
     )
     
-    # Model-specific parameters
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### ⚙️ Model Parameters")
-    
-    # XGBoost parameters
-    with st.sidebar.expander("🌳 XGBoost Settings", expanded=(model_choice in ["XGBoost Only", "Compare Both"])):
-        xgb_n_estimators = st.number_input(
-            "N Estimators",
-            min_value=10,
-            max_value=500,
-            value=100,
-            step=10,
-            help="Number of boosting rounds (default 100)"
-        )
-        
-        xgb_max_depth = st.number_input(
-            "Max Depth",
-            min_value=1,
-            max_value=10,
-            value=3,
-            step=1,
-            help="Maximum tree depth (3 = shallow to prevent overfitting)"
-        )
-        
-        xgb_learning_rate = st.number_input(
-            "Learning Rate",
-            min_value=0.01,
-            max_value=0.3,
-            value=0.1,
-            step=0.01,
-            help="Learning rate (default 0.1)"
-        )
-    
-    # LSTM parameters
-    lstm_sequence = None
-    lstm_hidden_units = None
-    lstm_dropout = None
-    lstm_epochs = None
-    
+    # 3. Sequence length (seq_len) - LSTM only
+    seq_len = None
     if model_choice in ["Compare Both", "LSTM Only"]:
-        with st.sidebar.expander("🧠 LSTM Settings", expanded=True):
-            lstm_sequence = st.number_input(
-                "Sequence Length",
-                min_value=20,
-                max_value=max_sequence,
-                value=min(60, max_sequence),
+        seq_len = st.sidebar.number_input(
+            "Sequence Length (LSTM)",
+            min_value=20,
+            max_value=max_sequence,
+            value=min(60, max_sequence),
+            step=10,
+            help=f"How many past {freq_label} each LSTM input contains (lookback)"
+        )
+        
+        # Validation
+        min_lstm_train = seq_len + 100
+        if train_size < min_lstm_train:
+            st.sidebar.error(f"""
+            ❌ LSTM needs train_size ≥ {min_lstm_train}
+            
+            Current: {train_size}
+            """)
+        else:
+            st.sidebar.success(f"✅ LSTM: train_size sufficient")
+    
+    # Optional: Advanced Settings (collapsed by default)
+    with st.sidebar.expander("🔧 Advanced Settings (Optional)", expanded=False):
+        st.caption("**These have sensible defaults. Only change if you know what you're doing.**")
+        
+        # Walk-forward step size
+        step_size = st.number_input(
+            "Step Size (walk-forward)",
+            min_value=1,
+            max_value=test_size,
+            value=test_size,  # Default: step = test_size
+            step=1,
+            help="How far to move window forward each iteration (default = test_size)"
+        )
+        
+        st.info(f"""
+        **Current:** Step = Test ({step_size} = {test_size})
+        
+        This means no overlap between test periods (standard).
+        """)
+        
+        st.caption("**Note:** Changing step_size affects number of validation splits.")
+        
+        # Model hyperparameters (XGBoost)
+        if model_choice in ["XGBoost Only", "Compare Both"]:
+            st.markdown("---")
+            st.markdown("**XGBoost Hyperparameters:**")
+            
+            xgb_n_estimators = st.number_input(
+                "XGBoost: N Estimators",
+                min_value=10,
+                max_value=500,
+                value=100,
                 step=10,
-                help=f"Days LSTM looks back (max {max_sequence} = 20% of data)"
+                help="Number of trees (default 100)"
             )
             
+            xgb_max_depth = st.number_input(
+                "XGBoost: Max Depth",
+                min_value=1,
+                max_value=10,
+                value=3,
+                step=1,
+                help="Tree depth (3 = shallow, prevents overfitting)"
+            )
+            
+            xgb_learning_rate = st.number_input(
+                "XGBoost: Learning Rate",
+                min_value=0.01,
+                max_value=0.3,
+                value=0.1,
+                step=0.01,
+                help="Step size (default 0.1)"
+            )
+        else:
+            # Set defaults if not shown
+            xgb_n_estimators = 100
+            xgb_max_depth = 3
+            xgb_learning_rate = 0.1
+        
+        # Model hyperparameters (LSTM)
+        if model_choice in ["LSTM Only", "Compare Both"]:
+            st.markdown("---")
+            st.markdown("**LSTM Hyperparameters:**")
+            
             lstm_hidden_units = st.number_input(
-                "Hidden Units",
+                "LSTM: Hidden Units",
                 min_value=16,
                 max_value=256,
                 value=64,
                 step=16,
-                help="LSTM layer size (default 64)"
+                help="Layer size (default 64)"
             )
             
             lstm_dropout = st.number_input(
-                "Dropout Rate",
+                "LSTM: Dropout Rate",
                 min_value=0.0,
                 max_value=0.5,
                 value=0.3,
                 step=0.05,
-                help="Dropout for regularization (default 0.3)"
+                help="Regularization (default 0.3)"
             )
             
             lstm_epochs = st.number_input(
-                "Max Epochs",
+                "LSTM: Max Epochs",
                 min_value=10,
                 max_value=200,
                 value=50,
                 step=10,
-                help="Training epochs (early stopping active)"
+                help="Training iterations (early stopping active)"
             )
-            
-            min_lstm_train = lstm_sequence + 100
-            if initial_train < min_lstm_train:
-                st.warning(f"""
-                ⚠️ **LSTM needs more data!**
-                
-                - Sequence: {lstm_sequence} days
-                - Recommended training: ≥{min_lstm_train} days
-                - Current: {initial_train} days
-                
-                Consider increasing training days.
-                """)
-            else:
-                st.success(f"✅ Training data sufficient for LSTM")
+        else:
+            # Set defaults if not shown
+            lstm_hidden_units = 64
+            lstm_dropout = 0.3
+            lstm_epochs = 50
     
-    # Model comparison guidance
-    if model_choice == "Compare Both":
-        st.sidebar.info("""
-        **Comparing Both Models:**
-        
-        Each model will use its own parameters.
-        XGBoost and LSTM are trained independently.
-        """)
+    # Summary of settings
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 📋 Configuration Summary")
+    st.sidebar.code(f"""
+Core Parameters:
+├── train_size: {train_size} {freq_label}
+├── test_size: {test_size} {freq_label}
+└── seq_len: {seq_len if seq_len else 'N/A (XGBoost)'} {freq_label if seq_len else ''}
+
+Walk-Forward:
+└── step_size: {test_size} {freq_label} (= test_size)
+
+Validation Splits:
+└── ~{(max_train_periods - train_size) // test_size} splits
+    """, language="yaml")
     
     # Run button
     run_ml = st.sidebar.button("🚀 Run ML Prediction", type="primary")
@@ -2813,16 +2856,16 @@ elif analysis_type == "ML Price Prediction":
                 }
                 
                 lstm_params = {
-                    'sequence_length': lstm_sequence,
+                    'sequence_length': seq_len,
                     'hidden_units': lstm_hidden_units,
                     'dropout_rate': lstm_dropout,
                     'epochs': lstm_epochs,
-                } if lstm_sequence else {}
+                } if seq_len else {}
                 
                 results = compare_models(
                     features_df,
-                    initial_train_days=initial_train,
-                    test_days=test_period,
+                    initial_train_days=train_size,
+                    test_days=test_size,
                     xgb_params=xgb_params,
                     lstm_params=lstm_params,
                     verbose=False,
@@ -3044,9 +3087,9 @@ elif analysis_type == "ML Price Prediction":
                         'max_depth': xgb_max_depth,
                         'learning_rate': xgb_learning_rate,
                     }
-                elif model_type == "lstm" and lstm_sequence:
+                elif model_type == "lstm" and seq_len:
                     model_params = {
-                        'sequence_length': lstm_sequence,
+                        'sequence_length': seq_len,
                         'hidden_units': lstm_hidden_units,
                         'dropout_rate': lstm_dropout,
                         'epochs': lstm_epochs,
@@ -3055,8 +3098,8 @@ elif analysis_type == "ML Price Prediction":
                 results = run_walk_forward_validation(
                     features_df,
                     model_type=model_type,
-                    initial_train_days=initial_train,
-                    test_days=test_period,
+                    initial_train_days=train_size,
+                    test_days=test_size,
                     model_params=model_params,
                     verbose=False,
                 )
