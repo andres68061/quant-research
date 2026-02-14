@@ -120,6 +120,9 @@ for symbol, config in COMMODITIES_CONFIG.items():
 # Sidebar controls
 st.sidebar.header("⚙️ Analysis Settings")
 
+# Build available commodities list FIRST
+available_commodities = [symbol_to_display.get(col, col) for col in df.columns]
+
 # Analysis type selector (moved to top for better UX)
 analysis_type = st.sidebar.selectbox(
     "Analysis Type",
