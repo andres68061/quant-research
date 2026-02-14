@@ -176,13 +176,17 @@ selected_display = st.sidebar.multiselect(
 # Convert back to symbols
 selected_commodities = [display_to_symbol.get(d, d) for d in selected_display]
 
-# Data resampling
-resample_freq = st.sidebar.selectbox(
-    "Data Frequency",
-    ["Daily", "Weekly", "Monthly"],
-    index=0,
-    help="Resample data to different frequencies",
-)
+# Data resampling (only for non-ML analyses)
+if analysis_type != "ML Price Prediction":
+    resample_freq = st.sidebar.selectbox(
+        "Data Frequency",
+        ["Daily", "Weekly", "Monthly"],
+        index=0,
+        help="Resample data to different frequencies",
+    )
+else:
+    # ML will handle its own frequency selection
+    resample_freq = "Daily"  # Keep raw daily data for ML
 
 freq_map = {"Daily": "D", "Weekly": "W", "Monthly": "ME"}
 
