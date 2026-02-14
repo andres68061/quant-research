@@ -3127,11 +3127,12 @@ elif analysis_type == "ML Price Prediction":
         Each model uses its own hyperparameters.
         XGBoost and LSTM trained independently.
         """)
+    
+    # Run button for ALL model types
+    st.sidebar.markdown("---")
+    run_ml = st.sidebar.button("🚀 Run ML Prediction", type="primary", use_container_width=True)
 
-        # Run button (only show in Interactive mode)
-        run_ml = st.sidebar.button("🚀 Run ML Prediction", type="primary")
-
-        if run_ml:
+    if run_ml:
             # Regime already detected above, skip duplicate detection
             st.markdown("---")
             st.markdown("### 🤖 Training Models")
@@ -3955,215 +3956,216 @@ elif analysis_type == "ML Price Prediction":
                 - `src/models/commodity_direction.py` - Models and validation
                 """)
 
-        else:
-            st.info("""
-            👋 **Configure and Run ML Prediction**
+    # Message shown before running (not inside any conditional)
+    if not run_ml:
+        st.info("""
+        👋 **Configure and Run ML Prediction**
+    
+        **Steps:**
+        1. Select exactly ONE commodity from sidebar
+        2. Choose date range (recommend 2+ years)
+        3. Configure ML settings in sidebar
+        4. Click **Run ML Prediction**
+    
+        **What you'll get:**
+        - ✅ XGBoost vs LSTM comparison
+        - ✅ Accuracy, precision, recall, F1
+        - ✅ Confusion matrices
+        - ✅ Feature importance (XGBoost)
+        - ✅ Walk-forward validation results
+        - ✅ Full transparency on data prep
+        """)
+
+        # Frequency selection guide
+        with st.expander("💡 Data Frequency Guide - Click to Expand", expanded=False):
+            st.markdown("""
+            ### 📊 Choose Your Data Frequency
         
-            **Steps:**
-            1. Select exactly ONE commodity from sidebar
-            2. Choose date range (recommend 2+ years)
-            3. Configure ML settings in sidebar
-            4. Click **Run ML Prediction**
+            Different frequencies serve different trading strategies:
         
-            **What you'll get:**
-            - ✅ XGBoost vs LSTM comparison
-            - ✅ Accuracy, precision, recall, F1
-            - ✅ Confusion matrices
-            - ✅ Feature importance (XGBoost)
-            - ✅ Walk-forward validation results
-            - ✅ Full transparency on data prep
+            #### 📅 Daily (High Resolution)
+            **Best for:** Day trading, short-term patterns, news impact
+        
+            **Example - Gold (20 years):**
+            - 5,040 days available
+            - Max training: ~4,000 days (~16 years)
+            - Training time: ~3 hours for full walk-forward
+            - Use case: Predict tomorrow's direction
+        
+            **Recommended settings:**
+            - XGBoost: 63-252 days training, 5 day test
+            - LSTM: 252+ days training, 60 day sequence
+        
+            ---
+        
+            #### 📈 Weekly (~5x Faster)
+            **Best for:** Swing trading, medium-term patterns, weekly momentum
+        
+            **Example - Silver (20 years):**
+            - 4,967 days → ~993 weeks
+            - Max training: ~794 weeks (~15 years)
+            - Training time: ~40 minutes (5x faster!)
+            - Use case: Predict next week's direction
+        
+            **Recommended settings:**
+            - XGBoost: 52-104 weeks training (1-2 years), 1-4 week test
+            - LSTM: 104-208 weeks training (2-4 years), 52 week sequence (1 year lookback)
+        
+            **Why Friday close?** Market standard for weekly bars
+        
+            ---
+        
+            #### 📆 Monthly (~21x Faster)
+            **Best for:** Long-term trends, macro analysis, position trading
+        
+            **Example - Copper (20 years):**
+            - 5,040 days → ~240 months
+            - Max training: ~192 months (~16 years!)
+            - Training time: ~10 minutes (21x faster!)
+            - Use case: Predict next month's direction
+        
+            **Recommended settings:**
+            - XGBoost: 24-60 months training (2-5 years), 1-3 month test
+            - LSTM: 60-120 months training (5-10 years), 12-24 month sequence
+        
+            **Perfect for:** Correlations with macro indicators (GDP, rates, inflation)
+        
+            ---
+        
+            ### 🎯 Smart Strategy Combinations
+        
+            #### Multi-Timeframe Analysis
+            1. **Daily XGBoost**: Short-term momentum (63 days)
+            2. **Weekly LSTM**: Medium-term trend (104 weeks)
+            3. **Monthly regime**: Long-term macro signal (60 months)
+            4. **Ensemble**: Combine predictions across timeframes!
+        
+            #### Trading Style Matching
+        
+            | Trading Style | Frequency | Training | Sequence | Test Period |
+            |---------------|-----------|----------|----------|-------------|
+            | Day Trading | Daily | 63-252 days | 60 days | 5 days |
+            | Swing Trading | Weekly | 104-208 weeks | 52 weeks | 1-4 weeks |
+            | Position Trading | Monthly | 60-120 months | 12-24 months | 1-3 months |
+            | Long-term Investing | Monthly | 120+ months | 24-36 months | 3-6 months |
+        
+            #### Regime Detection Strategy
+            **We have full regime detection in "Rolling Metrics" analysis!**
+        
+            Use **Rolling Volatility** to identify market regimes:
+            - 📊 **Rolling Sharpe Ratio**: Performance over time (trending vs mean-reverting)
+            - 📈 **Rolling Volatility**: Regime identification (calm vs turbulent)
+            - 📉 **Rolling Sortino**: Downside risk regimes (asymmetric risk periods)
+            - 🔗 **Rolling Correlation**: Relationship changes (diversification breakdown)
+        
+            **Regime-Based Trading Strategy:**
+            1. **Low Volatility Regime** (Calm markets)
+               - Use Daily/Weekly data for precision
+               - Momentum strategies work well
+               - Higher leverage acceptable
+           
+            2. **High Volatility Regime** (Crisis/Turbulence)
+               - Use Weekly/Monthly to filter noise
+               - Mean reversion strategies
+               - Reduce leverage, focus on risk management
+           
+            3. **Regime Transitions** (Volatility spikes)
+               - Be cautious during transitions
+               - Wait for regime confirmation
+               - Consider ensemble predictions
+        
+            **How to use:**
+            - Go to "Rolling Metrics" analysis
+            - Check rolling volatility chart
+            - Identify current regime
+            - Adjust ML timeframe accordingly!
+        
+            ---
+        
+            ### ⚡ Training Time Comparison
+        
+            **For 20 years of Gold data:**
+        
+            | Frequency | Data Points | XGBoost Time | LSTM Time | Total (Compare) |
+            |-----------|-------------|--------------|-----------|-----------------|
+            | Daily | 5,040 | ~90 min | ~180 min | ~270 min (4.5 hrs) |
+            | Weekly | ~1,008 | ~18 min | ~36 min | ~54 min |
+            | Monthly | ~240 | ~4 min | ~8 min | ~12 min |
+        
+            **💡 Tip:** Start with **Weekly** for best balance of detail and speed!
+        
+            ---
+        
+            ### 🔬 When to Use Each Model
+        
+            #### XGBoost (Tree-Based)
+            **Strengths:**
+            - Works with limited data
+            - Fast training
+            - Feature importance
+            - Non-linear patterns
+        
+            **Best with:**
+            - Daily/Weekly data
+            - 100-1000 samples
+            - Tabular features
+        
+            #### LSTM (Neural Network)
+            **Strengths:**
+            - Learns sequences
+            - Long-term dependencies
+            - Regime persistence
+        
+            **Best with:**
+            - Weekly/Monthly data
+            - 500+ samples
+            - Temporal patterns
+        
+            **Needs more data:** If training < sequence + 100, expect warning!
+        
+            ---
+        
+            ### 📝 Example Configurations
+        
+            #### Beginner: Quick Test
+            ```
+            Frequency: Weekly
+            Training: 104 weeks (2 years)
+            Test: 4 weeks (1 month)
+            Model: XGBoost Only
+            Time: ~5 minutes
+            ```
+        
+            #### Intermediate: Balanced
+            ```
+            Frequency: Weekly
+            Training: 208 weeks (4 years)
+            Test: 1 week
+            Model: Compare Both
+            LSTM Sequence: 52 weeks
+            Time: ~30 minutes
+            ```
+        
+            #### Advanced: Maximum History
+            ```
+            Frequency: Monthly
+            Training: 180 months (15 years)
+            Test: 1 month
+            Model: Compare Both
+            LSTM Sequence: 24 months (2 years)
+            Time: ~10 minutes
+            ```
+        
+            #### Expert: Multi-Timeframe
+            - Run Daily XGBoost (short-term)
+            - Run Weekly LSTM (medium-term)
+            - Run Monthly LSTM (long-term)
+            - Compare & ensemble results!
             """)
 
-            # Frequency selection guide
-            with st.expander("💡 Data Frequency Guide - Click to Expand", expanded=False):
-                st.markdown("""
-                ### 📊 Choose Your Data Frequency
-            
-                Different frequencies serve different trading strategies:
-            
-                #### 📅 Daily (High Resolution)
-                **Best for:** Day trading, short-term patterns, news impact
-            
-                **Example - Gold (20 years):**
-                - 5,040 days available
-                - Max training: ~4,000 days (~16 years)
-                - Training time: ~3 hours for full walk-forward
-                - Use case: Predict tomorrow's direction
-            
-                **Recommended settings:**
-                - XGBoost: 63-252 days training, 5 day test
-                - LSTM: 252+ days training, 60 day sequence
-            
-                ---
-            
-                #### 📈 Weekly (~5x Faster)
-                **Best for:** Swing trading, medium-term patterns, weekly momentum
-            
-                **Example - Silver (20 years):**
-                - 4,967 days → ~993 weeks
-                - Max training: ~794 weeks (~15 years)
-                - Training time: ~40 minutes (5x faster!)
-                - Use case: Predict next week's direction
-            
-                **Recommended settings:**
-                - XGBoost: 52-104 weeks training (1-2 years), 1-4 week test
-                - LSTM: 104-208 weeks training (2-4 years), 52 week sequence (1 year lookback)
-            
-                **Why Friday close?** Market standard for weekly bars
-            
-                ---
-            
-                #### 📆 Monthly (~21x Faster)
-                **Best for:** Long-term trends, macro analysis, position trading
-            
-                **Example - Copper (20 years):**
-                - 5,040 days → ~240 months
-                - Max training: ~192 months (~16 years!)
-                - Training time: ~10 minutes (21x faster!)
-                - Use case: Predict next month's direction
-            
-                **Recommended settings:**
-                - XGBoost: 24-60 months training (2-5 years), 1-3 month test
-                - LSTM: 60-120 months training (5-10 years), 12-24 month sequence
-            
-                **Perfect for:** Correlations with macro indicators (GDP, rates, inflation)
-            
-                ---
-            
-                ### 🎯 Smart Strategy Combinations
-            
-                #### Multi-Timeframe Analysis
-                1. **Daily XGBoost**: Short-term momentum (63 days)
-                2. **Weekly LSTM**: Medium-term trend (104 weeks)
-                3. **Monthly regime**: Long-term macro signal (60 months)
-                4. **Ensemble**: Combine predictions across timeframes!
-            
-                #### Trading Style Matching
-            
-                | Trading Style | Frequency | Training | Sequence | Test Period |
-                |---------------|-----------|----------|----------|-------------|
-                | Day Trading | Daily | 63-252 days | 60 days | 5 days |
-                | Swing Trading | Weekly | 104-208 weeks | 52 weeks | 1-4 weeks |
-                | Position Trading | Monthly | 60-120 months | 12-24 months | 1-3 months |
-                | Long-term Investing | Monthly | 120+ months | 24-36 months | 3-6 months |
-            
-                #### Regime Detection Strategy
-                **We have full regime detection in "Rolling Metrics" analysis!**
-            
-                Use **Rolling Volatility** to identify market regimes:
-                - 📊 **Rolling Sharpe Ratio**: Performance over time (trending vs mean-reverting)
-                - 📈 **Rolling Volatility**: Regime identification (calm vs turbulent)
-                - 📉 **Rolling Sortino**: Downside risk regimes (asymmetric risk periods)
-                - 🔗 **Rolling Correlation**: Relationship changes (diversification breakdown)
-            
-                **Regime-Based Trading Strategy:**
-                1. **Low Volatility Regime** (Calm markets)
-                   - Use Daily/Weekly data for precision
-                   - Momentum strategies work well
-                   - Higher leverage acceptable
-               
-                2. **High Volatility Regime** (Crisis/Turbulence)
-                   - Use Weekly/Monthly to filter noise
-                   - Mean reversion strategies
-                   - Reduce leverage, focus on risk management
-               
-                3. **Regime Transitions** (Volatility spikes)
-                   - Be cautious during transitions
-                   - Wait for regime confirmation
-                   - Consider ensemble predictions
-            
-                **How to use:**
-                - Go to "Rolling Metrics" analysis
-                - Check rolling volatility chart
-                - Identify current regime
-                - Adjust ML timeframe accordingly!
-            
-                ---
-            
-                ### ⚡ Training Time Comparison
-            
-                **For 20 years of Gold data:**
-            
-                | Frequency | Data Points | XGBoost Time | LSTM Time | Total (Compare) |
-                |-----------|-------------|--------------|-----------|-----------------|
-                | Daily | 5,040 | ~90 min | ~180 min | ~270 min (4.5 hrs) |
-                | Weekly | ~1,008 | ~18 min | ~36 min | ~54 min |
-                | Monthly | ~240 | ~4 min | ~8 min | ~12 min |
-            
-                **💡 Tip:** Start with **Weekly** for best balance of detail and speed!
-            
-                ---
-            
-                ### 🔬 When to Use Each Model
-            
-                #### XGBoost (Tree-Based)
-                **Strengths:**
-                - Works with limited data
-                - Fast training
-                - Feature importance
-                - Non-linear patterns
-            
-                **Best with:**
-                - Daily/Weekly data
-                - 100-1000 samples
-                - Tabular features
-            
-                #### LSTM (Neural Network)
-                **Strengths:**
-                - Learns sequences
-                - Long-term dependencies
-                - Regime persistence
-            
-                **Best with:**
-                - Weekly/Monthly data
-                - 500+ samples
-                - Temporal patterns
-            
-                **Needs more data:** If training < sequence + 100, expect warning!
-            
-                ---
-            
-                ### 📝 Example Configurations
-            
-                #### Beginner: Quick Test
-                ```
-                Frequency: Weekly
-                Training: 104 weeks (2 years)
-                Test: 4 weeks (1 month)
-                Model: XGBoost Only
-                Time: ~5 minutes
-                ```
-            
-                #### Intermediate: Balanced
-                ```
-                Frequency: Weekly
-                Training: 208 weeks (4 years)
-                Test: 1 week
-                Model: Compare Both
-                LSTM Sequence: 52 weeks
-                Time: ~30 minutes
-                ```
-            
-                #### Advanced: Maximum History
-                ```
-                Frequency: Monthly
-                Training: 180 months (15 years)
-                Test: 1 month
-                Model: Compare Both
-                LSTM Sequence: 24 months (2 years)
-                Time: ~10 minutes
-                ```
-            
-                #### Expert: Multi-Timeframe
-                - Run Daily XGBoost (short-term)
-                - Run Weekly LSTM (medium-term)
-                - Run Monthly LSTM (long-term)
-                - Compare & ensemble results!
-                """)
-
-            st.markdown("---")
-            st.caption(
-                "**Note:** First run may take 2-3 minutes for daily data. Weekly/Monthly are much faster!")
+        st.markdown("---")
+        st.caption(
+            "**Note:** First run may take 2-3 minutes for daily data. Weekly/Monthly are much faster!")
 
 
     elif analysis_type == "Correlation Matrix":
