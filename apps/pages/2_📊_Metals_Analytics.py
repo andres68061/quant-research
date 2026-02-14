@@ -3284,7 +3284,10 @@ elif analysis_type == "ML Price Prediction":
                     """Update progress bar and text"""
                     progress = current / total
                     progress_bar.progress(progress)
-                    progress_text.text(f"Training {model_name} split {current}/{total}... ({progress*100:.0f}% complete)")
+                    progress_text.markdown(f"**Training {model_name} split {current}/{total}... ({progress*100:.0f}% complete)**")
+                    # Force UI refresh
+                    import time
+                    time.sleep(0.001)
             
                 # Prepare model params
                 xgb_params = {
@@ -3522,21 +3525,25 @@ elif analysis_type == "ML Price Prediction":
                 status_placeholder.info(f"🚀 **Starting training:** {actual_splits} splits with {model_choice}")
 
                 # Run model
-                status_placeholder.info(f"🚀 **Starting training:** {actual_splits} splits with {model_choice}")
+                status_placeholder.warning(f"⏳ **Preparing {model_choice}...** This may take a moment to initialize.")
             
                 # Create progress bar
                 progress_bar = st.progress(0)
                 progress_text = st.empty()
+                
+                # Show initial state
+                progress_text.markdown(f"**Initializing {model_choice}...**")
             
                 def update_progress(current, total):
                     """Update progress bar and text"""
                     progress = current / total
                     progress_bar.progress(progress)
-                    progress_text.text(f"Training split {current}/{total}... ({progress*100:.0f}% complete)")
-                    # Force Streamlit to update UI immediately (especially for slow LSTM)
-                    if current % 5 == 0 or current == total:  # Update every 5 splits or at end
-                        import time
-                        time.sleep(0.01)  # Give UI time to refresh
+                    progress_text.markdown(f"**Training split {current}/{total}... ({progress*100:.0f}% complete)**")
+                    
+                    # Force Streamlit to refresh UI immediately
+                    # This is critical for LSTM which has slow iterations
+                    import time
+                    time.sleep(0.001)  # Tiny sleep to force UI refresh
             
                 # Prepare model params
                 model_params = {}
@@ -3554,6 +3561,12 @@ elif analysis_type == "ML Price Prediction":
                         'epochs': lstm_epochs,
                     }
 
+                # Show status before starting
+                if model_type == "lstm":
+                    st.info("🧠 **LSTM Training:** Each split trains a neural network. Progress bar updates every split (~30-60 seconds each).")
+                
+                status_placeholder.success(f"✅ **Starting {model_type.upper()} training now...**")
+                
                 results = run_walk_forward_validation(
                     features_df,
                     model_type=model_type,
