@@ -23,6 +23,77 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
+def classify_volatility_regime(volatility: float, vol_series: pd.Series) -> str:
+    """
+    Classify current volatility into Low/Medium/High regime.
+    
+    Args:
+        volatility: Current volatility value
+        vol_series: Historical volatility series for percentiles
+        
+    Returns:
+        "Low Volatility", "Medium Volatility", or "High Volatility"
+    """
+    vol_33 = vol_series.quantile(0.33)
+    vol_67 = vol_series.quantile(0.67)
+    
+    if volatility <= vol_33:
+        return "Low Volatility"
+    elif volatility <= vol_67:
+        return "Medium Volatility"
+    else:
+        return "High Volatility"
+
+
+def get_regime_trading_recommendation(regime: str) -> Dict[str, str]:
+    """
+    Get trading recommendations based on volatility regime.
+    
+    Args:
+        regime: "Low Volatility", "Medium Volatility", or "High Volatility"
+        
+    Returns:
+        Dictionary with trading recommendations
+    """
+    recommendations = {
+        "Low Volatility": {
+            "frequency": "Daily or Weekly",
+            "model": "XGBoost (captures trends well)",
+            "training": "63-252 periods (recent data sufficient)",
+            "features": "Momentum indicators",
+            "leverage": "Higher leverage acceptable",
+            "strategy": "Trend-following, momentum, breakouts",
+            "risk": "Standard position sizing, wider stops",
+            "color": "green",
+            "emoji": "🟢",
+        },
+        "Medium Volatility": {
+            "frequency": "Weekly (balanced approach)",
+            "model": "Compare Both (XGBoost + LSTM)",
+            "training": "104-208 periods (2-4 years)",
+            "features": "Balanced momentum + mean reversion",
+            "leverage": "Moderate leverage",
+            "strategy": "Hybrid strategies, adapt to changes",
+            "risk": "Standard sizing, moderate stops",
+            "color": "blue",
+            "emoji": "🟡",
+        },
+        "High Volatility": {
+            "frequency": "Weekly or Monthly (filter noise)",
+            "model": "LSTM (regime persistence)",
+            "training": "208+ periods or 60+ months",
+            "features": "Volatility, downside deviation",
+            "leverage": "⚠️ Reduce significantly",
+            "strategy": "Mean reversion, vol trading, options",
+            "risk": "⚠️ Smaller positions, tight stops, hedge",
+            "color": "red",
+            "emoji": "🔴",
+        },
+    }
+    
+    return recommendations.get(regime, recommendations["Medium Volatility"])
+
+
 def calculate_rsi(prices: pd.Series, window: int = 14) -> pd.Series:
     """
     Calculate Relative Strength Index (RSI).
