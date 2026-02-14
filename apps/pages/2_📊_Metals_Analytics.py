@@ -6,6 +6,7 @@ Interactive analysis of precious metals and commodity prices.
 Now uses persistent parquet storage for fast loading.
 """
 
+from src.data.commodities import COMMODITIES_CONFIG
 import sys
 import warnings
 from datetime import datetime, timedelta
@@ -25,7 +26,6 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.data.commodities import COMMODITIES_CONFIG
 
 # Page configuration
 st.set_page_config(
@@ -35,7 +35,8 @@ st.set_page_config(
 )
 
 st.title("📊 Commodities & Metals Analytics")
-st.markdown("**Persistent Data Storage** - Daily updated from Alpha Vantage & Yahoo Finance")
+st.markdown(
+    "**Persistent Data Storage** - Daily updated from Alpha Vantage & Yahoo Finance")
 
 st.info("""
 📋 **Available Assets:**
@@ -50,18 +51,20 @@ st.info("""
 st.markdown("---")
 
 # Load commodities data from parquet
+
+
 @st.cache_data(ttl=60)  # Cache for 1 minute to allow quick updates
 def load_commodities_data():
     """Load commodities data from parquet file."""
     data_file = ROOT / "data" / "commodities" / "prices.parquet"
-    
+
     if not data_file.exists():
         return None, None
-    
+
     try:
         df = pd.read_parquet(data_file)
         df.index = pd.to_datetime(df.index).tz_localize(None)
-        
+
         # Build metadata
         metadata = {}
         for col in df.columns:
@@ -77,7 +80,7 @@ def load_commodities_data():
                     "unit": config.get("unit", "USD"),
                     "category": config.get("category", "unknown"),
                 }
-        
+
         return df, metadata
     except Exception as e:
         st.error(f"Error loading data: {e}")
@@ -125,7 +128,8 @@ default_selection = [
     symbol_to_display.get("COPPER", "Copper"),
 ]
 # Filter defaults to only those that exist
-default_selection = [d for d in default_selection if d in available_commodities]
+default_selection = [
+    d for d in default_selection if d in available_commodities]
 
 selected_display = st.sidebar.multiselect(
     "Select Assets",
@@ -194,9 +198,10 @@ for i, symbol in enumerate(selected_commodities):
             col = cols[i % len(cols)]
             with col:
                 latest = series.iloc[-1]
-                pct_change = ((series.iloc[-1] / series.iloc[-2]) - 1) * 100 if len(series) > 1 else 0
+                pct_change = (
+                    (series.iloc[-1] / series.iloc[-2]) - 1) * 100 if len(series) > 1 else 0
                 config = COMMODITIES_CONFIG.get(symbol, {})
-                
+
                 st.metric(
                     config.get("name", symbol),
                     f"${latest:.2f}",
@@ -207,7 +212,8 @@ for i, symbol in enumerate(selected_commodities):
 st.markdown("---")
 
 # Date range filter for charts
-st.markdown("**📅 Chart Date Range** *(adjust Y-axis to zoom into specific periods)*")
+st.markdown(
+    "**📅 Chart Date Range** *(adjust Y-axis to zoom into specific periods)*")
 
 # Get overall date range
 overall_min = filtered_df.index.min()
@@ -241,14 +247,14 @@ st.markdown("---")
 # Analysis sections
 if analysis_type == "Price Trends":
     st.subheader("📈 Price Trends Over Time")
-    
+
     fig = go.Figure()
-    
+
     for symbol in selected_commodities:
         if symbol in date_filtered_df.columns:
             series = date_filtered_df[symbol].dropna()
             config = COMMODITIES_CONFIG.get(symbol, {})
-            
+
             fig.add_trace(
                 go.Scatter(
                     x=series.index,
@@ -258,7 +264,7 @@ if analysis_type == "Price Trends":
                     line=dict(width=2),
                 )
             )
-    
+
     fig.update_layout(
         title=f"Commodity Prices ({resample_freq})",
         xaxis_title="Date",
@@ -267,12 +273,12 @@ if analysis_type == "Price Trends":
         height=600,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig, use_container_width=True)
-    
+
     # Statistics table
     st.markdown("### 📊 Price Statistics")
-    
+
     stats_data = []
     for symbol in selected_commodities:
         if symbol in date_filtered_df.columns:
@@ -287,24 +293,25 @@ if analysis_type == "Price Trends":
                     "Max": f"${series.max():.2f}",
                     "Std Dev": f"${series.std():.2f}",
                 })
-    
+
     if stats_data:
-        st.dataframe(pd.DataFrame(stats_data), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(stats_data),
+                     use_container_width=True, hide_index=True)
 
 elif analysis_type == "Returns Analysis (Arithmetic)":
     st.subheader("📊 Returns Analysis")
-    
+
     # Calculate returns
     returns_df = date_filtered_df.pct_change().dropna()
-    
+
     # Returns distribution
     fig = go.Figure()
-    
+
     for symbol in selected_commodities:
         if symbol in returns_df.columns:
             ret_series = returns_df[symbol].dropna()
             config = COMMODITIES_CONFIG.get(symbol, {})
-            
+
             fig.add_trace(
                 go.Histogram(
                     x=ret_series * 100,
@@ -313,7 +320,7 @@ elif analysis_type == "Returns Analysis (Arithmetic)":
                     nbinsx=50,
                 )
             )
-    
+
     fig.update_layout(
         title="Returns Distribution (%)",
         xaxis_title="Return (%)",
@@ -322,23 +329,23 @@ elif analysis_type == "Returns Analysis (Arithmetic)":
         height=500,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig, use_container_width=True)
-    
+
     # Returns statistics
     st.markdown("### 📊 Returns Statistics")
-    
+
     returns_stats = []
     for symbol in selected_commodities:
         if symbol in returns_df.columns:
             ret_series = returns_df[symbol].dropna()
             if len(ret_series) > 0:
                 config = COMMODITIES_CONFIG.get(symbol, {})
-                
+
                 # Annualization factor
                 periods_per_year = {"Daily": 252, "Weekly": 52, "Monthly": 12}
                 ann_factor = periods_per_year.get(resample_freq, 252)
-                
+
                 returns_stats.append({
                     "Asset": config.get("name", symbol),
                     "Mean Return": f"{ret_series.mean() * 100:.3f}%",
@@ -349,7 +356,7 @@ elif analysis_type == "Returns Analysis (Arithmetic)":
                     "Skewness": f"{ret_series.skew():.3f}",
                     "Kurtosis": f"{ret_series.kurtosis():.3f}",
                 })
-    
+
     if returns_stats:
         st.dataframe(
             pd.DataFrame(returns_stats), use_container_width=True, hide_index=True
@@ -357,7 +364,7 @@ elif analysis_type == "Returns Analysis (Arithmetic)":
 
 elif analysis_type == "Log Returns Analysis":
     st.subheader("📊 Log Returns Analysis")
-    
+
     st.info("""
     **Why Log Returns?**
     - Foundation for signal generation and risk modeling
@@ -365,16 +372,18 @@ elif analysis_type == "Log Returns Analysis":
     - More appropriate for time-series analysis and econometric models
     - Better for multi-period returns
     """)
-    
+
     # Calculate log returns
-    log_returns_df = np.log(date_filtered_df / date_filtered_df.shift(1)).dropna()
+    log_returns_df = np.log(
+        date_filtered_df / date_filtered_df.shift(1)).dropna()
     arith_returns_df = date_filtered_df.pct_change().dropna()
-    
+
     # Check if we have enough data
     if len(log_returns_df) < 2:
-        st.warning("⚠️ Insufficient data for log returns analysis. Please select a longer date range or different assets.")
+        st.warning(
+            "⚠️ Insufficient data for log returns analysis. Please select a longer date range or different assets.")
         st.stop()
-    
+
     # Filter to only commodities with valid data in the selected date range
     valid_commodities = []
     for symbol in selected_commodities:
@@ -382,7 +391,7 @@ elif analysis_type == "Log Returns Analysis":
             valid_count = log_returns_df[symbol].notna().sum()
             if valid_count > 1:
                 valid_commodities.append(symbol)
-    
+
     if not valid_commodities:
         st.warning("""
         ⚠️ **No valid data for selected commodities in this date range.**
@@ -397,36 +406,38 @@ elif analysis_type == "Log Returns Analysis":
         - Checking when each commodity's data begins
         """)
         st.stop()
-    
+
     # Show info about filtered commodities
     if len(valid_commodities) < len(selected_commodities):
         excluded = set(selected_commodities) - set(valid_commodities)
-        excluded_names = [COMMODITIES_CONFIG.get(s, {}).get("name", s) for s in excluded]
+        excluded_names = [COMMODITIES_CONFIG.get(
+            s, {}).get("name", s) for s in excluded]
         st.info(f"""
         ℹ️ **Note:** Excluding {len(excluded)} commodity/commodities with insufficient data in this date range:
         {', '.join(excluded_names)}
         
         Analyzing {len(valid_commodities)} commodities with valid data.
         """)
-    
+
     # Update selected_commodities to only valid ones
     selected_commodities_filtered = valid_commodities
-    
+
     # 1. Time series comparison
     st.markdown("### 📈 Log Returns vs Arithmetic Returns")
-    
+
     fig = make_subplots(
-        rows=len(selected_commodities_filtered), 
+        rows=len(selected_commodities_filtered),
         cols=1,
-        subplot_titles=[COMMODITIES_CONFIG.get(s, {}).get("name", s) for s in selected_commodities_filtered],
+        subplot_titles=[COMMODITIES_CONFIG.get(s, {}).get(
+            "name", s) for s in selected_commodities_filtered],
         vertical_spacing=0.05,
     )
-    
+
     for idx, symbol in enumerate(selected_commodities_filtered, 1):
         if symbol in log_returns_df.columns:
             log_ret = log_returns_df[symbol].dropna()
             arith_ret = arith_returns_df[symbol].dropna()
-            
+
             fig.add_trace(
                 go.Scatter(
                     x=log_ret.index,
@@ -438,7 +449,7 @@ elif analysis_type == "Log Returns Analysis":
                 ),
                 row=idx, col=1
             )
-            
+
             fig.add_trace(
                 go.Scatter(
                     x=arith_ret.index,
@@ -450,34 +461,35 @@ elif analysis_type == "Log Returns Analysis":
                 ),
                 row=idx, col=1
             )
-    
-    fig.update_xaxes(title_text="Date", row=len(selected_commodities_filtered), col=1)
+
+    fig.update_xaxes(title_text="Date", row=len(
+        selected_commodities_filtered), col=1)
     fig.update_yaxes(title_text="Return (%)")
     fig.update_layout(
         height=300 * len(selected_commodities_filtered),
         showlegend=True,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig, use_container_width=True)
-    
+
     # 2. Scatter plot: Log vs Arithmetic
     st.markdown("### 🔍 Log vs Arithmetic Returns (Scatter)")
-    
+
     fig_scatter = go.Figure()
-    
+
     for symbol in selected_commodities_filtered:
         if symbol in log_returns_df.columns:
             log_ret = log_returns_df[symbol].dropna()
             arith_ret = arith_returns_df[symbol].dropna()
-            
+
             # Align indices
             common_idx = log_ret.index.intersection(arith_ret.index)
             log_ret = log_ret.loc[common_idx]
             arith_ret = arith_ret.loc[common_idx]
-            
+
             config = COMMODITIES_CONFIG.get(symbol, {})
-            
+
             fig_scatter.add_trace(
                 go.Scatter(
                     x=arith_ret * 100,
@@ -487,11 +499,11 @@ elif analysis_type == "Log Returns Analysis":
                     marker=dict(size=3, opacity=0.5),
                 )
             )
-    
+
     # Add diagonal line (where log = arithmetic)
     log_values = log_returns_df.values.flatten()
     log_values = log_values[~np.isnan(log_values)]  # Remove NaN
-    
+
     if len(log_values) > 0:
         max_val = max(
             abs(log_values.max()),
@@ -507,7 +519,7 @@ elif analysis_type == "Log Returns Analysis":
                 showlegend=True,
             )
         )
-    
+
     fig_scatter.update_layout(
         title="Log Returns vs Arithmetic Returns",
         xaxis_title="Arithmetic Return (%)",
@@ -515,23 +527,23 @@ elif analysis_type == "Log Returns Analysis":
         height=600,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig_scatter, use_container_width=True)
-    
+
     # 3. Statistics comparison table
     st.markdown("### 📊 Statistics: Log vs Arithmetic Returns")
-    
+
     periods_per_year = {"Daily": 252, "Weekly": 52, "Monthly": 12}
     ann_factor = periods_per_year.get(resample_freq, 252)
-    
+
     stats_comparison = []
     for symbol in selected_commodities_filtered:
         if symbol in log_returns_df.columns:
             log_ret = log_returns_df[symbol].dropna()
             arith_ret = arith_returns_df[symbol].dropna()
-            
+
             config = COMMODITIES_CONFIG.get(symbol, {})
-            
+
             stats_comparison.append({
                 "Asset": config.get("name", symbol),
                 "Type": "Log",
@@ -542,7 +554,7 @@ elif analysis_type == "Log Returns Analysis":
                 "Skewness": f"{log_ret.skew():.3f}",
                 "Kurtosis": f"{log_ret.kurtosis():.3f}",
             })
-            
+
             stats_comparison.append({
                 "Asset": config.get("name", symbol),
                 "Type": "Arithmetic",
@@ -553,34 +565,35 @@ elif analysis_type == "Log Returns Analysis":
                 "Skewness": f"{arith_ret.skew():.3f}",
                 "Kurtosis": f"{arith_ret.kurtosis():.3f}",
             })
-    
+
     if stats_comparison:
         st.dataframe(
             pd.DataFrame(stats_comparison),
             use_container_width=True,
             hide_index=True
         )
-    
+
     # 4. Difference analysis
     st.markdown("### 📉 Difference: Arithmetic - Log Returns")
-    
+
     st.markdown("""
     The difference between arithmetic and log returns increases with volatility.
     **Rule of thumb:** Arithmetic ≈ Log + (Volatility²/2)
     """)
-    
+
     fig_diff = go.Figure()
-    
+
     for symbol in selected_commodities_filtered:
         if symbol in log_returns_df.columns:
             log_ret = log_returns_df[symbol].dropna()
             arith_ret = arith_returns_df[symbol].dropna()
-            
+
             common_idx = log_ret.index.intersection(arith_ret.index)
-            difference = (arith_ret.loc[common_idx] - log_ret.loc[common_idx]) * 100
-            
+            difference = (arith_ret.loc[common_idx] -
+                          log_ret.loc[common_idx]) * 100
+
             config = COMMODITIES_CONFIG.get(symbol, {})
-            
+
             fig_diff.add_trace(
                 go.Scatter(
                     x=difference.index,
@@ -590,7 +603,7 @@ elif analysis_type == "Log Returns Analysis":
                     line=dict(width=1),
                 )
             )
-    
+
     fig_diff.update_layout(
         title="Difference: Arithmetic - Log Returns",
         xaxis_title="Date",
@@ -598,22 +611,23 @@ elif analysis_type == "Log Returns Analysis":
         height=500,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig_diff, use_container_width=True)
 
 elif analysis_type == "Cumulative Wealth (NAV)":
     st.subheader("💰 Cumulative Wealth (NAV Path)")
-    
+
     st.info("""
     **NAV (Net Asset Value)** shows the actual dollar value of an investment over time.
     This is what investors actually see in their accounts!
     """)
-    
+
     # Check if we have enough data
     if len(date_filtered_df) < 2:
-        st.warning("⚠️ Insufficient data for NAV analysis. Please select a longer date range.")
+        st.warning(
+            "⚠️ Insufficient data for NAV analysis. Please select a longer date range.")
         st.stop()
-    
+
     # Initial investment amount
     initial_capital = st.sidebar.number_input(
         "Initial Investment ($)",
@@ -623,20 +637,20 @@ elif analysis_type == "Cumulative Wealth (NAV)":
         step=1000,
         help="Starting capital for the investment"
     )
-    
+
     # Calculate NAV using geometric returns
     st.markdown(f"### 📈 NAV Path (Starting: ${initial_capital:,.0f})")
-    
+
     returns_df = date_filtered_df.pct_change().dropna()
     nav_df = (1 + returns_df).cumprod() * initial_capital
-    
+
     fig = go.Figure()
-    
+
     for symbol in selected_commodities:
         if symbol in nav_df.columns:
             nav_series = nav_df[symbol].dropna()
             config = COMMODITIES_CONFIG.get(symbol, {})
-            
+
             fig.add_trace(
                 go.Scatter(
                     x=nav_series.index,
@@ -647,7 +661,7 @@ elif analysis_type == "Cumulative Wealth (NAV)":
                     hovertemplate="%{y:$,.0f}<extra></extra>",
                 )
             )
-    
+
     fig.update_layout(
         title=f"Cumulative Wealth Path (Initial: ${initial_capital:,.0f})",
         xaxis_title="Date",
@@ -656,28 +670,30 @@ elif analysis_type == "Cumulative Wealth (NAV)":
         height=600,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig, use_container_width=True)
-    
+
     # 2. Performance table with dollar values
     st.markdown("### 💵 Investment Performance")
-    
+
     perf_data = []
     for symbol in selected_commodities:
         if symbol in nav_df.columns:
             nav_series = nav_df[symbol].dropna()
-            
+
             if len(nav_series) > 0:
                 config = COMMODITIES_CONFIG.get(symbol, {})
-                
+
                 final_value = nav_series.iloc[-1]
                 total_return_dollars = final_value - initial_capital
                 total_return_pct = (final_value / initial_capital - 1) * 100
-                
+
                 # Calculate CAGR (geometric)
-                years = len(nav_series) / {"Daily": 252, "Weekly": 52, "Monthly": 12}.get(resample_freq, 252)
-                cagr = ((final_value / initial_capital) ** (1 / years) - 1) * 100 if years > 0 else 0
-                
+                years = len(
+                    nav_series) / {"Daily": 252, "Weekly": 52, "Monthly": 12}.get(resample_freq, 252)
+                cagr = ((final_value / initial_capital) **
+                        (1 / years) - 1) * 100 if years > 0 else 0
+
                 perf_data.append({
                     "Asset": config.get("name", symbol),
                     "Start Value": f"${initial_capital:,.0f}",
@@ -687,16 +703,17 @@ elif analysis_type == "Cumulative Wealth (NAV)":
                     "CAGR (%)": f"{cagr:.2f}%",
                     "Period (Years)": f"{years:.2f}",
                 })
-    
+
     if perf_data:
-        st.dataframe(pd.DataFrame(perf_data), use_container_width=True, hide_index=True)
-    
+        st.dataframe(pd.DataFrame(perf_data),
+                     use_container_width=True, hide_index=True)
+
     # 3. Bar chart of final values
     st.markdown("### 📊 Final Portfolio Values")
-    
+
     final_values = []
     labels = []
-    
+
     for symbol in selected_commodities:
         if symbol in nav_df.columns:
             nav_series = nav_df[symbol].dropna()
@@ -704,17 +721,18 @@ elif analysis_type == "Cumulative Wealth (NAV)":
                 config = COMMODITIES_CONFIG.get(symbol, {})
                 final_values.append(nav_series.iloc[-1])
                 labels.append(config.get("name", symbol))
-    
+
     fig_bar = go.Figure(
         go.Bar(
             x=labels,
             y=final_values,
-            marker_color=["green" if v > initial_capital else "red" for v in final_values],
+            marker_color=["green" if v >
+                          initial_capital else "red" for v in final_values],
             text=[f"${v:,.0f}" for v in final_values],
             textposition="outside",
         )
     )
-    
+
     # Add horizontal line at initial capital
     fig_bar.add_hline(
         y=initial_capital,
@@ -722,7 +740,7 @@ elif analysis_type == "Cumulative Wealth (NAV)":
         line_color="gray",
         annotation_text=f"Initial: ${initial_capital:,.0f}",
     )
-    
+
     fig_bar.update_layout(
         title="Final Portfolio Values Comparison",
         xaxis_title="Asset",
@@ -730,38 +748,39 @@ elif analysis_type == "Cumulative Wealth (NAV)":
         height=500,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig_bar, use_container_width=True)
 
 elif analysis_type == "Drawdown Analysis":
     st.subheader("📉 Drawdown Analysis")
-    
+
     st.info("""
     **Drawdown** = Peak-to-trough decline in portfolio value.
     Critical for understanding downside risk and capital preservation.
     """)
-    
+
     # Check if we have enough data
     if len(date_filtered_df) < 2:
-        st.warning("⚠️ Insufficient data for drawdown analysis. Please select a longer date range.")
+        st.warning(
+            "⚠️ Insufficient data for drawdown analysis. Please select a longer date range.")
         st.stop()
-    
+
     # Calculate drawdowns
     returns_df = date_filtered_df.pct_change().dropna()
     cum_returns = (1 + returns_df).cumprod()
     running_max = cum_returns.expanding().max()
     drawdown_df = (cum_returns - running_max) / running_max
-    
+
     # 1. Drawdown time series
     st.markdown("### 📉 Drawdown Over Time")
-    
+
     fig = go.Figure()
-    
+
     for symbol in selected_commodities:
         if symbol in drawdown_df.columns:
             dd_series = drawdown_df[symbol].dropna()
             config = COMMODITIES_CONFIG.get(symbol, {})
-            
+
             fig.add_trace(
                 go.Scatter(
                     x=dd_series.index,
@@ -773,7 +792,7 @@ elif analysis_type == "Drawdown Analysis":
                     hovertemplate="%{y:.2f}%<extra></extra>",
                 )
             )
-    
+
     fig.update_layout(
         title="Drawdown Over Time",
         xaxis_title="Date",
@@ -782,32 +801,34 @@ elif analysis_type == "Drawdown Analysis":
         height=600,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig, use_container_width=True)
-    
+
     # 2. Max drawdown statistics
     st.markdown("### 📊 Maximum Drawdown Statistics")
-    
+
     dd_stats = []
     for symbol in selected_commodities:
         if symbol in drawdown_df.columns:
             dd_series = drawdown_df[symbol].dropna()
-            
+
             if len(dd_series) > 0:
                 config = COMMODITIES_CONFIG.get(symbol, {})
-                
+
                 max_dd = dd_series.min() * 100
                 max_dd_date = dd_series.idxmin()
-                
+
                 # Find peak before max drawdown
                 dd_values = dd_series.values
                 max_dd_idx = dd_series.argmin()
-                peak_idx = dd_series[:max_dd_idx].last_valid_index() if max_dd_idx > 0 else dd_series.index[0]
-                
+                peak_idx = dd_series[:max_dd_idx].last_valid_index(
+                ) if max_dd_idx > 0 else dd_series.index[0]
+
                 # Calculate recovery
                 if max_dd_idx < len(dd_series) - 1:
                     recovery_series = dd_series[max_dd_idx:]
-                    recovered = (recovery_series > -0.01).any()  # Within 1% of peak
+                    # Within 1% of peak
+                    recovered = (recovery_series > -0.01).any()
                     if recovered:
                         recovery_idx = recovery_series[recovery_series > -0.01].index[0]
                         recovery_days = (recovery_idx - max_dd_date).days
@@ -816,10 +837,10 @@ elif analysis_type == "Drawdown Analysis":
                         recovery_status = "Not recovered"
                 else:
                     recovery_status = "At trough"
-                
+
                 # Current drawdown
                 current_dd = dd_series.iloc[-1] * 100
-                
+
                 dd_stats.append({
                     "Asset": config.get("name", symbol),
                     "Max Drawdown": f"{max_dd:.2f}%",
@@ -827,40 +848,42 @@ elif analysis_type == "Drawdown Analysis":
                     "Recovery Time": recovery_status,
                     "Current DD": f"{current_dd:.2f}%",
                 })
-    
+
     if dd_stats:
-        st.dataframe(pd.DataFrame(dd_stats), use_container_width=True, hide_index=True)
-    
+        st.dataframe(pd.DataFrame(dd_stats),
+                     use_container_width=True, hide_index=True)
+
     # 3. Drawdown duration analysis
     st.markdown("### ⏱️ Drawdown Duration Distribution")
-    
+
     fig_duration = go.Figure()
-    
+
     for symbol in selected_commodities:
         if symbol in drawdown_df.columns:
             dd_series = drawdown_df[symbol].dropna()
             config = COMMODITIES_CONFIG.get(symbol, {})
-            
+
             # Identify drawdown periods (when DD < -1%)
             in_drawdown = dd_series < -0.01
             drawdown_periods = []
-            
+
             if in_drawdown.any():
                 # Find start and end of each drawdown period
-                dd_starts = in_drawdown & ~in_drawdown.shift(1, fill_value=False)
+                dd_starts = in_drawdown & ~in_drawdown.shift(
+                    1, fill_value=False)
                 dd_ends = ~in_drawdown & in_drawdown.shift(1, fill_value=False)
-                
+
                 start_dates = dd_starts[dd_starts].index.tolist()
                 end_dates = dd_ends[dd_ends].index.tolist()
-                
+
                 # Handle case where we're still in drawdown
                 if len(start_dates) > len(end_dates):
                     end_dates.append(dd_series.index[-1])
-                
+
                 for start, end in zip(start_dates, end_dates):
                     duration = (end - start).days
                     drawdown_periods.append(duration)
-                
+
                 if drawdown_periods:
                     fig_duration.add_trace(
                         go.Histogram(
@@ -870,7 +893,7 @@ elif analysis_type == "Drawdown Analysis":
                             nbinsx=20,
                         )
                     )
-    
+
     fig_duration.update_layout(
         title="Drawdown Duration Distribution",
         xaxis_title="Duration (Days)",
@@ -879,19 +902,19 @@ elif analysis_type == "Drawdown Analysis":
         height=500,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig_duration, use_container_width=True)
-    
+
     # 4. Underwater plot (current drawdown status)
     st.markdown("### 🌊 Underwater Plot (Current Status)")
-    
+
     fig_underwater = go.Figure()
-    
+
     for symbol in selected_commodities:
         if symbol in drawdown_df.columns:
             dd_series = drawdown_df[symbol].dropna()
             config = COMMODITIES_CONFIG.get(symbol, {})
-            
+
             # Color by severity
             colors = []
             for dd in dd_series:
@@ -901,7 +924,7 @@ elif analysis_type == "Drawdown Analysis":
                     colors.append("orange")
                 else:
                     colors.append("red")
-            
+
             fig_underwater.add_trace(
                 go.Scatter(
                     x=dd_series.index,
@@ -912,7 +935,7 @@ elif analysis_type == "Drawdown Analysis":
                     fill="tozeroy",
                 )
             )
-    
+
     fig_underwater.update_layout(
         title="Underwater Plot - How Far Below Peak?",
         xaxis_title="Date",
@@ -921,77 +944,83 @@ elif analysis_type == "Drawdown Analysis":
         height=600,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig_underwater, use_container_width=True)
 
 elif analysis_type == "Risk Metrics Dashboard":
     st.subheader("📊 Comprehensive Risk Metrics")
-    
+
     st.info("""
     **Beyond Sharpe Ratio:** A complete view of risk-adjusted performance.
     """)
-    
+
     # Check if we have enough data
     if len(date_filtered_df) < 2:
-        st.warning("⚠️ Insufficient data for risk metrics analysis. Please select a longer date range.")
+        st.warning(
+            "⚠️ Insufficient data for risk metrics analysis. Please select a longer date range.")
         st.stop()
-    
+
     # Calculate all metrics
     returns_df = date_filtered_df.pct_change().dropna()
-    
+
     periods_per_year = {"Daily": 252, "Weekly": 52, "Monthly": 12}
     ann_factor = periods_per_year.get(resample_freq, 252)
-    
+
     # Drawdowns for Calmar
     cum_returns = (1 + returns_df).cumprod()
     running_max = cum_returns.expanding().max()
     drawdown_df = (cum_returns - running_max) / running_max
-    
+
     risk_metrics = []
-    
+
     for symbol in selected_commodities:
         if symbol in returns_df.columns:
             ret_series = returns_df[symbol].dropna()
-            
+
             if len(ret_series) > 1:
                 config = COMMODITIES_CONFIG.get(symbol, {})
-                
+
                 # Basic metrics
                 mean_return = ret_series.mean()
                 ann_return = mean_return * ann_factor
                 volatility = ret_series.std()
                 ann_vol = volatility * np.sqrt(ann_factor)
-                
+
                 # Sharpe Ratio
-                sharpe = (mean_return / volatility) * np.sqrt(ann_factor) if volatility > 0 else 0
-                
+                sharpe = (mean_return / volatility) * \
+                    np.sqrt(ann_factor) if volatility > 0 else 0
+
                 # Sortino Ratio (downside deviation)
                 downside_returns = ret_series[ret_series < 0]
-                downside_std = downside_returns.std() if len(downside_returns) > 0 else volatility
-                sortino = (mean_return / downside_std) * np.sqrt(ann_factor) if downside_std > 0 else 0
-                
+                downside_std = downside_returns.std() if len(
+                    downside_returns) > 0 else volatility
+                sortino = (mean_return / downside_std) * \
+                    np.sqrt(ann_factor) if downside_std > 0 else 0
+
                 # Max Drawdown
                 dd_series = drawdown_df[symbol].dropna()
                 max_dd = abs(dd_series.min()) if len(dd_series) > 0 else 0
-                
+
                 # Calmar Ratio (CAGR / Max DD)
                 years = len(ret_series) / ann_factor
                 final_cum = (1 + ret_series).prod()
                 cagr = (final_cum ** (1 / years) - 1) if years > 0 else 0
                 calmar = (cagr / max_dd) if max_dd > 0 else 0
-                
+
                 # Value at Risk (95% and 99%)
                 var_95 = np.percentile(ret_series, 5)
                 var_99 = np.percentile(ret_series, 1)
-                
+
                 # Conditional VaR (CVaR / Expected Shortfall)
-                cvar_95 = ret_series[ret_series <= var_95].mean() if (ret_series <= var_95).any() else var_95
-                cvar_99 = ret_series[ret_series <= var_99].mean() if (ret_series <= var_99).any() else var_99
-                
+                cvar_95 = ret_series[ret_series <= var_95].mean() if (
+                    ret_series <= var_95).any() else var_95
+                cvar_99 = ret_series[ret_series <= var_99].mean() if (
+                    ret_series <= var_99).any() else var_99
+
                 # Skewness and Kurtosis
                 skewness = ret_series.skew()
                 kurtosis = ret_series.kurtosis()
-                
+
                 risk_metrics.append({
                     "Asset": config.get("name", symbol),
                     "Ann. Return": f"{ann_return * 100:.2f}%",
@@ -1007,49 +1036,49 @@ elif analysis_type == "Risk Metrics Dashboard":
                     "Skewness": f"{skewness:.3f}",
                     "Kurtosis": f"{kurtosis:.3f}",
                 })
-    
+
     if risk_metrics:
         st.dataframe(
             pd.DataFrame(risk_metrics),
             use_container_width=True,
             hide_index=True
         )
-    
+
     # Visualization: Sharpe vs Sortino vs Calmar
     st.markdown("### 📈 Risk-Adjusted Returns Comparison")
-    
+
     if risk_metrics:
         df_metrics = pd.DataFrame(risk_metrics)
-        
+
         # Extract numeric values
         assets = df_metrics["Asset"].tolist()
         sharpe_vals = [float(x) for x in df_metrics["Sharpe"]]
         sortino_vals = [float(x) for x in df_metrics["Sortino"]]
         calmar_vals = [float(x) for x in df_metrics["Calmar"]]
-        
+
         fig_compare = go.Figure()
-        
+
         fig_compare.add_trace(go.Bar(
             x=assets,
             y=sharpe_vals,
             name="Sharpe Ratio",
             marker_color="lightblue",
         ))
-        
+
         fig_compare.add_trace(go.Bar(
             x=assets,
             y=sortino_vals,
             name="Sortino Ratio",
             marker_color="purple",
         ))
-        
+
         fig_compare.add_trace(go.Bar(
             x=assets,
             y=calmar_vals,
             name="Calmar Ratio",
             marker_color="orange",
         ))
-        
+
         fig_compare.update_layout(
             title="Risk-Adjusted Returns: Sharpe vs Sortino vs Calmar",
             xaxis_title="Asset",
@@ -1058,9 +1087,9 @@ elif analysis_type == "Risk Metrics Dashboard":
             height=500,
             template="plotly_white",
         )
-        
+
         st.plotly_chart(fig_compare, use_container_width=True)
-    
+
     # Interpretation guide
     with st.expander("ℹ️ Understanding Risk Metrics"):
         st.markdown("""
@@ -1104,19 +1133,21 @@ elif analysis_type == "Risk Metrics Dashboard":
 
 elif analysis_type == "Rolling Metrics":
     st.subheader("📈 Rolling Metrics Analysis")
-    
+
     st.info("""
     **Time-varying risk metrics** help identify regime changes and periods of elevated risk.
     """)
-    
+
     # Check if we have enough data
     if len(date_filtered_df) < 20:
-        st.warning("⚠️ Insufficient data for rolling metrics analysis. Please select a longer date range (minimum 20 periods).")
+        st.warning(
+            "⚠️ Insufficient data for rolling metrics analysis. Please select a longer date range (minimum 20 periods).")
         st.stop()
-    
+
     # Rolling window size
-    default_window = {"Daily": 252, "Weekly": 52, "Monthly": 12}.get(resample_freq, 252)
-    
+    default_window = {"Daily": 252, "Weekly": 52,
+                      "Monthly": 12}.get(resample_freq, 252)
+
     rolling_window = st.sidebar.slider(
         "Rolling Window",
         min_value=max(20, default_window // 4),
@@ -1125,27 +1156,29 @@ elif analysis_type == "Rolling Metrics":
         step=default_window // 4,
         help=f"Window size for rolling calculations ({resample_freq} periods)"
     )
-    
+
     returns_df = date_filtered_df.pct_change().dropna()
-    
+
     periods_per_year = {"Daily": 252, "Weekly": 52, "Monthly": 12}
     ann_factor = periods_per_year.get(resample_freq, 252)
-    
+
     # Calculate rolling metrics for each asset
     rolling_data = {}
-    
+
     for symbol in selected_commodities:
         if symbol in returns_df.columns:
             ret_series = returns_df[symbol].dropna()
-            
+
             # Rolling mean and vol
-            rolling_mean = ret_series.rolling(rolling_window).mean() * ann_factor
-            rolling_vol = ret_series.rolling(rolling_window).std() * np.sqrt(ann_factor)
-            
+            rolling_mean = ret_series.rolling(
+                rolling_window).mean() * ann_factor
+            rolling_vol = ret_series.rolling(
+                rolling_window).std() * np.sqrt(ann_factor)
+
             # Rolling Sharpe
-            rolling_sharpe = (ret_series.rolling(rolling_window).mean() / 
-                            ret_series.rolling(rolling_window).std()) * np.sqrt(ann_factor)
-            
+            rolling_sharpe = (ret_series.rolling(rolling_window).mean() /
+                              ret_series.rolling(rolling_window).std()) * np.sqrt(ann_factor)
+
             # Rolling Sortino
             def rolling_sortino(window_data):
                 if len(window_data) < 2:
@@ -1157,26 +1190,27 @@ elif analysis_type == "Rolling Metrics":
                 if downside_std == 0:
                     return np.nan
                 return (window_data.mean() / downside_std) * np.sqrt(ann_factor)
-            
-            rolling_sortino_vals = ret_series.rolling(rolling_window).apply(rolling_sortino, raw=False)
-            
+
+            rolling_sortino_vals = ret_series.rolling(
+                rolling_window).apply(rolling_sortino, raw=False)
+
             rolling_data[symbol] = {
                 "mean": rolling_mean,
                 "vol": rolling_vol,
                 "sharpe": rolling_sharpe,
                 "sortino": rolling_sortino_vals,
             }
-    
+
     # 1. Rolling Sharpe Ratio
     st.markdown(f"### 📊 Rolling Sharpe Ratio ({rolling_window}-period window)")
-    
+
     fig_sharpe = go.Figure()
-    
+
     for symbol in selected_commodities:
         if symbol in rolling_data:
             config = COMMODITIES_CONFIG.get(symbol, {})
             sharpe_series = rolling_data[symbol]["sharpe"]
-            
+
             fig_sharpe.add_trace(
                 go.Scatter(
                     x=sharpe_series.index,
@@ -1186,10 +1220,12 @@ elif analysis_type == "Rolling Metrics":
                     line=dict(width=2),
                 )
             )
-    
-    fig_sharpe.add_hline(y=0, line_dash="dash", line_color="gray", annotation_text="Sharpe = 0")
-    fig_sharpe.add_hline(y=1, line_dash="dot", line_color="green", annotation_text="Sharpe = 1")
-    
+
+    fig_sharpe.add_hline(y=0, line_dash="dash",
+                         line_color="gray", annotation_text="Sharpe = 0")
+    fig_sharpe.add_hline(y=1, line_dash="dot",
+                         line_color="green", annotation_text="Sharpe = 1")
+
     fig_sharpe.update_layout(
         title=f"Rolling Sharpe Ratio ({rolling_window}-{resample_freq} Window)",
         xaxis_title="Date",
@@ -1198,19 +1234,20 @@ elif analysis_type == "Rolling Metrics":
         height=500,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig_sharpe, use_container_width=True)
-    
+
     # 2. Rolling Sortino Ratio
-    st.markdown(f"### 💜 Rolling Sortino Ratio ({rolling_window}-period window)")
-    
+    st.markdown(
+        f"### 💜 Rolling Sortino Ratio ({rolling_window}-period window)")
+
     fig_sortino = go.Figure()
-    
+
     for symbol in selected_commodities:
         if symbol in rolling_data:
             config = COMMODITIES_CONFIG.get(symbol, {})
             sortino_series = rolling_data[symbol]["sortino"]
-            
+
             fig_sortino.add_trace(
                 go.Scatter(
                     x=sortino_series.index,
@@ -1220,10 +1257,12 @@ elif analysis_type == "Rolling Metrics":
                     line=dict(width=2),
                 )
             )
-    
-    fig_sortino.add_hline(y=0, line_dash="dash", line_color="gray", annotation_text="Sortino = 0")
-    fig_sortino.add_hline(y=1, line_dash="dot", line_color="purple", annotation_text="Sortino = 1")
-    
+
+    fig_sortino.add_hline(y=0, line_dash="dash",
+                          line_color="gray", annotation_text="Sortino = 0")
+    fig_sortino.add_hline(y=1, line_dash="dot",
+                          line_color="purple", annotation_text="Sortino = 1")
+
     fig_sortino.update_layout(
         title=f"Rolling Sortino Ratio ({rolling_window}-{resample_freq} Window)",
         xaxis_title="Date",
@@ -1232,19 +1271,19 @@ elif analysis_type == "Rolling Metrics":
         height=500,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig_sortino, use_container_width=True)
-    
+
     # 3. Rolling Volatility
     st.markdown(f"### 📉 Rolling Volatility ({rolling_window}-period window)")
-    
+
     fig_vol = go.Figure()
-    
+
     for symbol in selected_commodities:
         if symbol in rolling_data:
             config = COMMODITIES_CONFIG.get(symbol, {})
             vol_series = rolling_data[symbol]["vol"]
-            
+
             fig_vol.add_trace(
                 go.Scatter(
                     x=vol_series.index,
@@ -1254,7 +1293,7 @@ elif analysis_type == "Rolling Metrics":
                     line=dict(width=2),
                 )
             )
-    
+
     fig_vol.update_layout(
         title=f"Rolling Annualized Volatility ({rolling_window}-{resample_freq} Window)",
         xaxis_title="Date",
@@ -1263,46 +1302,48 @@ elif analysis_type == "Rolling Metrics":
         height=500,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig_vol, use_container_width=True)
-    
+
     # Regime Classification
     st.markdown("---")
     st.markdown("### 🎯 Automatic Regime Classification")
-    
+
     # Classify regimes for each commodity
     regime_data = {}
     for symbol in selected_commodities:
         if symbol in rolling_data:
-            vol_series = rolling_data[symbol]["vol"] * 100  # Convert to percentage
-            
+            # Convert to percentage
+            vol_series = rolling_data[symbol]["vol"] * 100
+
             # Calculate percentiles for regime thresholds
             vol_25 = vol_series.quantile(0.33)
             vol_75 = vol_series.quantile(0.67)
-            
+
             # Classify regimes
             regimes = pd.Series(index=vol_series.index, dtype=str)
             regimes[vol_series <= vol_25] = "Low Volatility"
-            regimes[(vol_series > vol_25) & (vol_series <= vol_75)] = "Medium Volatility"
+            regimes[(vol_series > vol_25) & (
+                vol_series <= vol_75)] = "Medium Volatility"
             regimes[vol_series > vol_75] = "High Volatility"
-            
+
             regime_data[symbol] = {
                 'volatility': vol_series,
                 'regimes': regimes,
                 'threshold_low': vol_25,
                 'threshold_high': vol_75,
             }
-    
+
     # Show current regime for each commodity
     st.markdown("#### 📊 Current Market Regime")
-    
+
     cols = st.columns(len(selected_commodities))
     for idx, symbol in enumerate(selected_commodities):
         if symbol in regime_data:
             config = COMMODITIES_CONFIG.get(symbol, {})
             current_regime = regime_data[symbol]['regimes'].iloc[-1]
             current_vol = regime_data[symbol]['volatility'].iloc[-1]
-            
+
             with cols[idx]:
                 # Color-code regime
                 if current_regime == "Low Volatility":
@@ -1329,23 +1370,23 @@ elif analysis_type == "Rolling Metrics":
                     
                     Volatility: {current_vol:.1f}%
                     """)
-    
+
     # Regime duration statistics
     st.markdown("---")
     st.markdown("#### ⏱️ Regime Duration Statistics")
-    
+
     for symbol in selected_commodities:
         if symbol in regime_data:
             config = COMMODITIES_CONFIG.get(symbol, {})
             regimes = regime_data[symbol]['regimes']
-            
+
             # Calculate regime durations
             regime_changes = regimes != regimes.shift(1)
             regime_blocks = regime_changes.cumsum()
-            
+
             durations = []
             regime_types = []
-            
+
             for block_id in regime_blocks.unique():
                 if pd.isna(block_id):
                     continue
@@ -1353,37 +1394,39 @@ elif analysis_type == "Rolling Metrics":
                 if len(block) > 0:
                     durations.append(len(block))
                     regime_types.append(block.iloc[0])
-            
+
             # Calculate statistics
             regime_stats = pd.DataFrame({
                 'Duration': durations,
                 'Regime': regime_types
             })
-            
-            avg_durations = regime_stats.groupby('Regime')['Duration'].agg(['mean', 'median', 'max'])
+
+            avg_durations = regime_stats.groupby(
+                'Regime')['Duration'].agg(['mean', 'median', 'max'])
             regime_counts = regime_stats['Regime'].value_counts()
-            
+
             with st.expander(f"📊 {config.get('name', symbol)} - Regime Statistics"):
                 col1, col2 = st.columns(2)
-                
+
                 with col1:
                     st.markdown("**Regime Frequency:**")
                     for regime in ["Low Volatility", "Medium Volatility", "High Volatility"]:
                         count = regime_counts.get(regime, 0)
-                        pct = (count / len(regime_counts)) * 100 if len(regime_counts) > 0 else 0
+                        pct = (count / len(regime_counts)) * \
+                            100 if len(regime_counts) > 0 else 0
                         st.metric(regime, f"{count} periods ({pct:.1f}%)")
-                
+
                 with col2:
                     st.markdown(f"**Average Duration ({freq_label}):**")
                     for regime in ["Low Volatility", "Medium Volatility", "High Volatility"]:
                         if regime in avg_durations.index:
                             mean_dur = avg_durations.loc[regime, 'mean']
                             st.metric(regime, f"{mean_dur:.1f} {freq_label}")
-    
+
     # Regime-based insights and trading signals
     st.markdown("---")
     st.markdown("### 💡 Regime-Based Trading Insights")
-    
+
     for symbol in selected_commodities:
         if symbol in regime_data:
             config = COMMODITIES_CONFIG.get(symbol, {})
@@ -1391,14 +1434,16 @@ elif analysis_type == "Rolling Metrics":
             current_vol = regime_data[symbol]['volatility'].iloc[-1]
             threshold_low = regime_data[symbol]['threshold_low']
             threshold_high = regime_data[symbol]['threshold_high']
-            
+
             # Get recent regime history (last 10 periods)
             recent_regimes = regime_data[symbol]['regimes'].tail(10)
-            regime_stable = (recent_regimes == current_regime).sum() >= 7  # 70% same regime
-            
+            # 70% same regime
+            regime_stable = (recent_regimes == current_regime).sum() >= 7
+
             with st.expander(f"🎯 {config.get('name', symbol)} - Trading Strategy"):
-                st.markdown(f"#### Current Regime: **{current_regime}** (Volatility: {current_vol:.1f}%)")
-                
+                st.markdown(
+                    f"#### Current Regime: **{current_regime}** (Volatility: {current_vol:.1f}%)")
+
                 if current_regime == "Low Volatility":
                     st.success(f"""
                     **🟢 Low Volatility Regime Detected**
@@ -1427,7 +1472,7 @@ elif analysis_type == "Rolling Metrics":
                     - Wider stop losses (less noise)
                     - Focus on entry timing
                     """)
-                    
+
                 elif current_regime == "Medium Volatility":
                     st.info(f"""
                     **🟡 Medium Volatility Regime Detected**
@@ -1456,7 +1501,7 @@ elif analysis_type == "Rolling Metrics":
                     - Moderate stop losses
                     - Monitor regime transitions
                     """)
-                    
+
                 else:  # High Volatility
                     st.warning(f"""
                     **🔴 High Volatility Regime Detected**
@@ -1487,7 +1532,7 @@ elif analysis_type == "Rolling Metrics":
                     - Consider hedging strategies
                     - Wait for regime confirmation before big bets
                     """)
-                
+
                 # Regime transition warning
                 if not regime_stable:
                     st.warning(f"""
@@ -1509,11 +1554,11 @@ elif analysis_type == "Rolling Metrics":
                     Regime has been stable - strategies appropriate for current regime
                     are more likely to work effectively.
                     """)
-    
+
     # Storytelling section
     st.markdown("---")
     st.markdown("### 📖 Regime Detection Story: Real-World Example")
-    
+
     st.markdown("""
     **March 2020 - COVID-19 Market Crash:**
     
@@ -1559,15 +1604,16 @@ elif analysis_type == "Rolling Metrics":
     
     **This is why regime-aware trading matters!**
     """)
-    
+
     # 4. Rolling correlation (if multiple assets selected)
     if len(selected_commodities) >= 2:
-        st.markdown(f"### 🔗 Rolling Correlation ({rolling_window}-period window)")
-        
+        st.markdown(
+            f"### 🔗 Rolling Correlation ({rolling_window}-period window)")
+
         st.markdown("Select two assets to compare:")
-        
+
         col1, col2 = st.columns(2)
-        
+
         with col1:
             asset1 = st.selectbox(
                 "Asset 1",
@@ -1575,7 +1621,7 @@ elif analysis_type == "Rolling Metrics":
                 index=0,
                 key="rolling_corr_asset1"
             )
-        
+
         with col2:
             other_assets = [s for s in selected_commodities if s != asset1]
             asset2 = st.selectbox(
@@ -1584,23 +1630,23 @@ elif analysis_type == "Rolling Metrics":
                 index=0 if other_assets else None,
                 key="rolling_corr_asset2"
             )
-        
+
         if asset1 and asset2 and asset1 in returns_df.columns and asset2 in returns_df.columns:
             ret1 = returns_df[asset1].dropna()
             ret2 = returns_df[asset2].dropna()
-            
+
             # Align indices
             common_idx = ret1.index.intersection(ret2.index)
             ret1 = ret1.loc[common_idx]
             ret2 = ret2.loc[common_idx]
-            
+
             rolling_corr = ret1.rolling(rolling_window).corr(ret2)
-            
+
             config1 = COMMODITIES_CONFIG.get(asset1, {})
             config2 = COMMODITIES_CONFIG.get(asset2, {})
-            
+
             fig_corr = go.Figure()
-            
+
             fig_corr.add_trace(
                 go.Scatter(
                     x=rolling_corr.index,
@@ -1611,11 +1657,13 @@ elif analysis_type == "Rolling Metrics":
                     name="Correlation",
                 )
             )
-            
+
             fig_corr.add_hline(y=0, line_dash="dash", line_color="gray")
-            fig_corr.add_hline(y=0.5, line_dash="dot", line_color="green", annotation_text="Corr = 0.5")
-            fig_corr.add_hline(y=-0.5, line_dash="dot", line_color="red", annotation_text="Corr = -0.5")
-            
+            fig_corr.add_hline(y=0.5, line_dash="dot",
+                               line_color="green", annotation_text="Corr = 0.5")
+            fig_corr.add_hline(y=-0.5, line_dash="dot",
+                               line_color="red", annotation_text="Corr = -0.5")
+
             fig_corr.update_layout(
                 title=f"Rolling Correlation: {config1.get('name', asset1)} vs {config2.get('name', asset2)}",
                 xaxis_title="Date",
@@ -1623,37 +1671,39 @@ elif analysis_type == "Rolling Metrics":
                 height=500,
                 template="plotly_white",
             )
-            
+
             st.plotly_chart(fig_corr, use_container_width=True)
 
 elif analysis_type == "Return Distribution":
     st.subheader("📊 Return Distribution Analysis")
-    
+
     st.info("""
     **Understanding return distributions** helps identify tail risk, skewness, and deviation from normality.
     """)
-    
+
     # Check if we have enough data
     if len(date_filtered_df) < 30:
-        st.warning("⚠️ Insufficient data for distribution analysis. Please select a longer date range (minimum 30 periods).")
+        st.warning(
+            "⚠️ Insufficient data for distribution analysis. Please select a longer date range (minimum 30 periods).")
         st.stop()
-    
+
     returns_df = date_filtered_df.pct_change().dropna()
-    log_returns_df = np.log(date_filtered_df / date_filtered_df.shift(1)).dropna()
-    
+    log_returns_df = np.log(
+        date_filtered_df / date_filtered_df.shift(1)).dropna()
+
     # 1. Histogram comparison: Log vs Arithmetic
     st.markdown("### 📈 Log Returns vs Arithmetic Returns Distribution")
-    
+
     for symbol in selected_commodities:
         if symbol in returns_df.columns:
             config = COMMODITIES_CONFIG.get(symbol, {})
             st.markdown(f"#### {config.get('name', symbol)}")
-            
+
             arith_ret = returns_df[symbol].dropna() * 100
             log_ret = log_returns_df[symbol].dropna() * 100
-            
+
             fig = go.Figure()
-            
+
             fig.add_trace(
                 go.Histogram(
                     x=arith_ret,
@@ -1663,7 +1713,7 @@ elif analysis_type == "Return Distribution":
                     marker_color="lightblue",
                 )
             )
-            
+
             fig.add_trace(
                 go.Histogram(
                     x=log_ret,
@@ -1673,7 +1723,7 @@ elif analysis_type == "Return Distribution":
                     marker_color="orange",
                 )
             )
-            
+
             fig.update_layout(
                 title=f"Return Distribution: {config.get('name', symbol)}",
                 xaxis_title="Return (%)",
@@ -1682,30 +1732,31 @@ elif analysis_type == "Return Distribution":
                 height=400,
                 template="plotly_white",
             )
-            
+
             st.plotly_chart(fig, use_container_width=True)
-    
+
     # 2. Q-Q Plot (Quantile-Quantile) - Check for normality
     st.markdown("### 🎯 Q-Q Plot: Are Returns Normal?")
-    
+
     st.markdown("""
     **Q-Q Plot** compares actual returns to theoretical normal distribution.
     - Points on the line = normal distribution
     - Points above line = more extreme positive returns than expected
     - Points below line = more extreme negative returns than expected
     """)
-    
+
     for symbol in selected_commodities:
         if symbol in returns_df.columns:
             config = COMMODITIES_CONFIG.get(symbol, {})
             ret_series = returns_df[symbol].dropna()
-            
+
             # Calculate theoretical quantiles
             sorted_returns = np.sort(ret_series)
-            theoretical_quantiles = stats.norm.ppf(np.linspace(0.01, 0.99, len(sorted_returns)))
-            
+            theoretical_quantiles = stats.norm.ppf(
+                np.linspace(0.01, 0.99, len(sorted_returns)))
+
             fig_qq = go.Figure()
-            
+
             # Scatter plot
             fig_qq.add_trace(
                 go.Scatter(
@@ -1716,11 +1767,11 @@ elif analysis_type == "Return Distribution":
                     name="Actual",
                 )
             )
-            
+
             # 45-degree line (perfect normality)
             min_val = min(theoretical_quantiles.min(), sorted_returns.min())
             max_val = max(theoretical_quantiles.max(), sorted_returns.max())
-            
+
             fig_qq.add_trace(
                 go.Scatter(
                     x=[min_val, max_val],
@@ -1730,7 +1781,7 @@ elif analysis_type == "Return Distribution":
                     name="Normal",
                 )
             )
-            
+
             fig_qq.update_layout(
                 title=f"Q-Q Plot: {config.get('name', symbol)}",
                 xaxis_title="Theoretical Quantiles (Normal)",
@@ -1738,24 +1789,24 @@ elif analysis_type == "Return Distribution":
                 height=500,
                 template="plotly_white",
             )
-            
+
             st.plotly_chart(fig_qq, use_container_width=True)
-    
+
     # 3. Distribution statistics table
     st.markdown("### 📊 Distribution Statistics")
-    
+
     dist_stats = []
-    
+
     for symbol in selected_commodities:
         if symbol in returns_df.columns:
             ret_series = returns_df[symbol].dropna() * 100
-            
+
             config = COMMODITIES_CONFIG.get(symbol, {})
-            
+
             # Normality test (Jarque-Bera)
             jb_stat, jb_pvalue = stats.jarque_bera(ret_series)
             is_normal = "Yes" if jb_pvalue > 0.05 else "No"
-            
+
             dist_stats.append({
                 "Asset": config.get("name", symbol),
                 "Mean": f"{ret_series.mean():.3f}%",
@@ -1768,14 +1819,14 @@ elif analysis_type == "Return Distribution":
                 "Normal?": is_normal,
                 "JB p-value": f"{jb_pvalue:.4f}",
             })
-    
+
     if dist_stats:
         st.dataframe(
             pd.DataFrame(dist_stats),
             use_container_width=True,
             hide_index=True
         )
-    
+
     with st.expander("ℹ️ Interpreting Distribution Statistics"):
         st.markdown("""
         **Skewness:**
@@ -1801,19 +1852,20 @@ elif analysis_type == "Return Distribution":
 
 elif analysis_type == "Multi-Period Performance":
     st.subheader("📅 Multi-Period Performance")
-    
+
     st.info("""
     **Performance across different time horizons** helps identify consistency and recent trends.
     """)
-    
+
     # Check if we have enough data
     if len(date_filtered_df) < 2:
-        st.warning("⚠️ Insufficient data for multi-period analysis. Please select a longer date range.")
+        st.warning(
+            "⚠️ Insufficient data for multi-period analysis. Please select a longer date range.")
         st.stop()
-    
+
     # Define periods
     today = date_filtered_df.index[-1]
-    
+
     periods = {
         "1 Month": today - pd.DateOffset(months=1),
         "3 Months": today - pd.DateOffset(months=3),
@@ -1824,39 +1876,39 @@ elif analysis_type == "Multi-Period Performance":
         "5 Years": today - pd.DateOffset(years=5),
         "Since Inception": date_filtered_df.index[0],
     }
-    
+
     # Calculate returns for each period
     perf_data = []
-    
+
     for symbol in selected_commodities:
         if symbol in date_filtered_df.columns:
             config = COMMODITIES_CONFIG.get(symbol, {})
             price_series = date_filtered_df[symbol].dropna()
-            
+
             period_returns = {}
-            
+
             for period_name, start_date in periods.items():
                 # Filter to period
                 period_data = price_series[price_series.index >= start_date]
-                
+
                 if len(period_data) >= 2:
                     # Calculate return
                     start_price = period_data.iloc[0]
                     end_price = period_data.iloc[-1]
                     period_return = (end_price / start_price - 1) * 100
-                    
+
                     period_returns[period_name] = f"{period_return:+.2f}%"
                 else:
                     period_returns[period_name] = "N/A"
-            
+
             perf_data.append({
                 "Asset": config.get("name", symbol),
                 **period_returns
             })
-    
+
     if perf_data:
         df_perf = pd.DataFrame(perf_data)
-        
+
         # Apply color styling
         def color_returns(val):
             if val == "N/A" or val == "Asset":
@@ -1871,16 +1923,16 @@ elif analysis_type == "Multi-Period Performance":
                     return ""
             except:
                 return ""
-        
+
         st.dataframe(
             df_perf.style.applymap(color_returns),
             use_container_width=True,
             hide_index=True
         )
-    
+
     # Visualization: Performance comparison
     st.markdown("### 📊 Performance Comparison Across Periods")
-    
+
     if perf_data:
         # Create bar chart for each period
         fig = make_subplots(
@@ -1889,11 +1941,11 @@ elif analysis_type == "Multi-Period Performance":
             subplot_titles=list(periods.keys()),
             vertical_spacing=0.05,
         )
-        
+
         for idx, (period_name, _) in enumerate(periods.items(), 1):
             returns_for_period = []
             labels = []
-            
+
             for row in perf_data:
                 if row[period_name] != "N/A":
                     try:
@@ -1902,10 +1954,11 @@ elif analysis_type == "Multi-Period Performance":
                         labels.append(row["Asset"])
                     except:
                         pass
-            
+
             if returns_for_period:
-                colors = ["green" if r > 0 else "red" for r in returns_for_period]
-                
+                colors = ["green" if r >
+                          0 else "red" for r in returns_for_period]
+
                 fig.add_trace(
                     go.Bar(
                         x=labels,
@@ -1917,7 +1970,7 @@ elif analysis_type == "Multi-Period Performance":
                     ),
                     row=idx, col=1
                 )
-        
+
         fig.update_xaxes(title_text="Asset", row=len(periods), col=1)
         fig.update_yaxes(title_text="Return (%)")
         fig.update_layout(
@@ -1925,48 +1978,49 @@ elif analysis_type == "Multi-Period Performance":
             showlegend=False,
             template="plotly_white",
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)
-    
+
     # Annualized returns comparison
     st.markdown("### 📈 Annualized Returns (CAGR)")
-    
+
     cagr_data = []
-    
+
     for symbol in selected_commodities:
         if symbol in date_filtered_df.columns:
             config = COMMODITIES_CONFIG.get(symbol, {})
             price_series = date_filtered_df[symbol].dropna()
-            
+
             cagr_by_period = {}
-            
+
             for period_name, start_date in periods.items():
                 period_data = price_series[price_series.index >= start_date]
-                
+
                 if len(period_data) >= 2:
                     start_price = period_data.iloc[0]
                     end_price = period_data.iloc[-1]
-                    
+
                     # Calculate years
                     days = (period_data.index[-1] - period_data.index[0]).days
                     years = days / 365.25
-                    
+
                     if years > 0:
-                        cagr = ((end_price / start_price) ** (1 / years) - 1) * 100
+                        cagr = ((end_price / start_price)
+                                ** (1 / years) - 1) * 100
                         cagr_by_period[period_name] = f"{cagr:+.2f}%"
                     else:
                         cagr_by_period[period_name] = "N/A"
                 else:
                     cagr_by_period[period_name] = "N/A"
-            
+
             cagr_data.append({
                 "Asset": config.get("name", symbol),
                 **cagr_by_period
             })
-    
+
     if cagr_data:
         df_cagr = pd.DataFrame(cagr_data)
-        
+
         st.dataframe(
             df_cagr.style.applymap(color_returns),
             use_container_width=True,
@@ -1975,24 +2029,26 @@ elif analysis_type == "Multi-Period Performance":
 
 elif analysis_type == "Ratio Analysis":
     st.subheader("📊 Commodity Ratio Analysis")
-    
+
     st.info("""
     **Price Ratios** are powerful trading indicators:
     - **Gold/Silver Ratio**: Classic precious metals indicator (normal range: 50-80)
     - **Energy Ratios**: Crack spreads, relative value
     - **Cross-Commodity**: Identify relative strength/weakness
     """)
-    
+
     # Check if we have at least 2 commodities
     if len(selected_commodities) < 2:
-        st.warning("⚠️ Ratio analysis requires at least 2 commodities. Please select more assets.")
+        st.warning(
+            "⚠️ Ratio analysis requires at least 2 commodities. Please select more assets.")
         st.stop()
-    
+
     # Check data availability
     if len(date_filtered_df) < 2:
-        st.warning("⚠️ Insufficient data for ratio analysis. Please select a longer date range.")
+        st.warning(
+            "⚠️ Insufficient data for ratio analysis. Please select a longer date range.")
         st.stop()
-    
+
     # Filter to commodities with valid data
     valid_commodities = []
     for symbol in selected_commodities:
@@ -2000,38 +2056,40 @@ elif analysis_type == "Ratio Analysis":
             valid_count = date_filtered_df[symbol].notna().sum()
             if valid_count > 1:
                 valid_commodities.append(symbol)
-    
+
     if len(valid_commodities) < 2:
-        st.warning("⚠️ Need at least 2 commodities with valid data. Please adjust your selection or date range.")
+        st.warning(
+            "⚠️ Need at least 2 commodities with valid data. Please adjust your selection or date range.")
         st.stop()
-    
+
     # Different behavior based on number of commodities
     num_commodities = len(valid_commodities)
-    
+
     if num_commodities == 2:
         # Simple case: Show the single ratio
         st.markdown("### 📈 Price Ratio Over Time")
-        
+
         numerator = valid_commodities[0]
         denominator = valid_commodities[1]
-        
+
         config_num = COMMODITIES_CONFIG.get(numerator, {})
         config_denom = COMMODITIES_CONFIG.get(denominator, {})
-        
+
         name_num = config_num.get("name", numerator)
         name_denom = config_denom.get("name", denominator)
-        
+
         # Calculate ratio
         ratio = date_filtered_df[numerator] / date_filtered_df[denominator]
         ratio = ratio.dropna()
-        
+
         if len(ratio) < 2:
-            st.warning(f"⚠️ Insufficient overlapping data for {name_num}/{name_denom} ratio.")
+            st.warning(
+                f"⚠️ Insufficient overlapping data for {name_num}/{name_denom} ratio.")
             st.stop()
-        
+
         # Plot ratio
         fig = go.Figure()
-        
+
         fig.add_trace(
             go.Scatter(
                 x=ratio.index,
@@ -2042,7 +2100,7 @@ elif analysis_type == "Ratio Analysis":
                 hovertemplate="%{y:.2f}<extra></extra>",
             )
         )
-        
+
         # Add mean line
         mean_ratio = ratio.mean()
         fig.add_hline(
@@ -2051,7 +2109,7 @@ elif analysis_type == "Ratio Analysis":
             line_color="gray",
             annotation_text=f"Mean: {mean_ratio:.2f}",
         )
-        
+
         # Add std bands
         std_ratio = ratio.std()
         fig.add_hline(
@@ -2066,7 +2124,7 @@ elif analysis_type == "Ratio Analysis":
             line_color="red",
             annotation_text=f"-1 SD: {mean_ratio - std_ratio:.2f}",
         )
-        
+
         fig.update_layout(
             title=f"{name_num} / {name_denom} Ratio",
             xaxis_title="Date",
@@ -2075,31 +2133,31 @@ elif analysis_type == "Ratio Analysis":
             height=600,
             template="plotly_white",
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)
-        
+
         # Statistics
         st.markdown("### 📊 Ratio Statistics")
-        
+
         col1, col2, col3, col4 = st.columns(4)
-        
+
         with col1:
             st.metric("Current Ratio", f"{ratio.iloc[-1]:.2f}")
-        
+
         with col2:
             st.metric("Mean Ratio", f"{mean_ratio:.2f}")
-        
+
         with col3:
             st.metric("Min Ratio", f"{ratio.min():.2f}")
-        
+
         with col4:
             st.metric("Max Ratio", f"{ratio.max():.2f}")
-        
+
         # Additional analysis
         st.markdown("### 📉 Ratio Distribution")
-        
+
         fig_hist = go.Figure()
-        
+
         fig_hist.add_trace(
             go.Histogram(
                 x=ratio.values,
@@ -2108,12 +2166,15 @@ elif analysis_type == "Ratio Analysis":
                 name="Ratio",
             )
         )
-        
+
         # Add mean and std lines
-        fig_hist.add_vline(x=mean_ratio, line_dash="dash", line_color="red", annotation_text="Mean")
-        fig_hist.add_vline(x=mean_ratio + std_ratio, line_dash="dot", line_color="green")
-        fig_hist.add_vline(x=mean_ratio - std_ratio, line_dash="dot", line_color="green")
-        
+        fig_hist.add_vline(x=mean_ratio, line_dash="dash",
+                           line_color="red", annotation_text="Mean")
+        fig_hist.add_vline(x=mean_ratio + std_ratio,
+                           line_dash="dot", line_color="green")
+        fig_hist.add_vline(x=mean_ratio - std_ratio,
+                           line_dash="dot", line_color="green")
+
         fig_hist.update_layout(
             title=f"Distribution of {name_num}/{name_denom} Ratio",
             xaxis_title="Ratio",
@@ -2121,15 +2182,15 @@ elif analysis_type == "Ratio Analysis":
             height=400,
             template="plotly_white",
         )
-        
+
         st.plotly_chart(fig_hist, use_container_width=True)
-        
+
         # Trading signals (if within typical range)
         st.markdown("### 🎯 Current Status")
-        
+
         current_ratio = ratio.iloc[-1]
         z_score = (current_ratio - mean_ratio) / std_ratio
-        
+
         if z_score > 1:
             st.success(f"""
             📈 **Ratio is HIGH** (z-score: {z_score:.2f})
@@ -2160,41 +2221,41 @@ elif analysis_type == "Ratio Analysis":
             - No strong relative value signal
             - Wait for more extreme readings
             """)
-    
+
     elif num_commodities == 3:
         # Show all 3 possible ratios
         st.markdown("### 📈 All Possible Ratios (3 Commodities)")
-        
+
         st.markdown(f"""
         With 3 commodities, there are 3 possible ratios:
         - {COMMODITIES_CONFIG.get(valid_commodities[0], {}).get('name', valid_commodities[0])} / {COMMODITIES_CONFIG.get(valid_commodities[1], {}).get('name', valid_commodities[1])}
         - {COMMODITIES_CONFIG.get(valid_commodities[0], {}).get('name', valid_commodities[0])} / {COMMODITIES_CONFIG.get(valid_commodities[2], {}).get('name', valid_commodities[2])}
         - {COMMODITIES_CONFIG.get(valid_commodities[1], {}).get('name', valid_commodities[1])} / {COMMODITIES_CONFIG.get(valid_commodities[2], {}).get('name', valid_commodities[2])}
         """)
-        
+
         # Calculate all 3 ratios
         pairs = [
             (valid_commodities[0], valid_commodities[1]),
             (valid_commodities[0], valid_commodities[2]),
             (valid_commodities[1], valid_commodities[2]),
         ]
-        
+
         fig = go.Figure()
-        
+
         for num_sym, denom_sym in pairs:
             config_num = COMMODITIES_CONFIG.get(num_sym, {})
             config_denom = COMMODITIES_CONFIG.get(denom_sym, {})
-            
+
             name_num = config_num.get("name", num_sym)
             name_denom = config_denom.get("name", denom_sym)
-            
+
             ratio = date_filtered_df[num_sym] / date_filtered_df[denom_sym]
             ratio = ratio.dropna()
-            
+
             if len(ratio) >= 2:
                 # Normalize to start at 100 for comparison
                 ratio_normalized = (ratio / ratio.iloc[0]) * 100
-                
+
                 fig.add_trace(
                     go.Scatter(
                         x=ratio_normalized.index,
@@ -2204,7 +2265,7 @@ elif analysis_type == "Ratio Analysis":
                         line=dict(width=2),
                     )
                 )
-        
+
         fig.update_layout(
             title="Normalized Ratios (Base = 100)",
             xaxis_title="Date",
@@ -2213,23 +2274,23 @@ elif analysis_type == "Ratio Analysis":
             height=600,
             template="plotly_white",
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)
-        
+
         # Statistics table
         st.markdown("### 📊 Ratio Statistics")
-        
+
         ratio_stats = []
         for num_sym, denom_sym in pairs:
             config_num = COMMODITIES_CONFIG.get(num_sym, {})
             config_denom = COMMODITIES_CONFIG.get(denom_sym, {})
-            
+
             name_num = config_num.get("name", num_sym)
             name_denom = config_denom.get("name", denom_sym)
-            
+
             ratio = date_filtered_df[num_sym] / date_filtered_df[denom_sym]
             ratio = ratio.dropna()
-            
+
             if len(ratio) >= 2:
                 ratio_stats.append({
                     "Ratio": f"{name_num}/{name_denom}",
@@ -2240,28 +2301,29 @@ elif analysis_type == "Ratio Analysis":
                     "Max": f"{ratio.max():.2f}",
                     "Z-Score": f"{(ratio.iloc[-1] - ratio.mean()) / ratio.std():.2f}",
                 })
-        
+
         if ratio_stats:
-            st.dataframe(pd.DataFrame(ratio_stats), use_container_width=True, hide_index=True)
-    
+            st.dataframe(pd.DataFrame(ratio_stats),
+                         use_container_width=True, hide_index=True)
+
     else:
         # 4+ commodities: Let user select which pair to analyze
         st.markdown("### 🔍 Select Ratio to Analyze")
-        
+
         st.markdown(f"""
         You have selected **{num_commodities} commodities**.
         
         Choose which pair you'd like to analyze:
         """)
-        
+
         # Create friendly names for selection
         commodity_names = {}
         for symbol in valid_commodities:
             config = COMMODITIES_CONFIG.get(symbol, {})
             commodity_names[config.get("name", symbol)] = symbol
-        
+
         col1, col2 = st.columns(2)
-        
+
         with col1:
             numerator_name = st.selectbox(
                 "Numerator (Top)",
@@ -2269,30 +2331,32 @@ elif analysis_type == "Ratio Analysis":
                 key="ratio_numerator"
             )
             numerator = commodity_names[numerator_name]
-        
+
         with col2:
             # Filter denominator options to exclude numerator
-            denom_options = [name for name in commodity_names.keys() if name != numerator_name]
+            denom_options = [
+                name for name in commodity_names.keys() if name != numerator_name]
             denominator_name = st.selectbox(
                 "Denominator (Bottom)",
                 denom_options,
                 key="ratio_denominator"
             )
             denominator = commodity_names[denominator_name]
-        
+
         # Calculate selected ratio
         ratio = date_filtered_df[numerator] / date_filtered_df[denominator]
         ratio = ratio.dropna()
-        
+
         if len(ratio) < 2:
-            st.warning(f"⚠️ Insufficient overlapping data for {numerator_name}/{denominator_name} ratio.")
+            st.warning(
+                f"⚠️ Insufficient overlapping data for {numerator_name}/{denominator_name} ratio.")
             st.stop()
-        
+
         st.markdown(f"### 📈 {numerator_name} / {denominator_name} Ratio")
-        
+
         # Plot ratio
         fig = go.Figure()
-        
+
         fig.add_trace(
             go.Scatter(
                 x=ratio.index,
@@ -2303,11 +2367,11 @@ elif analysis_type == "Ratio Analysis":
                 hovertemplate="%{y:.2f}<extra></extra>",
             )
         )
-        
+
         # Add mean and std bands
         mean_ratio = ratio.mean()
         std_ratio = ratio.std()
-        
+
         fig.add_hline(
             y=mean_ratio,
             line_dash="dash",
@@ -2326,7 +2390,7 @@ elif analysis_type == "Ratio Analysis":
             line_color="red",
             annotation_text=f"-1 SD",
         )
-        
+
         fig.update_layout(
             title=f"{numerator_name} / {denominator_name} Ratio",
             xaxis_title="Date",
@@ -2335,32 +2399,32 @@ elif analysis_type == "Ratio Analysis":
             height=600,
             template="plotly_white",
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)
-        
+
         # Statistics
         st.markdown("### 📊 Ratio Statistics")
-        
+
         col1, col2, col3, col4 = st.columns(4)
-        
+
         with col1:
             st.metric("Current", f"{ratio.iloc[-1]:.2f}")
-        
+
         with col2:
             st.metric("Mean", f"{mean_ratio:.2f}")
-        
+
         with col3:
             st.metric("Std Dev", f"{std_ratio:.2f}")
-        
+
         with col4:
             z_score = (ratio.iloc[-1] - mean_ratio) / std_ratio
             st.metric("Z-Score", f"{z_score:.2f}")
-        
+
         # Distribution
         st.markdown("### 📉 Ratio Distribution")
-        
+
         fig_hist = go.Figure()
-        
+
         fig_hist.add_trace(
             go.Histogram(
                 x=ratio.values,
@@ -2368,9 +2432,10 @@ elif analysis_type == "Ratio Analysis":
                 marker_color="lightblue",
             )
         )
-        
-        fig_hist.add_vline(x=mean_ratio, line_dash="dash", line_color="red", annotation_text="Mean")
-        
+
+        fig_hist.add_vline(x=mean_ratio, line_dash="dash",
+                           line_color="red", annotation_text="Mean")
+
         fig_hist.update_layout(
             title=f"Distribution of {numerator_name}/{denominator_name}",
             xaxis_title="Ratio",
@@ -2378,26 +2443,27 @@ elif analysis_type == "Ratio Analysis":
             height=400,
             template="plotly_white",
         )
-        
+
         st.plotly_chart(fig_hist, use_container_width=True)
-        
+
         # Show all available ratios (summary table)
         st.markdown("### 📋 All Available Ratios")
-        
-        st.markdown(f"Quick reference for all {num_commodities * (num_commodities - 1) // 2} possible ratios:")
-        
+
+        st.markdown(
+            f"Quick reference for all {num_commodities * (num_commodities - 1) // 2} possible ratios:")
+
         all_ratios = []
         for i, num_sym in enumerate(valid_commodities):
             for denom_sym in valid_commodities[i+1:]:
                 config_num = COMMODITIES_CONFIG.get(num_sym, {})
                 config_denom = COMMODITIES_CONFIG.get(denom_sym, {})
-                
+
                 name_num = config_num.get("name", num_sym)
                 name_denom = config_denom.get("name", denom_sym)
-                
+
                 r = date_filtered_df[num_sym] / date_filtered_df[denom_sym]
                 r = r.dropna()
-                
+
                 if len(r) >= 2:
                     all_ratios.append({
                         "Ratio": f"{name_num}/{name_denom}",
@@ -2405,10 +2471,11 @@ elif analysis_type == "Ratio Analysis":
                         "Mean": f"{r.mean():.2f}",
                         "Z-Score": f"{(r.iloc[-1] - r.mean()) / r.std():.2f}",
                     })
-        
+
         if all_ratios:
-            st.dataframe(pd.DataFrame(all_ratios), use_container_width=True, hide_index=True)
-    
+            st.dataframe(pd.DataFrame(all_ratios),
+                         use_container_width=True, hide_index=True)
+
     # Educational section
     with st.expander("ℹ️ Understanding Commodity Ratios"):
         st.markdown("""
@@ -2460,7 +2527,7 @@ elif analysis_type == "Ratio Analysis":
 
 elif analysis_type == "ML Price Prediction":
     st.subheader("🤖 ML Price Direction Prediction")
-    
+
     st.info("""
     **Machine Learning** to predict commodity price direction (up/down tomorrow).
     
@@ -2470,7 +2537,7 @@ elif analysis_type == "ML Price Prediction":
     
     **Validation:** Walk-forward with expanding window (3-month start, 1-week test)
     """)
-    
+
     # Import ML modules
     try:
         sys.path.insert(0, str(ROOT / "src"))
@@ -2479,7 +2546,7 @@ elif analysis_type == "ML Price Prediction":
     except ImportError as e:
         st.error(f"❌ ML modules not available: {e}")
         st.stop()
-    
+
     # ML requires single commodity selection
     if len(selected_commodities) != 1:
         st.warning("""
@@ -2488,13 +2555,13 @@ elif analysis_type == "ML Price Prediction":
         Please select a single commodity from the sidebar to continue.
         """)
         st.stop()
-    
+
     symbol = selected_commodities[0]
     config = COMMODITIES_CONFIG.get(symbol, {})
     commodity_name = config.get("name", symbol)
-    
+
     st.markdown(f"### 🎯 Predicting: {commodity_name}")
-    
+
     # Check data availability
     if len(date_filtered_df) < 100:
         st.warning(f"""
@@ -2506,22 +2573,23 @@ elif analysis_type == "ML Price Prediction":
         Please select a longer date range.
         """)
         st.stop()
-    
+
     # Configuration sidebar
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🤖 ML Configuration")
-    
+
     # Data frequency selector (BEFORE calculating limits)
     data_freq = st.sidebar.selectbox(
         "Data Frequency",
         ["Daily", "Weekly", "Monthly"],
         help="Frequency of data points for ML training"
     )
-    
+
     # Resample data based on frequency
     original_len = len(date_filtered_df)
     if data_freq == "Weekly":
-        date_filtered_df = date_filtered_df.resample('W-FRI').last()  # Weekly, Friday close
+        date_filtered_df = date_filtered_df.resample(
+            'W-FRI').last()  # Weekly, Friday close
         st.sidebar.success(f"""
         ✅ **Resampled to Weekly**
         - {original_len} days → {len(date_filtered_df)} weeks
@@ -2529,7 +2597,8 @@ elif analysis_type == "ML Price Prediction":
         - ~5x faster training!
         """)
     elif data_freq == "Monthly":
-        date_filtered_df = date_filtered_df.resample('M').last()  # Monthly, end of month
+        date_filtered_df = date_filtered_df.resample(
+            'M').last()  # Monthly, end of month
         st.sidebar.success(f"""
         ✅ **Resampled to Monthly**
         - {original_len} days → {len(date_filtered_df)} months
@@ -2538,22 +2607,24 @@ elif analysis_type == "ML Price Prediction":
         """)
     elif data_freq == "Daily":
         st.sidebar.info(f"📅 **Daily frequency:** {original_len} days")
-    
+
     # Calculate dynamic limits based on available data (AFTER resampling)
     available_periods = len(date_filtered_df)
     max_train_periods = int(available_periods * 0.8)  # 80% for training
-    max_test_periods = int(available_periods * 0.1)   # Max 10% for single test period
+    # Max 10% for single test period
+    max_test_periods = int(available_periods * 0.1)
     max_sequence = min(252, int(available_periods * 0.2))  # Max 20% or 1 year
-    
-    freq_label = {"Daily": "days", "Weekly": "weeks", "Monthly": "months"}[data_freq]
-    
+
+    freq_label = {"Daily": "days", "Weekly": "weeks",
+                  "Monthly": "months"}[data_freq]
+
     st.sidebar.info(f"""
     **Available Data:** {available_periods} {freq_label}
     
     **Dynamic Limits (80% rule):**
-    - Max training: {max_train_periods} {freq_label}
-    - Max test: {max_test_periods} {freq_label}
-    - Max sequence: {max_sequence} {freq_label}
+    - Max train_size: {max_train_periods} {freq_label}
+    - Max test_size: {max_test_periods} {freq_label}
+    - Max seq_len: {max_sequence} {freq_label}
     """)
     
     model_choice = st.sidebar.selectbox(
@@ -2562,197 +2633,280 @@ elif analysis_type == "ML Price Prediction":
         help="Compare both models or run individually"
     )
     
-    # Core Parameters (3 essential settings)
+    # ============================================================================
+    # CORE PARAMETERS (Required for Walk-Forward Validation)
+    # ============================================================================
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### ⚙️ Core Parameters")
+    st.sidebar.markdown("### 📊 Core Parameters (Required)")
     
-    st.sidebar.caption("**Only 3 settings needed for walk-forward validation:**")
+    st.sidebar.caption("""
+    **The 3 essential settings for walk-forward validation:**
+    """)
     
-    # 1. Training window length (train_size)
     train_size = st.sidebar.number_input(
-        "Training Window Length",
+        "1️⃣ Training Window (train_size)",
         min_value=30,
         max_value=max_train_periods,
         value=min(252, max_train_periods),
         step=21 if data_freq == "Daily" else 4,
-        help=f"How many past {freq_label} to train on (max {max_train_periods})"
+        help=f"How many past {freq_label} to train on (expanding window)"
     )
     
-    # 2. Test window length (test_size)
     test_size = st.sidebar.number_input(
-        "Test Window Length",
+        "2️⃣ Test Window (test_size)",
         min_value=1,
         max_value=max_test_periods,
         value=min(5, max_test_periods) if data_freq == "Daily" else min(1, max_test_periods),
         step=1,
-        help=f"How many future {freq_label} to evaluate each round"
+        help=f"How many {freq_label} to test on each iteration"
     )
     
-    # 3. Sequence length (seq_len) - LSTM only
     seq_len = None
     if model_choice in ["Compare Both", "LSTM Only"]:
         seq_len = st.sidebar.number_input(
-            "Sequence Length (LSTM)",
+            "3️⃣ Sequence Length (seq_len)",
             min_value=20,
             max_value=max_sequence,
             value=min(60, max_sequence),
-            step=10,
-            help=f"How many past {freq_label} each LSTM input contains (lookback)"
+            step=10 if data_freq == "Daily" else 4,
+            help=f"LSTM lookback: how many {freq_label} in each input sample"
         )
-        
-        # Validation
-        min_lstm_train = seq_len + 100
-        if train_size < min_lstm_train:
-            st.sidebar.error(f"""
-            ❌ LSTM needs train_size ≥ {min_lstm_train}
-            
-            Current: {train_size}
-            """)
-        else:
-            st.sidebar.success(f"✅ LSTM: train_size sufficient")
     
-    # Optional: Advanced Settings (collapsed by default)
-    with st.sidebar.expander("🔧 Advanced Settings (Optional)", expanded=False):
-        st.caption("**These have sensible defaults. Only change if you know what you're doing.**")
+    st.sidebar.markdown("""
+    **What each parameter means:**
+    - `train_size`: Past data for training (e.g., 252 days = 1 year)
+    - `test_size`: Future data for testing (e.g., 5 days = 1 week)
+    - `seq_len`: LSTM's memory window (e.g., 60 days = what it "sees" at once)
+    """)
+    
+    # ============================================================================
+    # OPTIONAL PARAMETERS (Advanced Walk-Forward Design)
+    # ============================================================================
+    with st.sidebar.expander("⚙️ Advanced Walk-Forward (Optional)", expanded=False):
+        st.markdown("**Optional settings - defaults work well for most use cases!**")
+        st.markdown("---")
         
-        # Walk-forward step size
         step_size = st.number_input(
-            "Step Size (walk-forward)",
+            "4️⃣ Step Size (step_size)",
             min_value=1,
-            max_value=test_size,
-            value=test_size,  # Default: step = test_size
+            max_value=max_test_periods,
+            value=test_size,  # Default: same as test_size
             step=1,
-            help="How far to move window forward each iteration (default = test_size)"
+            help=f"How far to move window forward (default = test_size for no overlap)"
         )
         
-        st.info(f"""
-        **Current:** Step = Test ({step_size} = {test_size})
+        st.caption("""
+        **What is step_size?**
+        - `step_size = test_size` → No overlap (recommended)
+        - `step_size < test_size` → Overlapping tests (more splits)
+        - `step_size > test_size` → Gaps between tests (faster)
         
-        This means no overlap between test periods (standard).
+        **Current:** Using default (step_size = test_size)
         """)
         
-        st.caption("**Note:** Changing step_size affects number of validation splits.")
+        st.markdown("---")
         
-        # Model hyperparameters (XGBoost)
-        if model_choice in ["XGBoost Only", "Compare Both"]:
-            st.markdown("---")
-            st.markdown("**XGBoost Hyperparameters:**")
-            
-            xgb_n_estimators = st.number_input(
-                "XGBoost: N Estimators",
-                min_value=10,
-                max_value=500,
-                value=100,
-                step=10,
-                help="Number of trees (default 100)"
-            )
-            
-            xgb_max_depth = st.number_input(
-                "XGBoost: Max Depth",
-                min_value=1,
-                max_value=10,
-                value=3,
-                step=1,
-                help="Tree depth (3 = shallow, prevents overfitting)"
-            )
-            
-            xgb_learning_rate = st.number_input(
-                "XGBoost: Learning Rate",
-                min_value=0.01,
-                max_value=0.3,
-                value=0.1,
-                step=0.01,
-                help="Step size (default 0.1)"
-            )
-        else:
-            # Set defaults if not shown
-            xgb_n_estimators = 100
-            xgb_max_depth = 3
-            xgb_learning_rate = 0.1
+        val_size = st.number_input(
+            "5️⃣ Validation Window (val_size)",
+            min_value=0,
+            max_value=int(train_size * 0.3),
+            value=0,
+            step=10 if data_freq == "Daily" else 2,
+            help=f"Slice of training for hyperparameter tuning (0 = no validation)"
+        )
         
-        # Model hyperparameters (LSTM)
-        if model_choice in ["LSTM Only", "Compare Both"]:
-            st.markdown("---")
-            st.markdown("**LSTM Hyperparameters:**")
+        st.caption("""
+        **What is val_size?**
+        - Used for hyperparameter tuning INSIDE each training split
+        - `val_size = 0` → Use defaults, no tuning (current)
+        - `val_size = 20% train_size` → Standard for tuning
+        
+        **When to use:**
+        - If you want to tune hyperparameters at each split
+        - If you have lots of data (can spare 20% for validation)
+        
+        **When to skip:**
+        - Using default hyperparameters (current approach)
+        - Limited data (use all for training)
+        """)
+    
+    # Summary of walk-forward configuration
+    st.sidebar.markdown("---")
+    st.sidebar.success(f"""
+    **✅ Walk-Forward Configuration:**
+    
+    **Core Settings:**
+    - `train_size`: {train_size} {freq_label}
+    - `test_size`: {test_size} {freq_label}
+    - `seq_len`: {seq_len if seq_len else 'N/A (XGBoost only)'} {freq_label}
+    
+    **Advanced (Optional):**
+    - `step_size`: {test_size} {freq_label} (default)
+    - `val_size`: 0 (no validation split)
+    
+    **Estimated:** ~{max((available_periods - train_size) // test_size, 1)} walk-forward splits
+    """)
+
+    # Model-specific parameters
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### ⚙️ Model Parameters")
+
+    # XGBoost parameters
+    with st.sidebar.expander("🌳 XGBoost Settings", expanded=(model_choice in ["XGBoost Only", "Compare Both"])):
+        xgb_n_estimators = st.number_input(
+            "N Estimators",
+            min_value=10,
+            max_value=500,
+            value=100,
+            step=10,
+            help="Number of boosting rounds (default 100)"
+        )
+
+        xgb_max_depth = st.number_input(
+            "Max Depth",
+            min_value=1,
+            max_value=10,
+            value=3,
+            step=1,
+            help="Maximum tree depth (3 = shallow to prevent overfitting)"
+        )
+
+        xgb_learning_rate = st.number_input(
+            "Learning Rate",
+            min_value=0.01,
+            max_value=0.3,
+            value=0.1,
+            step=0.01,
+            help="Learning rate (default 0.1)"
+        )
+
+    # LSTM parameters
+    lstm_hidden_units = None
+    lstm_dropout = None
+    lstm_epochs = None
+    
+    # ============================================================================
+    # MODEL HYPERPARAMETERS (Optional - Use Defaults or Customize)
+    # ============================================================================
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🎛️ Model Hyperparameters (Optional)")
+    
+    with st.sidebar.expander("🌳 XGBoost Hyperparameters", expanded=False):
+        st.caption("**Optional:** Customize or use defaults")
+        
+        xgb_n_estimators = st.number_input(
+            "N Estimators",
+            min_value=10,
+            max_value=500,
+            value=100,
+            step=10,
+            help="Number of boosting rounds"
+        )
+        
+        xgb_max_depth = st.number_input(
+            "Max Depth",
+            min_value=1,
+            max_value=10,
+            value=3,
+            step=1,
+            help="Tree depth (3 = shallow, prevents overfitting)"
+        )
+        
+        xgb_learning_rate = st.number_input(
+            "Learning Rate",
+            min_value=0.01,
+            max_value=0.3,
+            value=0.1,
+            step=0.01,
+            help="Shrinkage rate (lower = more conservative)"
+        )
+    
+    if model_choice in ["Compare Both", "LSTM Only"]:
+        with st.sidebar.expander("🧠 LSTM Hyperparameters", expanded=False):
+            st.caption("**Optional:** Customize or use defaults")
             
             lstm_hidden_units = st.number_input(
-                "LSTM: Hidden Units",
+                "Hidden Units",
                 min_value=16,
                 max_value=256,
                 value=64,
                 step=16,
-                help="Layer size (default 64)"
+                help="LSTM layer size (higher = more capacity)"
             )
             
             lstm_dropout = st.number_input(
-                "LSTM: Dropout Rate",
+                "Dropout Rate",
                 min_value=0.0,
                 max_value=0.5,
                 value=0.3,
                 step=0.05,
-                help="Regularization (default 0.3)"
+                help="Regularization (0.3 = 30% dropout)"
             )
             
             lstm_epochs = st.number_input(
-                "LSTM: Max Epochs",
+                "Max Epochs",
                 min_value=10,
                 max_value=200,
                 value=50,
                 step=10,
-                help="Training iterations (early stopping active)"
+                help="Training epochs (early stopping active)"
             )
-        else:
-            # Set defaults if not shown
-            lstm_hidden_units = 64
-            lstm_dropout = 0.3
-            lstm_epochs = 50
+            
+            # LSTM data requirement check (use official variable names)
+            min_lstm_train = seq_len + 100 if seq_len else 160
+            if train_size < min_lstm_train:
+                st.warning(f"""
+                ⚠️ **LSTM needs more data!**
+                
+                - seq_len: {seq_len} {freq_label}
+                - Recommended train_size: ≥{min_lstm_train} {freq_label}
+                - Current train_size: {train_size} {freq_label}
+                
+                Increase train_size for better LSTM performance.
+                """)
+            else:
+                st.success(f"✅ train_size sufficient for LSTM")
     
-    # Summary of settings
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 📋 Configuration Summary")
-    st.sidebar.code(f"""
-Core Parameters:
-├── train_size: {train_size} {freq_label}
-├── test_size: {test_size} {freq_label}
-└── seq_len: {seq_len if seq_len else 'N/A (XGBoost)'} {freq_label if seq_len else ''}
+    # Model comparison guidance
+    if model_choice == "Compare Both":
+        st.sidebar.info("""
+        **Comparing Both Models:**
+        
+        Each model uses its own hyperparameters.
+        XGBoost and LSTM trained independently.
+        """)
 
-Walk-Forward:
-└── step_size: {test_size} {freq_label} (= test_size)
-
-Validation Splits:
-└── ~{(max_train_periods - train_size) // test_size} splits
-    """, language="yaml")
-    
     # Run button
     run_ml = st.sidebar.button("🚀 Run ML Prediction", type="primary")
-    
+
     if run_ml:
         # First, detect current regime
         with st.spinner(f"Analyzing market regime for {commodity_name}..."):
             # Calculate rolling volatility to detect regime
             price_series = date_filtered_df[symbol].dropna()
             returns = np.log(price_series / price_series.shift(1)).dropna()
-            
+
             # Calculate volatility for regime detection (use 63-day window)
             rolling_vol = returns.rolling(63).std() * np.sqrt(252)
             current_vol = rolling_vol.iloc[-1] * 100
-            
+
             # Import regime functions
             from data.ml_features import classify_volatility_regime, get_regime_trading_recommendation
-            
-            current_regime = classify_volatility_regime(current_vol / 100, rolling_vol)
+
+            current_regime = classify_volatility_regime(
+                current_vol / 100, rolling_vol)
             regime_rec = get_regime_trading_recommendation(current_regime)
-        
+
         # Display regime detection
         st.markdown("---")
         st.markdown("### 🎯 Current Market Regime Detected")
-        
+
         regime_color_map = {
             "Low Volatility": "success",
             "Medium Volatility": "info",
             "High Volatility": "warning"
         }
-        
+
         regime_method = getattr(st, regime_color_map[current_regime])
         regime_method(f"""
         **{regime_rec['emoji']} {current_regime} Regime**
@@ -2768,84 +2922,90 @@ Validation Splits:
         - 📈 Strategy: {regime_rec['strategy']}
         - 🛡️ Risk management: {regime_rec['risk']}
         """)
-        
+
         # Check if user settings align with regime
         if current_regime == "Low Volatility" and data_freq == "Monthly":
-            st.info("💡 **Tip:** Low vol regime - consider Daily/Weekly for more precision")
+            st.info(
+                "💡 **Tip:** Low vol regime - consider Daily/Weekly for more precision")
         elif current_regime == "High Volatility" and data_freq == "Daily":
-            st.warning("⚠️ **Warning:** High vol regime - Weekly/Monthly may reduce noise")
-        
+            st.warning(
+                "⚠️ **Warning:** High vol regime - Weekly/Monthly may reduce noise")
+
         with st.spinner(f"Creating features for {commodity_name}..."):
             # Create features
             features_df, metadata = create_ml_features_with_transparency(
                 price_series,
                 symbol=symbol
             )
-            
-            st.success(f"✅ Features created: {metadata['final_rows']} rows, {metadata['total_features']} features")
-        
+
+            st.success(
+                f"✅ Features created: {metadata['final_rows']} rows, {metadata['total_features']} features")
+
         # Show transparency section
         with st.expander("📋 Data Preparation Transparency", expanded=True):
             st.markdown("### What We Did")
-            
+
             col1, col2 = st.columns(2)
-            
+
             with col1:
                 st.markdown("#### ✅ Completed:")
                 for item in metadata['transparency']['data_prep_completed']:
                     st.markdown(f"- ✓ {item}")
-            
+
             with col2:
                 st.markdown("#### ❌ NOT Done:")
                 for item in metadata['transparency']['data_prep_NOT_done']:
                     st.markdown(f"- ✗ {item}")
-            
+
             st.markdown("#### ⚠️ To Be Decided:")
             for item in metadata['transparency']['to_be_decided']:
                 st.markdown(f"- ? {item}")
-            
+
             # Outlier analysis
             st.markdown("---")
             st.markdown("### 🔍 Outlier Analysis")
-            
+
             outliers = metadata['outliers']
-            
+
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("Total Returns", outliers['total_returns'])
             with col2:
-                st.metric("Outliers (>3σ)", f"{outliers['outlier_count']} ({outliers['outlier_pct']:.2f}%)")
+                st.metric(
+                    "Outliers (>3σ)", f"{outliers['outlier_count']} ({outliers['outlier_pct']:.2f}%)")
             with col3:
                 st.metric("Min Return", f"{outliers['min_return']:.2f}%")
             with col4:
                 st.metric("Max Return", f"{outliers['max_return']:.2f}%")
-            
+
             st.info(f"""
             **Interpretation:** {outliers['interpretation']}
             
             **Action Taken:** {outliers['action_taken']}
             """)
-            
+
             # Class distribution
             st.markdown("---")
             st.markdown("### ⚖️ Class Distribution (Up vs Down Days)")
-            
+
             dist = metadata['class_distribution']
-            
+
             col1, col2 = st.columns(2)
             with col1:
-                st.metric("Down Days (0)", f"{dist.get('class_0_count', 0)} ({dist.get('class_0_pct', 0):.1f}%)")
+                st.metric(
+                    "Down Days (0)", f"{dist.get('class_0_count', 0)} ({dist.get('class_0_pct', 0):.1f}%)")
             with col2:
-                st.metric("Up Days (1)", f"{dist.get('class_1_count', 0)} ({dist.get('class_1_pct', 0):.1f}%)")
-            
+                st.metric(
+                    "Up Days (1)", f"{dist.get('class_1_count', 0)} ({dist.get('class_1_pct', 0):.1f}%)")
+
             if dist['is_imbalanced']:
                 st.warning(f"⚠️ {dist['recommendation']}")
             else:
                 st.success(f"✅ {dist['recommendation']}")
-        
+
         # Run model(s)
         st.markdown("---")
-        
+
         if model_choice == "Compare Both":
             with st.spinner("Training XGBoost and LSTM models (this may take 2-3 minutes)..."):
                 # Prepare model params
@@ -2854,14 +3014,14 @@ Validation Splits:
                     'max_depth': xgb_max_depth,
                     'learning_rate': xgb_learning_rate,
                 }
-                
+
                 lstm_params = {
                     'sequence_length': seq_len,
                     'hidden_units': lstm_hidden_units,
                     'dropout_rate': lstm_dropout,
                     'epochs': lstm_epochs,
                 } if seq_len else {}
-                
+
                 results = compare_models(
                     features_df,
                     initial_train_days=train_size,
@@ -2870,16 +3030,16 @@ Validation Splits:
                     lstm_params=lstm_params,
                     verbose=False,
                 )
-            
+
             # Display comparison
             st.markdown("### 📊 Model Comparison Results")
-            
+
             xgb_metrics = results['xgboost']['overall_metrics']
             lstm_metrics = results['lstm']['overall_metrics']
-            
+
             # Summary metrics
             col1, col2, col3 = st.columns(3)
-            
+
             with col1:
                 st.markdown("#### 🌳 XGBoost")
                 st.metric("Accuracy", f"{xgb_metrics['accuracy']:.2%}")
@@ -2888,7 +3048,7 @@ Validation Splits:
                 st.metric("F1 Score", f"{xgb_metrics['f1_score']:.2%}")
                 if xgb_metrics.get('roc_auc'):
                     st.metric("ROC AUC", f"{xgb_metrics['roc_auc']:.3f}")
-            
+
             with col2:
                 st.markdown("#### 🧠 LSTM")
                 st.metric("Accuracy", f"{lstm_metrics['accuracy']:.2%}")
@@ -2897,42 +3057,43 @@ Validation Splits:
                 st.metric("F1 Score", f"{lstm_metrics['f1_score']:.2%}")
                 if lstm_metrics.get('roc_auc'):
                     st.metric("ROC AUC", f"{lstm_metrics['roc_auc']:.3f}")
-            
+
             with col3:
                 st.markdown("#### 🏆 Winner")
                 winner_name = results['winner'].upper()
                 margin = results['margin']
-                
+
                 if results['winner'] == 'tie':
                     st.info("🤝 **TIE**\n\nBoth models perform equally")
                 else:
                     emoji = "🌳" if results['winner'] == 'xgboost' else "🧠"
-                    st.success(f"{emoji} **{winner_name}**\n\n+{margin:.2f}% advantage")
-                
+                    st.success(
+                        f"{emoji} **{winner_name}**\n\n+{margin:.2f}% advantage")
+
                 # Baseline comparison
                 st.markdown("---")
                 st.caption("**Baseline (Random):** 50%")
-                
+
                 xgb_lift = (xgb_metrics['accuracy'] - 0.5) * 100
                 lstm_lift = (lstm_metrics['accuracy'] - 0.5) * 100
-                
+
                 st.caption(f"**XGBoost Lift:** +{xgb_lift:.1f}%")
                 st.caption(f"**LSTM Lift:** +{lstm_lift:.1f}%")
-            
+
             # Confusion matrices
             st.markdown("---")
             st.markdown("### 📊 Confusion Matrices")
-            
+
             col1, col2 = st.columns(2)
-            
+
             with col1:
                 st.markdown("#### 🌳 XGBoost")
-                
+
                 cm_xgb = np.array([
                     [xgb_metrics['true_negatives'], xgb_metrics['false_positives']],
                     [xgb_metrics['false_negatives'], xgb_metrics['true_positives']]
                 ])
-                
+
                 fig_cm_xgb = go.Figure(data=go.Heatmap(
                     z=cm_xgb,
                     x=['Predicted Down', 'Predicted Up'],
@@ -2941,22 +3102,24 @@ Validation Splits:
                     texttemplate="%{text}",
                     colorscale="Blues",
                 ))
-                
+
                 fig_cm_xgb.update_layout(
                     title="XGBoost Confusion Matrix",
                     height=400,
                 )
-                
+
                 st.plotly_chart(fig_cm_xgb, use_container_width=True)
-            
+
             with col2:
                 st.markdown("#### 🧠 LSTM")
-                
+
                 cm_lstm = np.array([
-                    [lstm_metrics['true_negatives'], lstm_metrics['false_positives']],
-                    [lstm_metrics['false_negatives'], lstm_metrics['true_positives']]
+                    [lstm_metrics['true_negatives'],
+                        lstm_metrics['false_positives']],
+                    [lstm_metrics['false_negatives'],
+                        lstm_metrics['true_positives']]
                 ])
-                
+
                 fig_cm_lstm = go.Figure(data=go.Heatmap(
                     z=cm_lstm,
                     x=['Predicted Down', 'Predicted Up'],
@@ -2965,23 +3128,23 @@ Validation Splits:
                     texttemplate="%{text}",
                     colorscale="Purples",
                 ))
-                
+
                 fig_cm_lstm.update_layout(
                     title="LSTM Confusion Matrix",
                     height=400,
                 )
-                
+
                 st.plotly_chart(fig_cm_lstm, use_container_width=True)
-            
+
             # Prediction accuracy over time
             st.markdown("---")
             st.markdown("### 📈 Accuracy Over Walk-Forward Splits")
-            
+
             xgb_split_df = pd.DataFrame(results['xgboost']['split_metrics'])
             lstm_split_df = pd.DataFrame(results['lstm']['split_metrics'])
-            
+
             fig_acc = go.Figure()
-            
+
             fig_acc.add_trace(go.Scatter(
                 x=xgb_split_df['split'],
                 y=xgb_split_df['accuracy'] * 100,
@@ -2990,7 +3153,7 @@ Validation Splits:
                 line=dict(color='blue', width=2),
                 marker=dict(size=8),
             ))
-            
+
             fig_acc.add_trace(go.Scatter(
                 x=lstm_split_df['split'],
                 y=lstm_split_df['accuracy'] * 100,
@@ -2999,14 +3162,14 @@ Validation Splits:
                 line=dict(color='purple', width=2),
                 marker=dict(size=8),
             ))
-            
+
             fig_acc.add_hline(
                 y=50,
                 line_dash="dash",
                 line_color="gray",
                 annotation_text="Random (50%)"
             )
-            
+
             fig_acc.update_layout(
                 title="Prediction Accuracy by Split (Expanding Window)",
                 xaxis_title="Split Number",
@@ -3014,23 +3177,23 @@ Validation Splits:
                 height=500,
                 template="plotly_white",
             )
-            
+
             st.plotly_chart(fig_acc, use_container_width=True)
-            
+
             # Feature importance (XGBoost only)
             if results['xgboost']['feature_importance'] is not None:
                 st.markdown("---")
                 st.markdown("### 📊 XGBoost Feature Importance")
-                
+
                 feat_imp = results['xgboost']['feature_importance']
-                
+
                 fig_imp = go.Figure(go.Bar(
                     x=feat_imp.values[:15],  # Top 15
                     y=feat_imp.index[:15],
                     orientation='h',
                     marker_color='lightblue',
                 ))
-                
+
                 fig_imp.update_layout(
                     title="Top 15 Most Important Features",
                     xaxis_title="Importance Score",
@@ -3038,13 +3201,13 @@ Validation Splits:
                     height=500,
                     template="plotly_white",
                 )
-                
+
                 st.plotly_chart(fig_imp, use_container_width=True)
-            
+
             # Model comparison table
             st.markdown("---")
             st.markdown("### 📋 Detailed Metrics Comparison")
-            
+
             comparison_data = []
             for model_name, model_results in [('XGBoost', results['xgboost']), ('LSTM', results['lstm'])]:
                 metrics = model_results['overall_metrics']
@@ -3060,13 +3223,14 @@ Validation Splits:
                     'False Positives': metrics['false_positives'],
                     'False Negatives': metrics['false_negatives'],
                 })
-            
-            st.dataframe(pd.DataFrame(comparison_data), use_container_width=True, hide_index=True)
-        
+
+            st.dataframe(pd.DataFrame(comparison_data),
+                         use_container_width=True, hide_index=True)
+
         elif model_choice in ["XGBoost Only", "LSTM Only"]:
             model_type = "xgboost" if model_choice == "XGBoost Only" else "lstm"
             model_emoji = "🌳" if model_type == "xgboost" else "🧠"
-            
+
             with st.spinner(f"Creating features for {commodity_name}..."):
                 # Create features
                 price_series = date_filtered_df[symbol].dropna()
@@ -3074,9 +3238,10 @@ Validation Splits:
                     price_series,
                     symbol=symbol
                 )
-                
-                st.success(f"✅ Features: {metadata['final_rows']} rows, {metadata['total_features']} features")
-            
+
+                st.success(
+                    f"✅ Features: {metadata['final_rows']} rows, {metadata['total_features']} features")
+
             # Run model
             with st.spinner(f"Training {model_choice} model..."):
                 # Prepare model params
@@ -3094,7 +3259,7 @@ Validation Splits:
                         'dropout_rate': lstm_dropout,
                         'epochs': lstm_epochs,
                     }
-                
+
                 results = run_walk_forward_validation(
                     features_df,
                     model_type=model_type,
@@ -3103,78 +3268,81 @@ Validation Splits:
                     model_params=model_params,
                     verbose=False,
                 )
-            
+
             if 'error' in results:
                 st.error(f"❌ {results['error']}")
                 st.stop()
-            
+
             # Show transparency section (collapsed by default, after training)
             with st.expander("📋 Data Preparation Transparency"):
                 st.markdown("### What We Did")
-                
+
                 col1, col2 = st.columns(2)
-                
+
                 with col1:
                     st.markdown("#### ✅ Completed:")
                     for item in metadata['transparency']['data_prep_completed']:
                         st.markdown(f"- ✓ {item}")
-                
+
                 with col2:
                     st.markdown("#### ❌ NOT Done:")
                     for item in metadata['transparency']['data_prep_NOT_done']:
                         st.markdown(f"- ✗ {item}")
-                
+
                 st.markdown("#### ⚠️ To Be Decided:")
                 for item in metadata['transparency']['to_be_decided']:
                     st.markdown(f"- ? {item}")
-                
+
                 # Outlier analysis
                 st.markdown("---")
                 st.markdown("### 🔍 Outlier Analysis")
-                
+
                 outliers = metadata['outliers']
-                
+
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
                     st.metric("Total Returns", outliers['total_returns'])
                 with col2:
-                    st.metric("Outliers (>3σ)", f"{outliers['outlier_count']} ({outliers['outlier_pct']:.2f}%)")
+                    st.metric(
+                        "Outliers (>3σ)", f"{outliers['outlier_count']} ({outliers['outlier_pct']:.2f}%)")
                 with col3:
                     st.metric("Min Return", f"{outliers['min_return']:.2f}%")
                 with col4:
                     st.metric("Max Return", f"{outliers['max_return']:.2f}%")
-                
+
                 st.info(f"""
                 **Interpretation:** {outliers['interpretation']}
                 
                 **Action Taken:** {outliers['action_taken']}
                 """)
-                
+
                 # Class distribution
                 st.markdown("---")
                 st.markdown("### ⚖️ Class Distribution (Up vs Down Days)")
-                
+
                 dist = metadata['class_distribution']
-                
+
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("Down Days (0)", f"{dist.get('class_0_count', 0)} ({dist.get('class_0_pct', 0):.1f}%)")
+                    st.metric(
+                        "Down Days (0)", f"{dist.get('class_0_count', 0)} ({dist.get('class_0_pct', 0):.1f}%)")
                 with col2:
-                    st.metric("Up Days (1)", f"{dist.get('class_1_count', 0)} ({dist.get('class_1_pct', 0):.1f}%)")
-                
+                    st.metric(
+                        "Up Days (1)", f"{dist.get('class_1_count', 0)} ({dist.get('class_1_pct', 0):.1f}%)")
+
                 if dist['is_imbalanced']:
                     st.warning(f"⚠️ {dist['recommendation']}")
                 else:
                     st.success(f"✅ {dist['recommendation']}")
-            
+
             # Display results
             st.markdown(f"### {model_emoji} {model_choice} Results")
-            
+
             metrics = results['overall_metrics']
-            
+
             # Key metrics
             col1, col2, col3, col4 = st.columns(4)
-            
+
             with col1:
                 st.metric("Accuracy", f"{metrics['accuracy']:.2%}")
             with col2:
@@ -3183,27 +3351,30 @@ Validation Splits:
                 st.metric("Recall", f"{metrics['recall']:.2%}")
             with col4:
                 st.metric("F1 Score", f"{metrics['f1_score']:.2%}")
-            
+
             # Baseline comparison
             baseline = 0.5
             lift = (metrics['accuracy'] - baseline) * 100
-            
+
             if lift > 2:
-                st.success(f"✅ Model beats random baseline by **{lift:.1f}%** (Good!)")
+                st.success(
+                    f"✅ Model beats random baseline by **{lift:.1f}%** (Good!)")
             elif lift > 0:
-                st.info(f"ℹ️ Model beats random baseline by **{lift:.1f}%** (Modest improvement)")
+                st.info(
+                    f"ℹ️ Model beats random baseline by **{lift:.1f}%** (Modest improvement)")
             else:
-                st.warning(f"⚠️ Model does NOT beat random baseline (accuracy < 50%)")
-            
+                st.warning(
+                    f"⚠️ Model does NOT beat random baseline (accuracy < 50%)")
+
             # Confusion matrix
             st.markdown("---")
             st.markdown("### 📊 Confusion Matrix")
-            
+
             cm = np.array([
                 [metrics['true_negatives'], metrics['false_positives']],
                 [metrics['false_negatives'], metrics['true_positives']]
             ])
-            
+
             fig_cm = go.Figure(data=go.Heatmap(
                 z=cm,
                 x=['Predicted Down', 'Predicted Up'],
@@ -3213,34 +3384,36 @@ Validation Splits:
                 colorscale="Blues" if model_type == "xgboost" else "Purples",
                 colorbar=dict(title="Count"),
             ))
-            
+
             fig_cm.update_layout(
                 title=f"{model_choice} Confusion Matrix",
                 height=500,
                 template="plotly_white",
             )
-            
+
             st.plotly_chart(fig_cm, use_container_width=True)
-            
+
             # Accuracy by split
             st.markdown("---")
             st.markdown("### 📈 Accuracy by Walk-Forward Split")
-            
+
             split_df = pd.DataFrame(results['split_metrics'])
-            
+
             fig_acc = go.Figure()
-            
+
             fig_acc.add_trace(go.Scatter(
                 x=split_df['split'],
                 y=split_df['accuracy'] * 100,
                 mode='lines+markers',
                 name=model_choice,
-                line=dict(color='blue' if model_type == 'xgboost' else 'purple', width=2),
+                line=dict(color='blue' if model_type ==
+                          'xgboost' else 'purple', width=2),
                 marker=dict(size=8),
             ))
-            
-            fig_acc.add_hline(y=50, line_dash="dash", line_color="gray", annotation_text="Random")
-            
+
+            fig_acc.add_hline(y=50, line_dash="dash",
+                              line_color="gray", annotation_text="Random")
+
             fig_acc.update_layout(
                 title=f"{model_choice} - Accuracy Over Time",
                 xaxis_title="Split Number",
@@ -3248,16 +3421,16 @@ Validation Splits:
                 height=500,
                 template="plotly_white",
             )
-            
+
             st.plotly_chart(fig_acc, use_container_width=True)
-            
+
             # Feature importance (XGBoost only)
             if model_type == "xgboost" and results['feature_importance'] is not None:
                 st.markdown("---")
                 st.markdown("### 📊 Feature Importance")
-                
+
                 feat_imp = results['feature_importance']
-                
+
                 fig_imp = go.Figure(go.Bar(
                     x=feat_imp.values[:15],
                     y=feat_imp.index[:15],
@@ -3266,7 +3439,7 @@ Validation Splits:
                     text=[f"{v:.3f}" for v in feat_imp.values[:15]],
                     textposition='outside',
                 ))
-                
+
                 fig_imp.update_layout(
                     title="Top 15 Most Important Features",
                     xaxis_title="Importance Score",
@@ -3274,9 +3447,9 @@ Validation Splits:
                     height=600,
                     template="plotly_white",
                 )
-                
+
                 st.plotly_chart(fig_imp, use_container_width=True)
-        
+
         # Interpretation guide
         with st.expander("ℹ️ Understanding ML Prediction Results"):
             st.markdown("""
@@ -3343,10 +3516,10 @@ Validation Splits:
             - Volatility regime indicators
             - Mean reversion signals (distance from MA)
             """)
-            
+
             st.markdown("---")
             st.markdown("### 🔍 Data Preparation Transparency")
-            
+
             st.markdown("""
             #### ✅ What We DID:
             
@@ -3382,7 +3555,7 @@ Validation Splits:
                - Detects if >65% one class
                - Applies `class_weight='balanced'` automatically
             """)
-            
+
             st.markdown("""
             #### ❌ What We DID NOT Do:
             
@@ -3413,7 +3586,7 @@ Validation Splits:
                - Not combining multiple models (yet)
                - Could stack XGBoost + LSTM predictions
             """)
-            
+
             st.markdown("""
             #### ⚠️ To Be DECIDED (By You):
             
@@ -3442,10 +3615,10 @@ Validation Splits:
                - Alternative: Adjust threshold (0.4 or 0.6 instead of 0.5)
                - Alternative: Oversample minority class
             """)
-            
+
             st.markdown("---")
             st.markdown("### ⚠️ Important Disclaimers")
-            
+
             st.warning("""
             **This is Educational/Research Code:**
             
@@ -3468,10 +3641,10 @@ Validation Splits:
             - Stop losses
             - Transaction cost awareness
             """)
-            
+
             st.markdown("---")
             st.markdown("### 📚 Learn More")
-            
+
             st.info("""
             **Documentation:**
             - `docs/ML_PRICE_PREDICTION.md` - Complete technical details
@@ -3483,7 +3656,6 @@ Validation Splits:
             - `src/models/commodity_direction.py` - Models and validation
             """)
 
-    
     else:
         st.info("""
         👋 **Configure and Run ML Prediction**
@@ -3502,7 +3674,7 @@ Validation Splits:
         - ✅ Walk-forward validation results
         - ✅ Full transparency on data prep
         """)
-        
+
         # Frequency selection guide
         with st.expander("💡 Data Frequency Guide - Click to Expand", expanded=False):
             st.markdown("""
@@ -3689,22 +3861,24 @@ Validation Splits:
             - Run Monthly LSTM (long-term)
             - Compare & ensemble results!
             """)
-        
+
         st.markdown("---")
-        st.caption("**Note:** First run may take 2-3 minutes for daily data. Weekly/Monthly are much faster!")
+        st.caption(
+            "**Note:** First run may take 2-3 minutes for daily data. Weekly/Monthly are much faster!")
 
 
 elif analysis_type == "Correlation Matrix":
     st.subheader("🔗 Correlation Matrix")
-    
+
     # Calculate correlation matrix
     corr_matrix = date_filtered_df[selected_commodities].corr()
-    
+
     # Replace symbols with display names
-    display_names = [COMMODITIES_CONFIG.get(s, {}).get("name", s) for s in corr_matrix.index]
+    display_names = [COMMODITIES_CONFIG.get(s, {}).get(
+        "name", s) for s in corr_matrix.index]
     corr_matrix.index = display_names
     corr_matrix.columns = display_names
-    
+
     fig = go.Figure(
         data=go.Heatmap(
             z=corr_matrix.values,
@@ -3718,28 +3892,28 @@ elif analysis_type == "Correlation Matrix":
             colorbar=dict(title="Correlation"),
         )
     )
-    
+
     fig.update_layout(
         title="Commodity Price Correlations",
         height=600,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig, use_container_width=True)
 
 elif analysis_type == "Normalized Comparison":
     st.subheader("📈 Normalized Price Comparison (Base = 100)")
-    
+
     # Normalize prices to start at 100
     normalized_df = (date_filtered_df / date_filtered_df.iloc[0]) * 100
-    
+
     fig = go.Figure()
-    
+
     for symbol in selected_commodities:
         if symbol in normalized_df.columns:
             series = normalized_df[symbol].dropna()
             config = COMMODITIES_CONFIG.get(symbol, {})
-            
+
             fig.add_trace(
                 go.Scatter(
                     x=series.index,
@@ -3749,7 +3923,7 @@ elif analysis_type == "Normalized Comparison":
                     line=dict(width=2),
                 )
             )
-    
+
     fig.update_layout(
         title=f"Normalized Commodity Performance (Base = 100)",
         xaxis_title="Date",
@@ -3758,12 +3932,12 @@ elif analysis_type == "Normalized Comparison":
         height=600,
         template="plotly_white",
     )
-    
+
     st.plotly_chart(fig, use_container_width=True)
-    
+
     # Performance table
     st.markdown("### 📊 Cumulative Performance")
-    
+
     perf_data = []
     for symbol in selected_commodities:
         if symbol in normalized_df.columns:
@@ -3777,31 +3951,33 @@ elif analysis_type == "Normalized Comparison":
                     "End": f"{series.iloc[-1]:.2f}",
                     "Total Return": f"{total_return:+.2f}%",
                 })
-    
+
     if perf_data:
-        st.dataframe(pd.DataFrame(perf_data), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(perf_data),
+                     use_container_width=True, hide_index=True)
 
 elif analysis_type == "Seasonality Analysis":
     st.subheader("🌙 Seasonality Analysis")
-    
+
     st.markdown("""
     Analyze monthly patterns in commodity returns to identify seasonal trends.
     """)
-    
+
     # Use the full date range for seasonality (not filtered)
     seasonality_df = filtered_df.copy()
-    
+
     for symbol in selected_commodities:
         if symbol in seasonality_df.columns:
             series = seasonality_df[symbol].dropna()
-            
+
             if len(series) < 24:  # Need at least 2 years
-                st.warning(f"Not enough data for {symbol} seasonality analysis")
+                st.warning(
+                    f"Not enough data for {symbol} seasonality analysis")
                 continue
-            
+
             config = COMMODITIES_CONFIG.get(symbol, {})
             st.markdown(f"### {config.get('name', symbol)}")
-            
+
             # Calculate monthly returns
             returns = series.pct_change()
             monthly_data = pd.DataFrame({
@@ -3809,22 +3985,24 @@ elif analysis_type == "Seasonality Analysis":
                 "month": returns.index.month,
                 "year": returns.index.year,
             })
-            
+
             # 1. Average returns by month
             col1, col2 = st.columns(2)
-            
+
             with col1:
-                avg_by_month = monthly_data.groupby("month")["return"].mean() * 100
+                avg_by_month = monthly_data.groupby(
+                    "month")["return"].mean() * 100
                 month_names = [
                     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
                 ]
-                
+
                 fig_bar = go.Figure(
                     go.Bar(
                         x=month_names,
                         y=avg_by_month.values,
-                        marker_color=["green" if v > 0 else "red" for v in avg_by_month.values],
+                        marker_color=["green" if v >
+                                      0 else "red" for v in avg_by_month.values],
                     )
                 )
                 fig_bar.update_layout(
@@ -3835,13 +4013,13 @@ elif analysis_type == "Seasonality Analysis":
                     template="plotly_white",
                 )
                 st.plotly_chart(fig_bar, use_container_width=True)
-            
+
             with col2:
                 # 2. Returns heatmap (year x month)
                 pivot = monthly_data.pivot_table(
                     values="return", index="year", columns="month", aggfunc="mean"
                 ) * 100
-                
+
                 fig_heat = go.Figure(
                     data=go.Heatmap(
                         z=pivot.values,
@@ -3863,11 +4041,12 @@ elif analysis_type == "Seasonality Analysis":
                     template="plotly_white",
                 )
                 st.plotly_chart(fig_heat, use_container_width=True)
-            
+
             # 3. Box plot of returns by month
             fig_box = go.Figure()
             for month in range(1, 13):
-                month_returns = monthly_data[monthly_data["month"] == month]["return"] * 100
+                month_returns = monthly_data[monthly_data["month"]
+                                             == month]["return"] * 100
                 fig_box.add_trace(
                     go.Box(
                         y=month_returns,
@@ -3875,7 +4054,7 @@ elif analysis_type == "Seasonality Analysis":
                         boxmean="sd",
                     )
                 )
-            
+
             fig_box.update_layout(
                 title="Return Distribution by Month",
                 yaxis_title="Return (%)",
@@ -3884,7 +4063,7 @@ elif analysis_type == "Seasonality Analysis":
                 showlegend=False,
             )
             st.plotly_chart(fig_box, use_container_width=True)
-            
+
             # 4. Statistics table
             stats_by_month = monthly_data.groupby("month")["return"].agg(
                 ["mean", "std", "min", "max", "count"]
@@ -3894,10 +4073,11 @@ elif analysis_type == "Seasonality Analysis":
             stats_by_month["min"] = stats_by_month["min"].round(2)
             stats_by_month["max"] = stats_by_month["max"].round(2)
             stats_by_month.index = month_names
-            stats_by_month.columns = ["Mean (%)", "Std (%)", "Min (%)", "Max (%)", "Count"]
-            
+            stats_by_month.columns = [
+                "Mean (%)", "Std (%)", "Min (%)", "Max (%)", "Count"]
+
             st.dataframe(stats_by_month, use_container_width=True)
-            
+
             st.markdown("---")
 
 # Footer
