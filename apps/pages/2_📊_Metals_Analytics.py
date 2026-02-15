@@ -2769,12 +2769,9 @@ elif analysis_type == "ML Price Prediction":
     **⚡ Quick Start Defaults:** Pre-configured for {est_time} training time
     """)
     
-    model_choice = st.sidebar.selectbox(
-        "Model",
-        ["XGBoost Only", "LSTM Only", "Compare Both"],
-        index=0,  # Default: XGBoost (fastest)
-        help="XGBoost Only is fastest (~15s), Compare Both takes 2x longer"
-    )
+    # XGBoost is the only model now - no selection needed
+    model_choice = "XGBoost Only"  # Hardcoded for simplification
+    # Remove model_choice dropdown entirely
     
     # ============================================================================
     # DETECT REGIME (After data filtering, for information only)
@@ -2875,23 +2872,12 @@ elif analysis_type == "ML Price Prediction":
         key=f"test_size_{data_freq}"  # Reset when frequency changes
     )
     
-    seq_len = None
-    if model_choice in ["Compare Both", "LSTM Only"]:
-        seq_len = st.sidebar.number_input(
-            "3️⃣ Sequence Length (seq_len)",
-            min_value=20,
-            max_value=max_sequence,
-            value=default_seq,
-            step=10 if data_freq == "Daily" else 4,
-            help=f"LSTM lookback: how many {freq_label} in each input sample",
-            key=f"seq_len_{data_freq}"  # Reset when frequency changes
-        )
+    # No seq_len needed - XGBoost doesn't use sequence length
     
     st.sidebar.markdown("""
     **What each parameter means:**
     - `train_size`: Past data for training (e.g., 252 days = 1 year)
     - `test_size`: Future data for testing (e.g., 5 days = 1 week)
-    - `seq_len`: LSTM's memory window (e.g., 60 days = what it "sees" at once)
     """)
     
     # Max splits control (critical for performance)
@@ -2904,7 +2890,7 @@ elif analysis_type == "ML Price Prediction":
         max_value=500,
         value=50,
         step=10,
-        help="Limit number of training iterations. Lower = faster. 50 splits ≈ 2-3 minutes for LSTM."
+        help="Limit number of training iterations. Lower = faster. 50 splits ≈ ~30 seconds for XGBoost."
     )
     
     est_splits = max((available_periods - train_size) // test_size, 1)
@@ -2917,16 +2903,13 @@ elif analysis_type == "ML Price Prediction":
         - Will use: {actual_splits} (max_splits limit)
         
         **Estimated time:**
-        - XGBoost: ~{actual_splits * 0.5:.0f} seconds
-        - LSTM: ~{actual_splits * 2:.0f} seconds
+        **Estimated time:** ~{actual_splits * 0.5:.0f} seconds (XGBoost)
         """)
     else:
         st.sidebar.info(f"""
         ✅ **Estimated splits:** {actual_splits}
         
-        **Estimated time:**
-        - XGBoost: ~{actual_splits * 0.5:.0f} seconds
-        - LSTM: ~{actual_splits * 2:.0f} seconds
+        **Estimated time:** ~{actual_splits * 0.5:.0f} seconds (XGBoost)
         """)
     
     # ============================================================================
@@ -3073,69 +3056,18 @@ elif analysis_type == "ML Price Prediction":
             help="Shrinkage rate (lower = more conservative)"
         )
     
-    if model_choice in ["Compare Both", "LSTM Only"]:
-        with st.sidebar.expander("🧠 LSTM Hyperparameters", expanded=False):
-            st.caption("**Optional:** Customize or use defaults")
-            
-            lstm_hidden_units = st.number_input(
-                "Hidden Units",
-                min_value=16,
-                max_value=256,
-                value=64,
-                step=16,
-                help="LSTM layer size (higher = more capacity)"
-            )
-            
-            lstm_dropout = st.number_input(
-                "Dropout Rate",
-                min_value=0.0,
-                max_value=0.5,
-                value=0.3,
-                step=0.05,
-                help="Regularization (0.3 = 30% dropout)"
-            )
-            
-            lstm_epochs = st.number_input(
-                "Max Epochs",
-                min_value=10,
-                max_value=200,
-                value=50,
-                step=10,
-                help="Training epochs (early stopping active)"
-            )
-            
-            # LSTM data requirement check (use official variable names)
-            min_lstm_train = seq_len + 100 if seq_len else 160
-            if train_size < min_lstm_train:
-                st.warning(f"""
-                ⚠️ **LSTM needs more data!**
-                
-                - seq_len: {seq_len} {freq_label}
-                - Recommended train_size: ≥{min_lstm_train} {freq_label}
-                - Current train_size: {train_size} {freq_label}
-                
-                Increase train_size for better LSTM performance.
-                """)
-            else:
-                st.success(f"✅ train_size sufficient for LSTM")
+    # Remove LSTM hyperparameters - XGBoost only now
     
-    # Model comparison guidance
-    if model_choice == "Compare Both":
-        st.sidebar.info("""
-        **Comparing Both Models:**
-        
-        Each model uses its own hyperparameters.
-        XGBoost and LSTM trained independently.
-        """)
+    # XGBoost only - no model selection needed
     
-    # Run button for ALL model types
+    # Run button
     st.sidebar.markdown("---")
-    run_ml = st.sidebar.button("🚀 Run ML Prediction", type="primary", use_container_width=True)
+    run_ml = st.sidebar.button("🚀 Run XGBoost Prediction", type="primary", use_container_width=True)
 
     if run_ml:
-            # Regime already detected above, skip duplicate detection
+            # XGBoost training
             st.markdown("---")
-            st.markdown("### 🤖 Training Models")
+            st.markdown("### 🌳 Training XGBoost Model")
 
             with st.spinner(f"Creating features for {commodity_name}..."):
                 # Create features
@@ -3153,15 +3085,10 @@ elif analysis_type == "ML Price Prediction":
             # Check if we have enough data for walk-forward validation
             available_rows = len(features_df)
         
-            # Calculate minimum required rows
-            if model_choice in ["Compare Both", "LSTM Only"]:
-                # LSTM needs: train_size + seq_len + test_size (seq_len for first window)
-                min_required = train_size + seq_len + test_size
-                model_req_msg = f"LSTM requires train_size ({train_size}) + seq_len ({seq_len}) + test_size ({test_size})"
-            else:
-                # XGBoost needs: train_size + test_size
-                min_required = train_size + test_size
-                model_req_msg = f"XGBoost requires train_size ({train_size}) + test_size ({test_size})"
+            # Calculate minimum required rows for XGBoost
+            # XGBoost needs: train_size + test_size
+            min_required = train_size + test_size
+            model_req_msg = f"XGBoost requires train_size ({train_size}) + test_size ({test_size})"
         
             if available_rows < min_required:
                 st.error(f"""
@@ -3178,9 +3105,8 @@ elif analysis_type == "ML Price Prediction":
             
                 **Solutions:**
                 1. **Reduce train_size** (currently {train_size}) → try {max(30, train_size - 20)}
-                2. **Reduce seq_len** (currently {seq_len if seq_len else 'N/A'}) → try {max(20, seq_len - 10) if seq_len else 'N/A'}
-                3. **Use Daily frequency** instead of {data_freq} (more data points)
-                4. **Extend date range** to include more history
+                2. **Use Daily frequency** instead of {data_freq} (more data points)
+                3. **Extend date range** to include more history
             
                 **Quick Fix:** Try train_size={max(30, available_rows - test_size - (seq_len if seq_len else 0) - 10)}
                 """)
