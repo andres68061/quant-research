@@ -2548,11 +2548,12 @@ elif analysis_type == "ML Price Prediction":
     st.info("""
     **Machine Learning** to predict commodity price direction (up/down tomorrow).
     
-    **Models:**
-    - 🌳 XGBoost (tree-based, no scaling needed)
-    - 🧠 LSTM (neural network, with StandardScaler)
+    **Model:**
+    - 🌳 **XGBoost** (gradient boosted trees, excellent for tabular data)
     
-    **Validation:** Walk-forward with expanding window (3-month start, 1-week test)
+    **Method:** Walk-forward validation with expanding window
+    - Train on past data → Test on unseen future data → Repeat
+    - No look-ahead bias, mimics real trading conditions
     """)
 
     # Import ML modules
@@ -2807,14 +2808,35 @@ elif analysis_type == "ML Price Prediction":
     Based on your selected data: {len(date_filtered_df)} {freq_label}  
     Current volatility: **{current_vol:.1f}%** annualized
     
-    **📊 Regime Insights:**
-    - **Recommended frequency:** {regime_rec['frequency']}  
-      (You selected: {data_freq})
-    - **Recommended model:** {regime_rec['model']}  
-      (You selected: {model_choice})
-    - **Focus features:** {regime_rec['features']}
+    **📊 Regime-Based Recommendations:**
+    - **Optimal frequency:** {regime_rec['frequency']} (You selected: {data_freq})
+    - **Key features to watch:** {regime_rec['features']}
     - **Risk management:** {regime_rec['risk']}
     """)
+    
+    # Explain regime detection methodology
+    with st.expander("ℹ️ How Regime Detection Works", expanded=False):
+        st.markdown("""
+        ### Regime Classification Method
+        
+        We detect market regimes using **rolling volatility analysis**:
+        
+        1. **Calculate Volatility:** 63-day rolling standard deviation of log returns (annualized)
+        2. **Compare to History:** Current volatility vs historical distribution
+        3. **Classify into Regimes:**
+           - **Low Volatility:** Below 33rd percentile (stable, predictable markets)
+           - **Medium Volatility:** Between 33rd-67th percentile (normal conditions)
+           - **High Volatility:** Above 67th percentile (turbulent, fast-moving markets)
+        
+        ### Why This Matters for ML
+        
+        Different regimes require different strategies:
+        - **Low Vol** → Daily data captures subtle price movements
+        - **Medium Vol** → Weekly data balances noise vs signal
+        - **High Vol** → Monthly data filters extreme short-term swings
+        
+        The regime insights above are **recommendations**, not requirements. Your selected settings will work regardless.
+        """)
     
     # Check alignment
     freq_match = (current_regime == "Low Volatility" and data_freq == "Daily") or \
@@ -2829,16 +2851,28 @@ elif analysis_type == "ML Price Prediction":
         """)
     
     st.markdown("---")
-    st.markdown("### 🚀 Step 3: Run Training")
+    st.markdown("### 🚀 Step 3: Configure & Run Training")
     
-    st.info("""
-    **Ready to train!**
+    # Show configuration summary with narrative
+    st.info(f"""
+    **📋 Your ML Training Setup:**
     
-    ✅ Data selected and filtered  
-    ✅ Regime analyzed  
-    ✅ Parameters configured in sidebar  
+    **Data Selection:**
+    - Commodity: **{COMMODITIES_CONFIG.get(symbol, {}).get('name', symbol)}**
+    - Frequency: **{data_freq}** data points
+    - Date range: **{len(date_filtered_df)} {freq_label}** available
     
-    Click "Run ML Prediction" in sidebar when ready →
+    **Market Context:**
+    - Current regime: **{current_regime}**
+    - Volatility: **{current_vol:.1f}%** annualized
+    
+    **What Happens Next:**
+    1. **Feature Engineering** → Create predictive features from price data
+    2. **Walk-Forward Validation** → Train XGBoost on expanding windows
+    3. **Evaluation** → Measure accuracy, precision, recall, F1
+    4. **Insights** → Feature importance and prediction analysis
+    
+    👉 **Configure parameters in sidebar, then click "Run XGBoost Prediction"**
     """)
     
     # ============================================================================
@@ -3076,6 +3110,35 @@ elif analysis_type == "ML Price Prediction":
 
                 st.success(
                     f"✅ Features created: {metadata['final_rows']} rows, {metadata['total_features']} features")
+            
+            # Show what features were created (storytelling)
+            with st.expander("📊 Feature Engineering Summary", expanded=True):
+                st.markdown(f"""
+                ### What We Built from Price Data
+                
+                Starting with {len(price_series)} price observations, we engineered **{metadata['total_features']} predictive features**:
+                
+                **1. Returns Features** (capturing momentum):
+                - Lagged log returns: 1-day, 5-day, 21-day, 63-day
+                - Multi-timeframe view of price changes
+                
+                **2. Volatility Features** (measuring risk):
+                - Rolling volatility (21-day, 63-day windows)
+                - Downside deviation (expanding & rolling)
+                - Captures market turbulence patterns
+                
+                **3. Technical Indicators** (market signals):
+                - RSI (14-day): Overbought/oversold conditions
+                - MA distance (50-day, 200-day): Trend strength
+                
+                **4. Temporal Features** (seasonality):
+                - Month and quarter indicators
+                - Captures calendar-based patterns
+                
+                **Target Variable:** Next-day direction (0=Down, 1=Up)
+                
+                **Final Dataset:** {metadata['final_rows']} rows × {metadata['total_features']} features (after cleaning NaN values)
+                """)
         
             # ============================================================================
             # DATA SUFFICIENCY CHECK
@@ -3193,6 +3256,32 @@ elif analysis_type == "ML Price Prediction":
                 else:
                     st.success(f"✅ {dist['recommendation']}")
 
+            # Explain the training process before starting
+            st.markdown("---")
+            st.markdown("### 🎯 Walk-Forward Validation Explained")
+            
+            st.info(f"""
+            **How We'll Train XGBoost (Mimicking Real Trading):**
+            
+            **Your Settings:**
+            - Training window: **{train_size} {freq_label}**
+            - Test window: **{test_size} {freq_label}**
+            - Estimated splits: **~{actual_splits}**
+            
+            **The Process (Expanding Window):**
+            1. **Split 1:** Train on first {train_size} {freq_label} → Test on next {test_size} {freq_label}
+            2. **Split 2:** Train on first {train_size + test_size} {freq_label} → Test on next {test_size} {freq_label}
+            3. **Split 3:** Train on first {train_size + test_size*2} {freq_label} → Test on next {test_size} {freq_label}
+            4. ...continue until all data is tested
+            
+            **Why This Works:**
+            - ✅ **No look-ahead bias** → Model never sees future data during training
+            - ✅ **Realistic** → Mimics how you'd actually trade (train on past, predict future)
+            - ✅ **Robust** → {actual_splits} independent tests show consistent performance
+            
+            **Estimated time:** ~{actual_splits * 0.5:.0f} seconds (XGBoost is fast!)
+            """)
+            
             # Run model(s)
             st.markdown("---")
 
@@ -3590,6 +3679,38 @@ elif analysis_type == "ML Price Prediction":
                 else:
                     st.warning(
                         f"⚠️ Model does NOT beat random baseline (accuracy < 50%)")
+                
+                # Results interpretation narrative
+                st.markdown("---")
+                st.markdown("### 💡 Understanding Your Results")
+                
+                st.info(f"""
+                **What These Numbers Mean:**
+                
+                **Accuracy ({metrics['accuracy']:.1%}):** 
+                - Out of all predictions, {metrics['accuracy']:.1%} were correct
+                - Baseline (random guessing) = 50%
+                - Your model's lift over random: **{lift:+.1f}%**
+                
+                **Precision ({metrics['precision']:.1%}):** 
+                - When model predicts "Up", it's right {metrics['precision']:.1%} of the time
+                - High precision = fewer false alarms
+                
+                **Recall ({metrics['recall']:.1%}):** 
+                - Of all actual "Up" days, model caught {metrics['recall']:.1%}
+                - High recall = catches most opportunities
+                
+                **F1 Score ({metrics['f1_score']:.1%}):** 
+                - Balanced metric combining precision & recall
+                - Useful when class distribution matters
+                
+                **Key Insight:**
+                {
+                "✅ Strong performance! Model shows predictive power." if lift > 5 else
+                "⚡ Modest edge detected. Consider: (1) More data, (2) Different features, (3) Regime-specific training" if lift > 0 else
+                "⚠️ Model struggling. Price direction may be too random in this regime/timeframe."
+                }
+                """)
 
                 # Confusion matrix
                 st.markdown("---")
