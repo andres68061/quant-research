@@ -1502,7 +1502,7 @@ elif analysis_type == "Rolling Metrics":
                     
                     **Recommended ML Strategy:**
                     1. **Data Frequency:** Weekly (balanced approach)
-                    2. **Model:** Compare Both (XGBoost + LSTM)
+                    2. **Model:** XGBoost (fast, effective)
                     3. **Training Period:** 104-208 weeks (2-4 years)
                     4. **Features:** Balanced momentum + mean reversion
                     5. **Leverage:** Moderate leverage
@@ -1531,7 +1531,7 @@ elif analysis_type == "Rolling Metrics":
                     
                     **Recommended ML Strategy:**
                     1. **Data Frequency:** Weekly or Monthly (filter noise)
-                    2. **Model:** LSTM (captures regime persistence)
+                    2. **Model:** XGBoost (robust to volatility)
                     3. **Training Period:** 208+ weeks or 60+ months (long history)
                     4. **Features:** Emphasize volatility, downside deviation
                     5. **Leverage:** Reduce significantly
@@ -1593,7 +1593,7 @@ elif analysis_type == "Rolling Metrics":
     
     **During Crisis (March-April 2020):**
     - 🔴 **High Volatility Regime**: Gold volatility ~40%
-    - **ML Strategy Changed**: Weekly LSTM, 208-week training, volatility features
+    - **ML Strategy Changed**: Weekly XGBoost, 208-week training, volatility features
     - **Model Re-trained**: Focus on downside protection
     - **Model Performance**: 52% accuracy (lower but still edge)
     - **Trading**: Mean reversion, reduced position sizes, tighter stops
@@ -4014,10 +4014,10 @@ elif analysis_type == "ML Price Prediction":
         4. Click **Run ML Prediction**
     
         **What you'll get:**
-        - ✅ XGBoost vs LSTM comparison
+        - ✅ XGBoost gradient boosting model
         - ✅ Accuracy, precision, recall, F1
-        - ✅ Confusion matrices
-        - ✅ Feature importance (XGBoost)
+        - ✅ Confusion matrix
+        - ✅ Feature importance analysis
         - ✅ Walk-forward validation results
         - ✅ Full transparency on data prep
         """)
