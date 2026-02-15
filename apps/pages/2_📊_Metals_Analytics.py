@@ -2764,7 +2764,6 @@ elif analysis_type == "ML Price Prediction":
     **Dynamic Limits (80% rule):**
     - Max train_size: {max_train_periods} {freq_label}
     - Max test_size: {max_test_periods} {freq_label}
-    - Max seq_len: {max_sequence} {freq_label}
     
     **⚡ Quick Start Defaults:** Pre-configured for {est_time} training time
     """)
@@ -2973,7 +2972,6 @@ elif analysis_type == "ML Price Prediction":
     **Core Settings:**
     - `train_size`: {train_size} {freq_label}
     - `test_size`: {test_size} {freq_label}
-    - `seq_len`: {seq_len if seq_len else 'N/A (XGBoost only)'} {freq_label}
     
     **Advanced (Optional):**
     - `step_size`: {test_size} {freq_label} (default)
@@ -3108,7 +3106,7 @@ elif analysis_type == "ML Price Prediction":
                 2. **Use Daily frequency** instead of {data_freq} (more data points)
                 3. **Extend date range** to include more history
             
-                **Quick Fix:** Try train_size={max(30, available_rows - test_size - (seq_len if seq_len else 0) - 10)}
+                **Quick Fix:** Try train_size={max(30, available_rows - test_size - 10)}
                 """)
                 st.stop()
         
@@ -3471,31 +3469,19 @@ elif analysis_type == "ML Price Prediction":
                     import time
                     time.sleep(0.001)  # Tiny sleep to force UI refresh
             
-                # Prepare model params
-                model_params = {}
-                if model_type == "xgboost":
-                    model_params = {
-                        'n_estimators': xgb_n_estimators,
-                        'max_depth': xgb_max_depth,
-                        'learning_rate': xgb_learning_rate,
-                    }
-                elif model_type == "lstm" and seq_len:
-                    model_params = {
-                        'sequence_length': seq_len,
-                        'hidden_units': lstm_hidden_units,
-                        'dropout_rate': lstm_dropout,
-                        'epochs': lstm_epochs,
-                    }
+                # Prepare XGBoost model params
+                model_params = {
+                    'n_estimators': xgb_n_estimators,
+                    'max_depth': xgb_max_depth,
+                    'learning_rate': xgb_learning_rate,
+                }
 
                 # Show status before starting
-                if model_type == "lstm":
-                    st.info("🧠 **LSTM Training:** Each split trains a neural network. Progress bar updates every split (~30-60 seconds each).")
-                
-                status_placeholder.success(f"✅ **Starting {model_type.upper()} training now...**")
+                status_placeholder.success(f"✅ **Starting XGBoost training now...**")
                 
                 results = run_walk_forward_validation(
                     features_df,
-                    model_type=model_type,
+                    model_type="xgboost",
                     initial_train_days=train_size,
                     test_days=test_size,
                     max_splits=max_splits,
