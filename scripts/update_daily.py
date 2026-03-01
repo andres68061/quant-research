@@ -25,16 +25,16 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.data.factors.build_factors import build_price_factors
-from src.data.factors.io import connect_duckdb, register_parquet
-from src.data.factors.macro import compute_macro_zscores, load_default_macro
-from src.data.factors.prices import update_prices_panel_incremental
-from src.data.sector_classification import (
+from core.data.factors.build_factors import build_price_factors
+from core.data.factors.io import connect_duckdb, register_parquet
+from core.data.factors.macro import compute_macro_zscores, load_default_macro
+from core.data.factors.prices import update_prices_panel_incremental
+from core.data.sector_classification import (
     add_or_update_sectors,
     get_symbols_needing_refresh,
     load_sector_classifications,
 )
-from src.utils.io import (
+from core.utils.io import (
     append_rows_to_parquet,
     get_last_date_from_parquet,
     read_parquet,

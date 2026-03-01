@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.data.sp500_constituents import SP500Constituents
+from core.data.sp500_constituents import SP500Constituents
 
 
 def get_existing_symbols() -> set:
@@ -158,7 +158,7 @@ def main():
         print("\n✓ All S&P 500 constituents have price data!")
     
     print("\n2. Use point-in-time constituents in backtesting:")
-    print("   from src.data.sp500_constituents import SP500Constituents")
+    print("   from core.data.sp500_constituents import SP500Constituents")
     print("   sp500 = SP500Constituents()")
     print("   universe = sp500.get_constituents_on_date(backtest_date)")
     

@@ -24,6 +24,13 @@ tensorflow>=2.15.0
 jupyter>=1.0.0
 ipykernel>=6.25.0
 
+# API
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+httpx>=0.27.0
+
+# Frontend: React (see frontend/package.json for JS deps)
+
 # Utilities
 python-dotenv>=1.0.0
 requests>=2.31.0

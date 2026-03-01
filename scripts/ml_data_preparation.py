@@ -7,7 +7,6 @@ for machine learning models, including feature engineering and dataset creation.
 """
 
 import logging
-import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -15,11 +14,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parents[1] / "src"))
-
 from config.settings import FINNHUB_API_KEY, TECHNICAL_INDICATORS
-from data.enhanced_stock_data import EnhancedStockDataFetcher
+from core.data.enhanced_stock_data import EnhancedStockDataFetcher
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
 logger = logging.getLogger("ml_data_preparation")

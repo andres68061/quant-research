@@ -4,22 +4,22 @@ from pathlib import Path
 
 import pandas as pd
 
-# Ensure project root is on sys.path so 'src' package resolves when run as a script
+# Ensure project root is on sys.path so 'core' package resolves when run as a script
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.data.factors.build_factors import build_price_factors
-from src.data.factors.fundamentals_fmp import (
+from core.data.factors.build_factors import build_price_factors
+from core.data.factors.fundamentals_fmp import (
     apply_asof_lag,
     compute_value_quality_factors,
     dailyize_fundamentals,
     load_bulk_ratios_range,
 )
-from src.data.factors.io import connect_duckdb, ensure_dirs, register_parquet, write_parquet
-from src.data.factors.macro import compute_macro_zscores, load_default_macro
-from src.data.factors.prices import build_prices_panel
-from src.data.factors.universe import (
+from core.data.factors.io import connect_duckdb, ensure_dirs, register_parquet, write_parquet
+from core.data.factors.macro import compute_macro_zscores, load_default_macro
+from core.data.factors.prices import build_prices_panel
+from core.data.factors.universe import (
     fetch_sp500_from_fmp,
     fetch_sp500_from_wikipedia,
     load_sp500_static,

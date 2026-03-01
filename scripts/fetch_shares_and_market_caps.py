@@ -20,8 +20,8 @@ if str(ROOT) not in sys.path:
 
 import pandas as pd
 
-from src.data.market_caps import MarketCapCalculator
-from src.data.sp500_constituents import SP500Constituents
+from core.data.market_caps import MarketCapCalculator
+from core.data.sp500_constituents import SP500Constituents
 
 
 def main(tickers_source: str = 'sp500', batch_size: int = 0):

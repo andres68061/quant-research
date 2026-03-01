@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.data.sector_classification import (
+from core.data.sector_classification import (
     add_or_update_sectors,
     load_sector_classifications,
 )

@@ -26,11 +26,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.data.factors.build_factors import build_price_factors
-from src.data.factors.io import connect_duckdb, register_parquet
-from src.data.factors.prices import add_symbol_to_panel
-from src.data.sector_classification import add_or_update_sectors
-from src.utils.io import read_parquet, write_parquet
+from core.data.factors.build_factors import build_price_factors
+from core.data.factors.io import connect_duckdb, register_parquet
+from core.data.factors.prices import add_symbol_to_panel
+from core.data.sector_classification import add_or_update_sectors
+from core.utils.io import read_parquet, write_parquet
 
 
 def add_symbols(symbols: List[str], out_root: Path, db_path: Path) -> None:

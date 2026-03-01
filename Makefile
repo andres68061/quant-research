@@ -1,20 +1,31 @@
-format:
-	black .
-	isort .
+.PHONY: up down api frontend test lint reproduce clean
+
+# ─── Docker ───────────────────────────────────────────────────────────
+up:
+	docker compose up --build
+
+down:
+	docker compose down
+
+# ─── Local dev (no Docker) ────────────────────────────────────────────
+api:
+	uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+
+frontend:
+	cd frontend && npm run dev
+
+# ─── Quality ──────────────────────────────────────────────────────────
+test:
+	python -m pytest tests/ -v
 
 lint:
-	python -m ruff check --fix .
-	python -m mypy . || true
+	ruff check . && black --check . && isort --check .
 
-test:
-	pytest -q
-
+# ─── Reproducibility ─────────────────────────────────────────────────
 reproduce:
-	@echo "Reproduction steps:"
-	@echo "1) conda activate quant"
-	@echo "2) pip install -r requirements.txt"
-	@echo "3) python scripts/test_environment.py"
-	@echo "4) python scripts/test_database_system.py"
-	@echo "5) python scripts/example_usage.py"
+	docker compose up --build
 
-
+clean:
+	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name .pytest_cache -exec rm -rf {} + 2>/dev/null || true
+	rm -rf frontend/dist frontend/node_modules/.vite 2>/dev/null || true

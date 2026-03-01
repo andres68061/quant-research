@@ -7,14 +7,9 @@ with incremental updates and multiple data sources.
 """
 
 import logging
-import sys
-from pathlib import Path
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parents[1] / "src"))
 
 from config.settings import FINNHUB_API_KEY
-from data.enhanced_stock_data import EnhancedStockDataFetcher
+from core.data.enhanced_stock_data import EnhancedStockDataFetcher
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
 logger = logging.getLogger("test_database_system")

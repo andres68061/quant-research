@@ -23,12 +23,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.data.sector_classification import (
+from core.data.sector_classification import (
     add_or_update_sectors,
     get_sector_summary,
     load_sector_classifications,
 )
-from src.utils.io import read_parquet
+from core.utils.io import read_parquet
 
 
 def get_all_symbols_from_prices(prices_path: Path) -> list:

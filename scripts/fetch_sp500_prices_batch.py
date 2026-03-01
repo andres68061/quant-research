@@ -24,11 +24,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import pandas as pd
-from src.data.sp500_constituents import SP500Constituents
-from src.data.factors.prices import fetch_symbols_batch, add_symbols_batch
-from src.data.factors.build_factors import build_price_factors
-from src.data.factors.io import connect_duckdb, register_parquet
-from src.utils.io import read_parquet, write_parquet
+from core.data.sp500_constituents import SP500Constituents
+from core.data.factors.prices import fetch_symbols_batch, add_symbols_batch
+from core.data.factors.build_factors import build_price_factors
+from core.data.factors.io import connect_duckdb, register_parquet
+from core.utils.io import read_parquet, write_parquet
 
 
 def get_existing_symbols() -> Set[str]:

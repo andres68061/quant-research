@@ -1,3 +1,0 @@
-"""Factors data module root."""
-
-

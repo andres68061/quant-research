@@ -20,7 +20,7 @@ if str(ROOT) not in sys.path:
 
 import pandas as pd
 import yfinance as yf
-from src.data.sp500_constituents import SP500Constituents
+from core.data.sp500_constituents import SP500Constituents
 
 
 def load_failed_symbols() -> Set[str]:

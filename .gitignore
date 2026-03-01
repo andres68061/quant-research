@@ -78,4 +78,12 @@ models/*.pth
 .ipynb_checkpoints/
 *.ipynb_checkpoints
 
+# Archived legacy code
+_archive/
+
+# Node.js (React frontend)
+node_modules/
+frontend/dist/
+frontend/.vite/
+
 

@@ -19,6 +19,10 @@ ignore = [
   "F541",  # f-string without placeholders
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["core", "src", "apps", "scripts", "frontend", "api", "notebooks", "data"]
+
 [tool.mypy]
 python_version = "3.11"
 warn_unused_configs = true

@@ -4,13 +4,8 @@ Debug script to test stock data fetching.
 """
 
 import logging
-import sys
-from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parents[1] / "src"))
-
-from data.stock_data import StockDataFetcher
+from core.data.stock_data import StockDataFetcher
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
 logger = logging.getLogger("debug_test")
