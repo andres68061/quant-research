@@ -55,7 +55,10 @@ Go to `http://localhost:5173` in your browser.
 | Metals Analytics | `/metals` | Commodity prices, returns, correlation, seasonality analysis |
 | Economic Indicators | `/economic` | FRED data with recession bands, multi-panel indicator charts |
 | Sector Breakdown | `/sectors` | Treemap, sector distribution, full classification table |
+| Excluded Stocks | `/excluded-stocks` | Price-filtered exclusion analysis, stock detail viewer |
 | Methodology | `/methodology` | KaTeX-rendered equations and strategy definitions |
+| Sharpe Ratio Limits | `/sharpe-limitations` | Monte Carlo simulation showing Sharpe ratio blind spots |
+| Linear Algebra Viz | `/linear-algebra` | Interactive matrix ops, 3D transforms, portfolio variance |
 
 ## Tech Stack
 

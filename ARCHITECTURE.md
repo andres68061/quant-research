@@ -100,17 +100,20 @@ make down                # docker compose down
 | `/replay`      | Strategy Replay     | Frame-by-frame replay with timeline scrubber and live KPIs |
 
 ### Analytics
-| Route            | Page                | Description                                              |
-|------------------|---------------------|----------------------------------------------------------|
-| `/etf-optimizer` | ETF Optimizer       | Efficient frontier, tangency portfolio, CAL, rebalancing |
-| `/metals`        | Metals Analytics    | Commodity prices, returns, correlation, seasonality      |
-| `/economic`      | Economic Indicators | FRED data with recession bands, multi-panel charts       |
-| `/sectors`       | Sector Breakdown    | Treemap, distribution charts, classification table       |
+| Route              | Page                | Description                                              |
+|--------------------|---------------------|----------------------------------------------------------|
+| `/etf-optimizer`   | ETF Optimizer       | Efficient frontier, tangency portfolio, CAL, rebalancing |
+| `/metals`          | Metals Analytics    | Commodity prices, returns, correlation, seasonality      |
+| `/economic`        | Economic Indicators | FRED data with recession bands, multi-panel charts       |
+| `/sectors`         | Sector Breakdown    | Treemap, distribution charts, classification table       |
+| `/excluded-stocks` | Excluded Stocks     | Price-filtered exclusion analysis, stock detail viewer    |
 
 ### Reference
-| Route          | Page                | Description                                              |
-|----------------|---------------------|----------------------------------------------------------|
-| `/methodology` | Methodology         | KaTeX-rendered equations and strategy definitions        |
+| Route                 | Page                    | Description                                              |
+|-----------------------|-------------------------|----------------------------------------------------------|
+| `/methodology`        | Methodology             | KaTeX-rendered equations and strategy definitions        |
+| `/sharpe-limitations` | Sharpe Ratio Limits     | Monte Carlo simulation showing Sharpe ratio blind spots  |
+| `/linear-algebra`     | Linear Algebra Viz      | Interactive matrix ops, transforms, portfolio variance   |
 
 ## API Endpoints
 
@@ -143,6 +146,9 @@ make down                # docker compose down
 | GET    | `/fred/recessions`         | NBER recession periods                 |
 | GET    | `/sectors/summary`         | Sector distribution summary            |
 | GET    | `/sectors/breakdown`       | Symbols by sector/industry             |
+| POST   | `/simulation/sharpe-comparison` | Monte Carlo Sharpe-comparison sim |
+| GET    | `/exclusions/summary`      | Price-filtered exclusion summary       |
+| GET    | `/exclusions/detail/{sym}` | Excluded stock detail + price series   |
 
 ## How to Add a New Strategy
 

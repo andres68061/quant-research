@@ -17,6 +17,7 @@ from api.routes import (
     banxico,
     commodities,
     data,
+    exclusions,
     fred,
     health,
     metrics,
@@ -24,6 +25,7 @@ from api.routes import (
     portfolio,
     replay,
     sectors,
+    simulation,
     strategy,
     walkforward,
 )
@@ -75,3 +77,5 @@ app.include_router(banxico.router)
 app.include_router(commodities.router)
 app.include_router(fred.router)
 app.include_router(sectors.router)
+app.include_router(simulation.router)
+app.include_router(exclusions.router)

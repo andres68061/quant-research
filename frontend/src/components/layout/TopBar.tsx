@@ -25,11 +25,16 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/metals", label: "Metals" },
       { to: "/economic", label: "Economic" },
       { to: "/sectors", label: "Sectors" },
+      { to: "/excluded-stocks", label: "Excluded" },
     ],
   },
   {
     label: "Reference",
-    items: [{ to: "/methodology", label: "Methodology" }],
+    items: [
+      { to: "/methodology", label: "Methodology" },
+      { to: "/sharpe-limitations", label: "Sharpe Limits" },
+      { to: "/linear-algebra", label: "Linear Algebra" },
+    ],
   },
 ];
 
