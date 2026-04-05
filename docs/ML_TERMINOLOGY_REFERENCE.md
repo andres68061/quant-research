@@ -174,7 +174,7 @@ lstm_sequence, sequence_length, lookback
 
 ### UI Labels
 ```python
-# Streamlit sidebar labels
+# Frontend parameter labels
 "Training Window (train_size)"
 "Test Window (test_size)"
 "Sequence Length (seq_len)"  # LSTM only
@@ -224,7 +224,7 @@ lstm_sequence, sequence_length, lookback
 
 - [x] Define 5 official parameters
 - [x] Create terminology reference document
-- [ ] Update all Streamlit UI labels
+- [ ] Update all frontend UI labels
 - [ ] Update all function signatures
 - [ ] Update all documentation
 - [ ] Add tooltips with official terminology

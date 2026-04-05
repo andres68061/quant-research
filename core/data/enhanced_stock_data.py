@@ -3,6 +3,10 @@ Enhanced stock data fetching module with database caching and multiple data sour
 
 This module provides intelligent data fetching that checks the database first,
 then fetches only new data from external sources to minimize API calls.
+
+NOTE: Depends on core.data.database.StockDatabase which is not yet implemented.
+The active data pipeline uses Parquet + DuckDB (see core/data/factors/).
+This module is retained for future SQLite caching work.
 """
 
 import logging

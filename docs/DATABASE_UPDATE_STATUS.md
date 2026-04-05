@@ -328,7 +328,7 @@ The system is:
 - **Monday, Feb 10, 2026 at 6:00 PM** (market reopens)
   - New stock prices from Feb 7-10
   - New factor calculations
-  - Fresh data in Streamlit apps
+  - Fresh data in the frontend
 
 ---
 

@@ -1,0 +1,17 @@
+# Quant platform — scheduled data updates
+# Restore with: crontab scripts/crontab.txt
+#
+# All jobs run daily at 6 PM (after US market close).
+# Logs land in <repo>/logs/<job>.log.
+#
+# Python interpreter: conda env "quant"
+# Repo root:         /Users/andres/Downloads/Cursor/quant
+
+# 1. Prices, macro (FRED), Fama-French 5, price factors, sectors (quarterly auto-refresh)
+0 18 * * * cd /Users/andres/Downloads/Cursor/quant && /opt/anaconda3/envs/quant/bin/python scripts/update_daily.py >> logs/update.log 2>&1
+
+# 2. Commodity prices (GLD, SLV, WTI, etc.)
+5 18 * * * cd /Users/andres/Downloads/Cursor/quant && /opt/anaconda3/envs/quant/bin/python scripts/update_commodities.py >> logs/commodities_update.log 2>&1
+
+# 3. Shares outstanding + historical market caps (yfinance, free)
+10 18 * * * cd /Users/andres/Downloads/Cursor/quant && /opt/anaconda3/envs/quant/bin/python scripts/fetch_shares_and_market_caps.py >> logs/market_caps_update.log 2>&1

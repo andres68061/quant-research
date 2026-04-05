@@ -109,7 +109,7 @@ export default function MatrixMultiply2D() {
       {/* Equation */}
       <div className="bg-zinc-900/50 border border-zinc-800 rounded p-3">
         <TeX
-          tex={`\\begin{bmatrix} ${a11} & ${a12} \\\\ ${a21} & ${a22} \\end{bmatrix} \\begin{bmatrix} ${v1} \\\\ ${v2} \\end{bmatrix} = \\begin{bmatrix} ${rx.toFixed(2)} \\\\ ${ry.toFixed(2)} \\end{bmatrix}`}
+          math={`\\begin{bmatrix} ${a11} & ${a12} \\\\ ${a21} & ${a22} \\end{bmatrix} \\begin{bmatrix} ${v1} \\\\ ${v2} \\end{bmatrix} = \\begin{bmatrix} ${rx.toFixed(2)} \\\\ ${ry.toFixed(2)} \\end{bmatrix}`}
         />
       </div>
 

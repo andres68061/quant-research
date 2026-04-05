@@ -25,7 +25,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from core.data.factors.build_factors import build_price_factors
+from core.data.factors.build_factors import build_price_factors, merge_market_cap
+from core.data.factors.fama_french import update_ff5_parquet
 from core.data.factors.io import connect_duckdb, register_parquet
 from core.data.factors.macro import compute_macro_zscores, load_default_macro
 from core.data.factors.prices import update_prices_panel_incremental
@@ -45,38 +46,38 @@ from core.utils.io import (
 def update_prices(out_root: Path) -> bool:
     """
     Update prices.parquet with new data since last date.
-    
+
     Returns:
         True if new data was added, False otherwise
     """
-    prices_path = out_root / 'prices.parquet'
-    
+    prices_path = out_root / "prices.parquet"
+
     print(f"📈 Updating prices from {prices_path}...")
-    
+
     # Read existing prices
     existing_prices = read_parquet(prices_path)
-    
+
     if existing_prices is None or existing_prices.empty:
         print("⚠️  No existing prices found. Run backfill_all.py first.")
         return False
-    
+
     last_date = existing_prices.index.max()
     print(f"   Last date in prices: {last_date.strftime('%Y-%m-%d')}")
-    
+
     # Check if we need to update (skip if last date is today or in the future)
     # Handle timezone-aware timestamps
     today = pd.Timestamp.now()
     if last_date.tz is not None:
         today = today.tz_localize(last_date.tz)
-    
+
     if last_date >= today.normalize():
         print("   ✅ Prices are already up to date!")
         return False
-    
+
     # Update with new data
     print(f"   Fetching new data since {last_date.strftime('%Y-%m-%d')}...")
     updated_prices = update_prices_panel_incremental(existing_prices)
-    
+
     new_last_date = updated_prices.index.max()
     if new_last_date > last_date:
         new_rows = len(updated_prices) - len(existing_prices)
@@ -92,36 +93,36 @@ def update_prices(out_root: Path) -> bool:
 def update_macro(out_root: Path) -> bool:
     """
     Update macro.parquet and macro_z.parquet with new data.
-    
+
     Returns:
         True if new data was added, False otherwise
     """
-    macro_path = out_root / 'macro.parquet'
-    macro_z_path = out_root / 'macro_z.parquet'
-    
+    macro_path = out_root / "macro.parquet"
+    macro_z_path = out_root / "macro_z.parquet"
+
     print(f"📊 Updating macro from {macro_path}...")
-    
+
     existing_macro = read_parquet(macro_path)
-    
+
     if existing_macro is None or existing_macro.empty:
         print("⚠️  No existing macro data found. Run backfill_all.py first.")
         return False
-    
+
     last_date = existing_macro.index.max()
     print(f"   Last date in macro: {last_date.strftime('%Y-%m-%d')}")
-    
+
     # Fetch fresh macro data (FRED API typically provides full history)
     print("   Fetching latest macro data...")
     new_macro = load_default_macro()
-    
+
     new_last_date = new_macro.index.max()
-    
+
     if new_last_date > last_date:
         print(f"   ✅ New macro data available through {new_last_date.strftime('%Y-%m-%d')}")
-        
+
         # Compute z-scores
         macro_z = compute_macro_zscores(new_macro)
-        
+
         # Write updated files
         write_parquet(new_macro, macro_path)
         write_parquet(macro_z, macro_z_path)
@@ -134,7 +135,7 @@ def update_macro(out_root: Path) -> bool:
 def rebuild_factors(out_root: Path, prices_updated: bool) -> None:
     """
     Rebuild price factors if prices were updated.
-    
+
     Args:
         out_root: Output directory
         prices_updated: Whether prices were updated
@@ -142,63 +143,67 @@ def rebuild_factors(out_root: Path, prices_updated: bool) -> None:
     if not prices_updated:
         print("📉 Skipping factor rebuild (no new price data)")
         return
-    
+
     print("📉 Rebuilding price factors...")
-    
-    prices_path = out_root / 'prices.parquet'
-    factors_price_path = out_root / 'factors_price.parquet'
-    factors_all_path = out_root / 'factors_all.parquet'
-    
+
+    prices_path = out_root / "prices.parquet"
+    factors_price_path = out_root / "factors_price.parquet"
+    factors_all_path = out_root / "factors_all.parquet"
+
     # Read updated prices
     prices = read_parquet(prices_path)
-    
+
     if prices is None or prices.empty:
         print("⚠️  No prices available for factor calculation")
         return
-    
+
     # Build price factors
-    market_symbol = '^GSPC'
+    market_symbol = "^GSPC"
     factors_price = build_price_factors(prices, market_symbol=market_symbol)
-    
+
     print(f"   ✅ Rebuilt price factors: {factors_price.shape}")
-    
+
     # Write factors
     write_parquet(factors_price, factors_price_path)
-    
-    # For now, factors_all = factors_price (until fundamentals are added)
-    write_parquet(factors_price, factors_all_path)
+
+    # Merge market cap if available, then write factors_all
+    from pathlib import Path as _P
+
+    mcap_path = _P("data/market_caps/historical_market_caps.parquet")
+    factors_all = merge_market_cap(factors_price, mcap_path)
+    write_parquet(factors_all, factors_all_path)
 
 
 def update_sectors_if_needed(out_root: Path) -> bool:
     """
     Check if sector classifications need quarterly refresh.
     Only updates symbols that are >90 days old.
-    
+
     Returns:
         True if sectors were updated, False otherwise
     """
     print("📊 Checking sector classifications...")
-    
+
     # Load existing sector data
     sector_df = load_sector_classifications()
-    
+
     if sector_df is None or sector_df.empty:
         print("   ℹ️  No sector data found - run fetch_sectors.py first")
         return False
-    
+
     # Get symbols needing refresh (>90 days old)
     stale_symbols = get_symbols_needing_refresh(sector_df, refresh_days=90)
-    
+
     if not stale_symbols:
         print("   ✅ Sector classifications are up to date")
         return False
-    
+
     print(f"   Found {len(stale_symbols)} symbols needing quarterly refresh")
     print(f"   Updating sectors (this may take a few minutes)...")
-    
+
     # Update stale sectors
     add_or_update_sectors(stale_symbols, force_refresh=True)
-    
+
     print(f"   ✅ Updated {len(stale_symbols)} sector classifications")
     return True
 
@@ -206,68 +211,78 @@ def update_sectors_if_needed(out_root: Path) -> bool:
 def update_duckdb_views(out_root: Path, db_path: Path) -> None:
     """
     Update DuckDB views to point to updated Parquet files.
-    
+
     Args:
         out_root: Directory containing Parquet files
         db_path: Path to DuckDB database
     """
     print(f"🦆 Updating DuckDB views at {db_path}...")
-    
+
     con = connect_duckdb(db_path)
-    
+
     # Register all views
     views = {
-        'prices': out_root / 'prices.parquet',
-        'macro': out_root / 'macro.parquet',
-        'macro_z': out_root / 'macro_z.parquet',
-        'factors_price': out_root / 'factors_price.parquet',
-        'factors_all': out_root / 'factors_all.parquet',
+        "prices": out_root / "prices.parquet",
+        "macro": out_root / "macro.parquet",
+        "macro_z": out_root / "macro_z.parquet",
+        "factors_price": out_root / "factors_price.parquet",
+        "factors_all": out_root / "factors_all.parquet",
+        "fama_french_5": out_root / "fama_french_5.parquet",
     }
-    
+
     for name, path in views.items():
         if path.exists():
             register_parquet(con, name, path)
             print(f"   ✅ Registered view: {name}")
-    
+
     con.close()
 
 
-def main(out_root: str = 'data/factors', db_path: str = 'data/factors/factors.duckdb'):
+def main(out_root: str = "data/factors", db_path: str = "data/factors/factors.duckdb"):
     """
     Main incremental update workflow.
-    
+
     Args:
         out_root: Output directory for Parquet files
         db_path: Path to DuckDB database
     """
     out_root_p = Path(out_root)
     db_path_p = Path(db_path)
-    
+
     print("=" * 80)
     print("🔄 INCREMENTAL DATA UPDATE")
     print("=" * 80)
     print()
-    
+
     # Step 1: Update prices
     prices_updated = update_prices(out_root_p)
     print()
-    
+
     # Step 2: Update macro
     macro_updated = update_macro(out_root_p)
     print()
-    
-    # Step 3: Rebuild factors if prices changed
+
+    # Step 3: Update Fama-French 5 factors
+    ff5_path = out_root_p / "fama_french_5.parquet"
+    try:
+        update_ff5_parquet(ff5_path)
+        print("   Updated Fama-French 5 factors")
+    except Exception as exc:
+        print(f"   Warning: FF5 update failed ({exc}); continuing.")
+    print()
+
+    # Step 4: Rebuild factors if prices changed
     rebuild_factors(out_root_p, prices_updated)
     print()
-    
-    # Step 4: Update sector classifications (quarterly refresh)
+
+    # Step 5: Update sector classifications (quarterly refresh)
     sectors_updated = update_sectors_if_needed(out_root_p)
     print()
-    
-    # Step 5: Update DuckDB views
+
+    # Step 6: Update DuckDB views
     update_duckdb_views(out_root_p, db_path_p)
     print()
-    
+
     print("=" * 80)
     if prices_updated or macro_updated or sectors_updated:
         print("✅ Incremental update completed successfully!")
@@ -278,12 +293,14 @@ def main(out_root: str = 'data/factors', db_path: str = 'data/factors/factors.du
     print("=" * 80)
 
 
-if __name__ == '__main__':
-    p = argparse.ArgumentParser(description='Incremental daily/weekly data update')
-    p.add_argument('--out', type=str, default='data/factors', help='Output directory for Parquet files')
-    p.add_argument('--db', type=str, default='data/factors/factors.duckdb', help='Path to DuckDB database')
+if __name__ == "__main__":
+    p = argparse.ArgumentParser(description="Incremental daily/weekly data update")
+    p.add_argument(
+        "--out", type=str, default="data/factors", help="Output directory for Parquet files"
+    )
+    p.add_argument(
+        "--db", type=str, default="data/factors/factors.duckdb", help="Path to DuckDB database"
+    )
     args = p.parse_args()
-    
+
     main(args.out, args.db)
-
-

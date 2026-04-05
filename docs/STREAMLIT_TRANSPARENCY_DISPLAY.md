@@ -1,11 +1,13 @@
-# Streamlit Transparency Display - Summary
+> **DEPRECATED:** This document describes the legacy Streamlit UI. The platform now uses a React + TypeScript frontend. See `frontend/src/pages/MetalsAnalytics.tsx` for the current implementation.
 
-**Location:** `apps/pages/2_📊_Metals_Analytics.py` → "ML Price Prediction"  
+# Streamlit Transparency Display - Summary (Legacy)
+
+**Location:** `frontend/src/pages/MetalsAnalytics.tsx (legacy: apps/pages/2_📊_Metals_Analytics.py)` → "ML Price Prediction"  
 **Status:** ✅ Complete transparency display implemented
 
 ---
 
-## What's Shown in the Streamlit App
+## What's Shown in the Legacy Streamlit App
 
 ### 1. Data Preparation Transparency Section
 **Location:** Displayed immediately after features are created (before model training)  
@@ -341,4 +343,4 @@ Results displayed
 ---
 
 **Last Updated:** February 3, 2026  
-**Status:** ✅ Complete transparency display in Streamlit app
+**Status:** ⚠️ Legacy — transparency display was in the Streamlit app; see frontend for current implementation

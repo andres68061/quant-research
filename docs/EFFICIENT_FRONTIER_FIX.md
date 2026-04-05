@@ -125,6 +125,7 @@ if (num_valid_risky_assets == 0) {
 ```
 
 ### Python Code Behavior (Now Matches)
+Legacy Streamlit code (now replaced by React frontend):
 ```python
 if len(valid_assets_list) < 2:
     st.error(
@@ -143,7 +144,7 @@ if len(valid_assets_list) < 2:
 
 ## Files Modified
 
-- `apps/pages/8_📈_ETF_Portfolio_Optimizer.py`
+- `frontend/src/pages/ETFOptimizer.tsx`
   - Added asset filtering logic
   - Updated efficient frontier calculation
   - Updated tangency portfolio calculation

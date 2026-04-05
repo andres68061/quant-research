@@ -48,8 +48,8 @@
 - ✅ Feature importance (XGBoost)
 - ✅ Early stopping (LSTM)
 
-#### `apps/pages/2_📊_Metals_Analytics.py` (Updated)
-**Purpose:** Streamlit integration
+#### `frontend/src/pages/MetalsAnalytics.tsx` (Updated)
+**Purpose:** Frontend integration
 
 **New Section:** "ML Price Prediction" (14th analysis type)
 
@@ -69,7 +69,7 @@
 1. **`docs/ML_PRICE_PREDICTION.md`** (900+ lines)
    - Complete technical documentation
    - Design decisions and rationale
-   - Usage guide (Streamlit + programmatic)
+   - Usage guide (Frontend + programmatic)
    - Interpretation guide
    - FAQ section
 
@@ -82,7 +82,7 @@
 
 3. **`docs/ML_QUICK_START.md`** (400+ lines)
    - Installation instructions
-   - Quick start guide (Streamlit + Python API)
+   - Quick start guide (Frontend + Python API)
    - Troubleshooting
    - FAQ
 
@@ -123,7 +123,7 @@ tensorflow>=2.15.0
 - ✅ Feature importance (XGBoost)
 
 ### 4. User Experience
-- ✅ Interactive Streamlit interface
+- ✅ Interactive frontend
 - ✅ Clear configuration options
 - ✅ Progress indicators
 - ✅ Detailed interpretation guides
@@ -204,11 +204,11 @@ Most ML implementations are black boxes. This implementation:
 ### Manual Tests
 - [x] Create feature engineering module
 - [x] Create models module
-- [x] Integrate into Streamlit app
+- [x] Integrate into frontend
 - [x] Add to requirements.txt
 - [x] Update README
 - [x] Create comprehensive documentation
-- [ ] Test in Streamlit app (user to perform)
+- [ ] Test in frontend (user to perform)
 - [ ] Verify XGBoost installation
 - [ ] Verify TensorFlow installation
 - [ ] Run on sample data (Gold, 2020-2024)
@@ -232,7 +232,7 @@ Most ML implementations are black boxes. This implementation:
 5. `docs/ML_QUICK_START.md` (400 lines)
 
 ### Modified (2 files)
-1. `apps/pages/2_📊_Metals_Analytics.py` (+600 lines, new section)
+1. `frontend/src/pages/MetalsAnalytics.tsx` (+600 lines, new section)
 2. `requirements.txt` (+2 lines: xgboost, tensorflow)
 3. `README.md` (+20 lines, ML section)
 
@@ -247,8 +247,12 @@ Most ML implementations are black boxes. This implementation:
 pip install xgboost tensorflow
 ```
 
-### Usage (Streamlit)
-1. Run: `streamlit run apps/portfolio_simulator.py`
+### Usage (Frontend)
+1. Run:
+   ```bash
+   make api      # terminal 1
+   make frontend  # terminal 2
+   ```
 2. Navigate to "📊 Metals Analytics"
 3. Select ONE commodity
 4. Select 2+ year date range
@@ -283,7 +287,7 @@ print(f"LSTM: {results['lstm']['overall_metrics']['accuracy']:.2%}")
 
 ### Immediate
 1. Install dependencies: `pip install xgboost tensorflow`
-2. Test in Streamlit app (select Gold, 2020-2024)
+2. Test in frontend (select Gold, 2020-2024)
 3. Review transparency report
 4. Check outlier analysis
 
@@ -349,4 +353,4 @@ This implementation follows these principles:
 **Documentation:** Comprehensive  
 **Status:** ✅ Complete, ready for user testing
 
-**Next Action:** User should install dependencies and test in Streamlit app.
+**Next Action:** User should install dependencies and test in the frontend.

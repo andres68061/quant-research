@@ -208,6 +208,6 @@ Where:
 
 ## References
 
-- S&P 500 Historical Components: `data/S&P 500 Historical Components & Changes(01-17-2026).csv`
+- S&P 500 Historical Components: newest `data/S&P 500 Historical Components & Changes*.csv` (see `resolve_sp500_historical_csv` in `core/data/sp500_constituents.py`)
 - Failed symbols analysis: `python scripts/analyze_failed_symbols.py`
 - Coverage analysis: See "Data Quality Summary" above

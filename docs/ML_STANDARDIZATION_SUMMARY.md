@@ -30,7 +30,7 @@
 
 ## Files Changed
 
-### 1. `/apps/pages/2_📊_Metals_Analytics.py`
+### 1. `frontend/src/pages/MetalsAnalytics.tsx`
 **Changes:**
 - Renamed all parameter UI widgets to use official names
 - Added clear "Core Parameters (Required)" section
@@ -41,13 +41,16 @@
 - Updated all variable references throughout the file
 
 **Key UI Improvements:**
+
+> **Note:** The code below shows the legacy Streamlit UI, now replaced by React components in `frontend/src/pages/MetalsAnalytics.tsx`.
+
 ```python
-# Before
+# Before (legacy Streamlit)
 initial_train = st.sidebar.number_input("Initial Training Periods", ...)
 test_period = st.sidebar.number_input("Test Period", ...)
 lstm_sequence = st.number_input("Sequence Length", ...)
 
-# After
+# After (legacy Streamlit)
 train_size = st.sidebar.number_input("1️⃣ Training Window (train_size)", ...)
 test_size = st.sidebar.number_input("2️⃣ Test Window (test_size)", ...)
 seq_len = st.sidebar.number_input("3️⃣ Sequence Length (seq_len)", ...)
@@ -180,7 +183,7 @@ Optional future enhancements:
 ## Testing
 
 **Manual Testing Checklist:**
-1. [ ] Open Streamlit ML Price Prediction page
+1. [ ] Open ML Alpha page in the frontend
 2. [ ] Verify all parameters show official names (train_size, test_size, seq_len)
 3. [ ] Verify "Core Parameters" section shows 1️⃣2️⃣3️⃣ numbering
 4. [ ] Verify "Advanced Walk-Forward" is collapsed by default

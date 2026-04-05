@@ -84,6 +84,7 @@ export default function MLAlphaReplay() {
               <option value="xgboost">XGBoost</option>
               <option value="random_forest">Random Forest</option>
               <option value="logistic">Logistic Regression</option>
+              <option value="lstm">LSTM</option>
             </select>
           </Field>
 

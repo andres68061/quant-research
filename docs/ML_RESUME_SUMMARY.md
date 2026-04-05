@@ -16,7 +16,7 @@
 - **Designed transparent ML pipeline** with explicit documentation of data preparation decisions (outlier handling, scaling strategies, feature engineering) and deferred user choices, enabling reproducible research and educational value
 
 ### Full Stack Development
-- **Created end-to-end ML feature** in Streamlit web app, integrating feature engineering (`ml_features.py`, 600 lines), model training (`commodity_direction.py`, 800 lines), and interactive UI with real-time training progress and comprehensive result visualization
+- **Created end-to-end ML feature** in React + FastAPI web app, integrating feature engineering (`ml_features.py`, 600 lines), model training (`commodity_direction.py`, 800 lines), and interactive UI with real-time training progress and comprehensive result visualization
 
 - **Developed 3,000+ lines of technical documentation** covering feature engineering decisions, validation methodology, interpretation guides, and troubleshooting, with full transparency on implemented vs. deferred data transformations
 
@@ -127,7 +127,7 @@ This approach:
 - **Data Science**: Feature engineering, outlier detection, class imbalance handling
 - **Software Engineering**: Modular design, error handling, documentation
 - **Quantitative Finance**: Sharpe ratio concepts, mean reversion, technical indicators
-- **Web Development**: Streamlit, interactive visualizations, Plotly
+- **Web Development**: React + FastAPI, interactive visualizations, Plotly
 - **Documentation**: Technical writing, user guides, API documentation
 
 ---

@@ -44,10 +44,10 @@ series = fred.get_series('CPIAUCSL')  # CPI data
 ```
 
 ### 4. **S&P 500 Historical Constituents** (CSV File)
-- **Source**: Pre-downloaded CSV (Kaggle/Github dataset)
-- **Location**: `data/S&P 500 Historical Components & Changes(01-17-2026).csv`
-- **Coverage**: 1,194 unique tickers from 1996-2026
-- **Update**: Manual (CSV provided by external source)
+- **Source**: Pre-downloaded CSV (e.g. fja05680/sp500 on GitHub)
+- **Location**: `data/S&P 500 Historical Components & Changes*.csv` — the codebase selects the **newest** file matching that pattern in `data/` (by modification time); see `resolve_sp500_historical_csv` in `core/data/sp500_constituents.py`.
+- **Coverage**: on the order of ~1,000+ unique tickers over multi-decade history (varies with dataset revision)
+- **Update**: Automated copy from a local clone of the upstream repo, or manual placement of the CSV under `data/`
 
 ---
 

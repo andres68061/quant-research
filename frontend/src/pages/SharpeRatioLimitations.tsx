@@ -82,8 +82,8 @@ export default function SharpeRatioLimitations() {
           <div className="border-t border-zinc-800 pt-3 mt-1">
             <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Key Formulas</div>
             <div className="space-y-2 text-[11px] text-zinc-400">
-              <TeX tex="S = \frac{R_p - R_f}{\sigma_p}\cdot\sqrt{252}" />
-              <TeX tex="\text{Sortino} = \frac{R_p - R_f}{\sigma_d}\cdot\sqrt{252}" />
+              <TeX math="S = \frac{R_p - R_f}{\sigma_p}\cdot\sqrt{252}" />
+              <TeX math="\text{Sortino} = \frac{R_p - R_f}{\sigma_d}\cdot\sqrt{252}" />
             </div>
           </div>
         </LeftSidebar>

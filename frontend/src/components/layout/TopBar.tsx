@@ -12,10 +12,10 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Strategies",
     items: [
-      { to: "/", label: "Portfolio" },
-      { to: "/ml-alpha", label: "ML Alpha" },
-      { to: "/momentum", label: "Momentum" },
-      { to: "/replay", label: "Replay" },
+      { to: "/", label: "Factor Backtest" },
+      { to: "/ml-alpha", label: "ML Direction" },
+      { to: "/momentum", label: "Momentum Grid" },
+      { to: "/manual-portfolio", label: "Custom Portfolio" },
     ],
   },
   {

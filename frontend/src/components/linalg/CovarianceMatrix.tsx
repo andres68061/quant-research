@@ -78,7 +78,7 @@ export default function CovarianceMatrix() {
       <h2 className="text-sm font-semibold text-zinc-200">Covariance Matrix</h2>
 
       <div className="bg-zinc-900/50 border border-zinc-800 rounded p-2">
-        <TeX tex="\Sigma = \frac{1}{T-1} X^\top X \quad (\text{annualized} \times 252)" />
+        <TeX math="\Sigma = \frac{1}{T-1} X^\top X \quad (\text{annualized} \times 252)" />
       </div>
 
       {/* Stock picker */}

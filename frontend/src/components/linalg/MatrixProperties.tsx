@@ -142,8 +142,8 @@ export default function MatrixProperties() {
 
       {/* Formulas */}
       <div className="bg-zinc-900/50 border border-zinc-800 rounded p-3 space-y-2">
-        <TeX tex="\det(A),\; \mathrm{tr}(A) = \sum a_{ii},\; A A^{-1} = I" />
-        <TeX tex="A\mathbf{v} = \lambda \mathbf{v} \quad \text{(eigenvalue equation)}" />
+        <TeX math="\det(A),\; \mathrm{tr}(A) = \sum a_{ii},\; A A^{-1} = I" />
+        <TeX math="A\mathbf{v} = \lambda \mathbf{v} \quad \text{(eigenvalue equation)}" />
       </div>
     </div>
   );

@@ -1,0 +1,39 @@
+---
+description: Quant strategy architecture — logic in core, params via API, no user code in frontend
+globs:
+  - core/**/*.py
+  - api/**/*.py
+  - frontend/src/**/*.ts
+  - frontend/src/**/*.tsx
+alwaysApply: false
+---
+
+# Quant strategies and platform boundaries
+
+When adding or changing **strategies**, **backtests**, **signals**, or **strategy-facing API/UI**, follow these rules. Full context: [docs/PLATFORM_STATUS.md](../../docs/PLATFORM_STATUS.md).
+
+## Non-negotiables
+
+1. **Strategy and quant logic** live in `core/` only (pure Python, vectorized where possible, tested). No forward-fill over market closures; respect time-based splits for ML.
+2. **HTTP surface**: new inputs/outputs are defined with **Pydantic** in `api/schemas/` and exposed through `api/routes/`. Route handlers delegate to `core.*`; they do not implement portfolio math.
+3. **Frontend** (`frontend/src/`): HTTP + presentation only. **Never** execute user-supplied Python or embed strategy formulas in TypeScript beyond formatting/display.
+4. **Configurable parameters** (factors, horizons, costs, model type, universe filters) belong in schemas and API contracts — not ad-hoc query strings without validation.
+
+## How to add a new strategy (workflow)
+
+Mirror [ARCHITECTURE.md](../../ARCHITECTURE.md) — **How to Add a New Strategy**:
+
+1. Implement logic in a new or existing module under `core/` (e.g. `core/signals/`, `core/backtest/`). Add `pytest` coverage.
+2. Add request/response models in `api/schemas/`, wire a router in `api/routes/`, register in `api/main.py`.
+3. Add TypeScript types and API client methods in `frontend/src/lib/`, then a page or section under `frontend/src/pages/`. Register routes in `App.tsx` and navigation as needed.
+
+## Strategy registry (v1)
+
+- **Metadata**: register each user-facing strategy in [`core/strategies/registry.py`](../../core/strategies/registry.py) (`StrategyMetadata`, stable `id`, optional `post_path` for the HTTP entrypoint).
+- **Factor pipeline**: reuse [`run_factor_cross_section_backtest`](../../core/strategies/factor_runner.py) for cross-sectional factor backtests instead of duplicating slice + signal + portfolio code in routes.
+- **v2 (optional)**: dispatch ML and other runners through a single table — see [roadmap.txt](../../roadmap.txt).
+
+## Do not
+
+- Add Streamlit/Dash or any server-side rendering of Python in the UI stack for strategy execution.
+- Run user-provided code strings from the API without a designed sandbox (not in scope for this repo).

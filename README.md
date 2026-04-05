@@ -45,31 +45,34 @@ Go to `http://localhost:5173` in your browser.
 
 ## Pages
 
-| Page | Route | Description |
-|------|-------|-------------|
-| Portfolio Simulator | `/` | Factor-based backtesting with equity curve, performance metrics, and VaR |
-| ML Alpha | `/ml-alpha` | ML direction prediction with walk-forward validation, feature importance, confusion matrix |
-| Sortino Momentum | `/momentum` | Grid search heatmap, bootstrap significance test, regime detection |
-| Strategy Replay | `/replay` | Frame-by-frame strategy replay with timeline scrubber and live KPIs |
-| ETF Optimizer | `/etf-optimizer` | Efficient frontier, tangency portfolio, CAL, rebalancing simulation |
-| Metals Analytics | `/metals` | Commodity prices, returns, correlation, seasonality analysis |
-| Economic Indicators | `/economic` | FRED data with recession bands, multi-panel indicator charts |
-| Sector Breakdown | `/sectors` | Treemap, sector distribution, full classification table |
-| Excluded Stocks | `/excluded-stocks` | Price-filtered exclusion analysis, stock detail viewer |
-| Methodology | `/methodology` | KaTeX-rendered equations and strategy definitions |
-| Sharpe Ratio Limits | `/sharpe-limitations` | Monte Carlo simulation showing Sharpe ratio blind spots |
-| Linear Algebra Viz | `/linear-algebra` | Interactive matrix ops, 3D transforms, portfolio variance |
+| Page                | Route                 | Description                                                                                |
+| ------------------- | --------------------- | ------------------------------------------------------------------------------------------ |
+| Portfolio Simulator | `/`                   | Factor-based backtesting with equity curve, performance metrics, and VaR                   |
+| ML Alpha            | `/ml-alpha`           | ML direction prediction with walk-forward validation, feature importance, confusion matrix |
+| Sortino Momentum    | `/momentum`           | Grid search heatmap, bootstrap significance test, regime detection                         |
+| Strategy Replay     | `/replay`             | Frame-by-frame strategy replay with timeline scrubber and live KPIs                        |
+| Manual Portfolio    | `/manual-portfolio`   | Manual stock selection, weighting, rebalancing with benchmark comparison                   |
+| ETF Optimizer       | `/etf-optimizer`      | Efficient frontier, tangency portfolio, CAL, rebalancing simulation                        |
+| Metals Analytics    | `/metals`             | Commodity prices, returns, correlation, seasonality analysis                               |
+| Economic Indicators | `/economic`           | FRED data with recession bands, multi-panel indicator charts                               |
+| Sector Breakdown    | `/sectors`            | Treemap, sector distribution, full classification table                                    |
+| Excluded Stocks     | `/excluded-stocks`    | Price-filtered exclusion analysis, stock detail viewer                                     |
+| Methodology         | `/methodology`        | KaTeX-rendered equations and strategy definitions                                          |
+| Sharpe Ratio Limits | `/sharpe-limitations` | Monte Carlo simulation showing Sharpe ratio blind spots                                    |
+| Linear Algebra Viz  | `/linear-algebra`     | Interactive matrix ops, 3D transforms, portfolio variance                                  |
 
 ## Tech Stack
 
 **Backend (Python):**
+
 - FastAPI + Pydantic
 - XGBoost, scikit-learn, TensorFlow
 - pandas, numpy, scipy
 - DuckDB, Parquet
 
 **Frontend (TypeScript):**
-- React 18 + Vite
+
+- React 19 + Vite
 - TailwindCSS (dark theme)
 - Plotly.js (charts)
 - TanStack Query (data fetching)
@@ -97,7 +100,7 @@ quant/
   core/           # Quant engine (data, features, models, backtest, metrics, signals)
   api/            # FastAPI (routes, schemas, dependencies)
   frontend/       # React + TypeScript + Vite
-  _archive/       # Archived legacy code (Streamlit, Dash, old src/)
+  # Legacy Streamlit/Dash code was removed during migration
   config/         # Settings and environment
   scripts/        # CLI utilities
   tests/          # pytest suite

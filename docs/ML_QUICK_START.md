@@ -36,12 +36,13 @@ TensorFlow version: 2.15.x
 
 ---
 
-## Quick Start - Using Streamlit App
+## Quick Start - Using the Frontend
 
 ### 1. Run the App
 
 ```bash
-streamlit run apps/portfolio_simulator.py
+make api       # terminal 1
+make frontend  # terminal 2
 ```
 
 ### 2. Navigate to "Metals Analytics" Page

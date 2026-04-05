@@ -11,10 +11,8 @@ from api.dependencies import get_factors, get_prices
 from api.schemas.metrics import EquityCurvePoint, PerformanceMetrics
 from api.schemas.strategy import BacktestRequest, MLStrategyRequest
 from api.schemas.walkforward import ConfusionMatrixResult, FoldResult, WalkForwardResult
-from core.backtest.portfolio import (
-    calculate_portfolio_returns,
-    create_signals_from_factor,
-)
+from core.backtest.portfolio import sp500_universe_filter
+from core.strategies import run_factor_cross_section_backtest
 from core.metrics.performance import (
     calculate_cumulative_returns,
     calculate_performance_metrics,
@@ -39,42 +37,37 @@ def run_backtest(req: BacktestRequest) -> dict:
 
     factor_col = req.factor_col or factors.columns[0]
     if factor_col not in factors.columns:
-        raise HTTPException(
-            status_code=400, detail=f"Factor '{factor_col}' not found"
-        )
+        raise HTTPException(status_code=400, detail=f"Factor '{factor_col}' not found")
 
-    start = pd.Timestamp(req.start_date) if req.start_date else pd.Timestamp(date.today() - timedelta(days=5 * 365))
+    start = (
+        pd.Timestamp(req.start_date)
+        if req.start_date
+        else pd.Timestamp(date.today() - timedelta(days=5 * 365))
+    )
     end = pd.Timestamp(req.end_date) if req.end_date else pd.Timestamp(date.today())
 
-    f_dates = factors.index.get_level_values("date")
-    factors_slice = factors[(f_dates >= start) & (f_dates <= end)]
-    prices_slice = prices[(prices.index >= start) & (prices.index <= end)]
+    uf = sp500_universe_filter() if req.survivorship_free else None
 
-    signals = create_signals_from_factor(
-        factors_slice,
-        factor_col,
+    net_returns = run_factor_cross_section_backtest(
+        factors,
+        prices,
+        factor_col=factor_col,
+        start=start,
+        end=end,
         top_pct=req.top_pct,
         bottom_pct=req.bottom_pct,
         long_only=req.long_only,
-    )
-
-    results = calculate_portfolio_returns(
-        signals,
-        prices_slice,
         rebalance_freq=req.rebalance_freq,
         transaction_cost=req.transaction_cost_bps / 10_000,
-        long_only=req.long_only,
+        universe_filter=uf,
     )
-
-    net_returns = results["net_return"]
     _last_backtest_returns = net_returns
 
     metrics = calculate_performance_metrics(net_returns)
 
     cum = calculate_cumulative_returns(net_returns)
     equity = [
-        EquityCurvePoint(date=str(d.date()), cumulative_return=float(v))
-        for d, v in cum.items()
+        EquityCurvePoint(date=str(d.date()), cumulative_return=float(v)) for d, v in cum.items()
     ]
 
     return {
@@ -92,8 +85,7 @@ def get_equity_curve(tail: int = 500) -> dict:
 
     cum = calculate_cumulative_returns(_last_backtest_returns)
     points = [
-        {"date": str(d.date()), "cumulative_return": float(v)}
-        for d, v in cum.tail(tail).items()
+        {"date": str(d.date()), "cumulative_return": float(v)} for d, v in cum.tail(tail).items()
     ]
     return {"count": len(points), "equity_curve": points}
 
@@ -110,14 +102,10 @@ def run_ml_strategy(req: MLStrategyRequest) -> dict:
             raise HTTPException(status_code=503, detail="Price data not loaded")
 
         if req.symbol not in prices.columns:
-            raise HTTPException(
-                status_code=404, detail=f"Symbol '{req.symbol}' not found"
-            )
+            raise HTTPException(status_code=404, detail=f"Symbol '{req.symbol}' not found")
 
         price_series = prices[req.symbol].dropna()
-        features, metadata = create_ml_features_with_transparency(
-            price_series, symbol=req.symbol
-        )
+        features, metadata = create_ml_features_with_transparency(price_series, symbol=req.symbol)
 
         wf_results = run_walk_forward_validation(
             features,
@@ -139,10 +127,26 @@ def run_ml_strategy(req: MLStrategyRequest) -> dict:
                 train_size=s["train_size"],
                 test_size=s["test_size"],
                 accuracy=s["accuracy"],
-                train_start=str(s["train_start"].date()) if hasattr(s["train_start"], "date") else str(s["train_start"]),
-                train_end=str(s["train_end"].date()) if hasattr(s["train_end"], "date") else str(s["train_end"]),
-                test_start=str(s["test_start"].date()) if hasattr(s["test_start"], "date") else str(s["test_start"]),
-                test_end=str(s["test_end"].date()) if hasattr(s["test_end"], "date") else str(s["test_end"]),
+                train_start=(
+                    str(s["train_start"].date())
+                    if hasattr(s["train_start"], "date")
+                    else str(s["train_start"])
+                ),
+                train_end=(
+                    str(s["train_end"].date())
+                    if hasattr(s["train_end"], "date")
+                    else str(s["train_end"])
+                ),
+                test_start=(
+                    str(s["test_start"].date())
+                    if hasattr(s["test_start"], "date")
+                    else str(s["test_start"])
+                ),
+                test_end=(
+                    str(s["test_end"].date())
+                    if hasattr(s["test_end"], "date")
+                    else str(s["test_end"])
+                ),
             )
             for s in wf_results["split_metrics"]
         ]
@@ -155,7 +159,10 @@ def run_ml_strategy(req: MLStrategyRequest) -> dict:
         )
 
         cm = None
-        if all(k in overall for k in ("true_negatives", "false_positives", "false_negatives", "true_positives")):
+        if all(
+            k in overall
+            for k in ("true_negatives", "false_positives", "false_negatives", "true_positives")
+        ):
             cm = ConfusionMatrixResult(
                 true_negatives=overall["true_negatives"],
                 false_positives=overall["false_positives"],
@@ -184,6 +191,4 @@ def run_ml_strategy(req: MLStrategyRequest) -> dict:
         }
 
     except ImportError as exc:
-        raise HTTPException(
-            status_code=501, detail=f"ML dependencies not installed: {exc}"
-        )
+        raise HTTPException(status_code=501, detail=f"ML dependencies not installed: {exc}")

@@ -224,7 +224,7 @@ ls -lh data/commodities/prices.parquet
 - ✅ Headers descriptive
 
 ### **Info Boxes Should Be:**
-- ✅ Blue background (st.info)
+- ✅ Blue background (info banner)
 - ✅ Concise text (2-4 bullet points)
 - ✅ Helpful context
 - ✅ Not overwhelming
@@ -294,8 +294,9 @@ pip install plotly --upgrade
 # 1. Start fresh
 conda activate quant
 
-# 2. Launch app
-streamlit run apps/portfolio_simulator.py
+# 2. Start the dev servers
+make api       # terminal 1
+make frontend  # terminal 2
 
 # 3. Navigate to Commodities page
 

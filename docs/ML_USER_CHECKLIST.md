@@ -35,11 +35,12 @@ If error, troubleshoot:
 
 ## ✅ Testing Checklist
 
-### Test 1: Streamlit App
+### Test 1: Frontend
 
 1. **Run app:**
    ```bash
-   streamlit run apps/portfolio_simulator.py
+   make api      # terminal 1
+   make frontend  # terminal 2
    ```
 
 2. **Navigate to Metals Analytics page** (click in sidebar)
@@ -207,7 +208,7 @@ After testing, decide on:
 
 ### Decision 1: Outlier Treatment
 
-Check outlier report in Streamlit app or via:
+Check outlier report in the frontend or via:
 ```python
 outliers = metadata['outliers']
 print(f"Outliers: {outliers['outlier_count']} ({outliers['outlier_pct']:.2f}%)")
@@ -325,7 +326,7 @@ Update your resume with:
 
 Before marking complete:
 
-- [ ] Can run Streamlit app and see ML Price Prediction option
+- [ ] Can run the frontend and see ML Price Prediction option
 - [ ] Can train XGBoost model and see results
 - [ ] Can train LSTM model and see results
 - [ ] Transparency section displays correctly

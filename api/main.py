@@ -15,8 +15,10 @@ from api.config import ALLOWED_ORIGINS
 from api.dependencies import load_data
 from api.routes import (
     banxico,
+    benchmarks,
     commodities,
     data,
+    events_backtest,
     exclusions,
     fred,
     health,
@@ -26,6 +28,7 @@ from api.routes import (
     replay,
     sectors,
     simulation,
+    strategies,
     strategy,
     walkforward,
 )
@@ -50,7 +53,7 @@ app = FastAPI(
     title="Quant Analytics API",
     description=(
         "REST API for the Quant Analytics Platform. "
-        "Exposes backtesting, ML strategies, performance metrics, "
+        "Exposes backtesting, ML strategies, strategy catalog, performance metrics, "
         "and replay endpoints."
     ),
     version="0.1.0",
@@ -68,6 +71,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(data.router)
 app.include_router(strategy.router)
+app.include_router(strategies.router)
 app.include_router(metrics.router)
 app.include_router(walkforward.router)
 app.include_router(replay.router)
@@ -78,4 +82,6 @@ app.include_router(commodities.router)
 app.include_router(fred.router)
 app.include_router(sectors.router)
 app.include_router(simulation.router)
+app.include_router(events_backtest.router)
 app.include_router(exclusions.router)
+app.include_router(benchmarks.router)

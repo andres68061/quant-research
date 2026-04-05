@@ -138,7 +138,7 @@ export default function Transform3D() {
 
       {/* LaTeX */}
       <div className="bg-zinc-900/50 border border-zinc-800 rounded p-2">
-        <TeX tex={matToTex(T)} />
+        <TeX math={matToTex(T)} />
       </div>
 
       <Plot

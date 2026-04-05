@@ -2,7 +2,7 @@
 
 ## Overview
 
-Enhanced the Commodities & Metals Analytics page (`apps/pages/2_📊_Metals_Analytics.py`) with 7 new analysis types based on practical quantitative workflow requirements.
+Enhanced the Commodities & Metals Analytics page (`frontend/src/pages/MetalsAnalytics.tsx`) with 7 new analysis types based on practical quantitative workflow requirements.
 
 **Date:** February 3, 2026
 
@@ -287,8 +287,9 @@ drawdown = (cum_returns - running_max) / running_max
 # 1. Ensure commodities data exists
 python scripts/fetch_commodities.py
 
-# 2. Launch Streamlit
-streamlit run apps/portfolio_simulator.py
+# 2. Start the dev servers
+make api       # terminal 1
+make frontend  # terminal 2
 
 # 3. Navigate to "Metals Analytics" page
 

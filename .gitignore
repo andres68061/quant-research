@@ -60,6 +60,8 @@ logs/
 
 # Results and outputs
 results/
+outputs/
+!outputs/ml_results/README.md
 models/*.pkl
 models/*.joblib
 models/*.h5

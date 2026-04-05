@@ -1,12 +1,15 @@
 """
 Commodity Price Direction Prediction Models
 
-Implements XGBoost and LSTM models for predicting commodity price direction.
+Implements XGBoost, Random Forest, Logistic Regression, and LSTM models
+for predicting commodity price direction.
 Uses walk-forward validation with expanding window.
 
 Models:
 1. XGBoost Classifier (no scaling needed)
-2. LSTM Classifier (StandardScaler applied)
+2. Random Forest Classifier (no scaling needed)
+3. Logistic Regression (StandardScaler applied)
+4. LSTM Classifier (StandardScaler applied)
 
 Validation:
 - Walk-forward with expanding window
@@ -416,7 +419,7 @@ def run_walk_forward_validation(
     
     Args:
         features_df: DataFrame with features and 'target' column
-        model_type: "xgboost" or "lstm"
+        model_type: 'xgboost', 'random_forest', 'logistic', or 'lstm'
         initial_train_days: Initial training period
         test_days: Test period length
         max_splits: Maximum number of splits (default 50, prevents runaway training)
@@ -429,7 +432,7 @@ def run_walk_forward_validation(
     
     Args:
         features_df: DataFrame with features and 'target' column
-        model_type: 'xgboost' or 'lstm'
+        model_type: 'xgboost', 'random_forest', 'logistic', or 'lstm'
         initial_train_days: Initial training period (default 63 = 3 months)
         test_days: Test period (default 5 = 1 week)
         model_params: Optional model parameters
@@ -467,7 +470,7 @@ def run_walk_forward_validation(
     
     # Run walk-forward
     for i, (train_idx, test_idx) in enumerate(splits):
-        # Progress callback for Streamlit
+        # Progress callback for UI updates
         if progress_callback:
             progress_callback(i + 1, len(splits))
         
@@ -499,6 +502,40 @@ def run_walk_forward_validation(
             y_pred = model.predict(X_test)
             y_proba = model.predict_proba(X_test)
             
+        elif model_type == "random_forest":
+            from sklearn.ensemble import RandomForestClassifier
+
+            rf_params = {
+                "n_estimators": 200,
+                "max_depth": 5,
+                "random_state": 42,
+                "n_jobs": -1,
+                **model_params,
+            }
+            model = RandomForestClassifier(**rf_params)
+            model.fit(X_train, y_train)
+
+            y_pred = model.predict(X_test)
+            y_proba = model.predict_proba(X_test)
+
+        elif model_type == "logistic":
+            from sklearn.linear_model import LogisticRegression
+
+            scaler = StandardScaler()
+            X_train_scaled = scaler.fit_transform(X_train)
+            X_test_scaled = scaler.transform(X_test)
+
+            lr_params = {
+                "max_iter": 1000,
+                "random_state": 42,
+                **model_params,
+            }
+            model = LogisticRegression(**lr_params)
+            model.fit(X_train_scaled, y_train)
+
+            y_pred = model.predict(X_test_scaled)
+            y_proba = model.predict_proba(X_test_scaled)
+
         elif model_type == "lstm":
             model = LSTMDirectionModel(**model_params)
             
@@ -557,6 +594,14 @@ def run_walk_forward_validation(
     feature_importance = None
     if model_type == "xgboost":
         feature_importance = model.get_feature_importance()
+    elif model_type == "random_forest":
+        feature_importance = dict(
+            zip(feature_cols, model.feature_importances_.tolist())
+        )
+    elif model_type == "logistic":
+        feature_importance = dict(
+            zip(feature_cols, np.abs(model.coef_[0]).tolist())
+        )
     
     results = {
         'model_type': model_type,

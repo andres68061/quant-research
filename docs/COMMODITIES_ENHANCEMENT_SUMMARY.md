@@ -5,7 +5,7 @@
 Enhanced the **Commodities & Metals Analytics** page with **7 new professional-grade analysis modules**, increasing analytical capabilities from 5 to **12 comprehensive analysis types**.
 
 **Date:** February 3, 2026  
-**Files Modified:** `apps/pages/2_📊_Metals_Analytics.py`  
+**Files Modified:** `frontend/src/pages/MetalsAnalytics.tsx`  
 **Lines Added:** ~1,800 lines of production code  
 **Time Investment:** 2 hours
 
@@ -234,7 +234,8 @@ cvar_95 = returns[returns <= var_95].mean()  # Average of tail
 python scripts/fetch_commodities.py
 
 # 2. Launch app
-streamlit run apps/portfolio_simulator.py
+make api      # terminal 1
+make frontend  # terminal 2
 
 # 3. Navigate to: Commodities & Metals Analytics (page 2)
 
@@ -279,7 +280,7 @@ streamlit run apps/portfolio_simulator.py
 
 **Syntax Check:**
 ```bash
-python -m py_compile apps/pages/2_📊_Metals_Analytics.py
+python -m py_compile frontend/src/pages/MetalsAnalytics.tsx
 # Result: ✅ PASSED
 ```
 

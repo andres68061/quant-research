@@ -234,5 +234,5 @@
 
 **Date Completed:** February 3, 2026
 **Total Time:** ~2 hours of implementation
-**Files Modified:** 1 (`apps/pages/2_📊_Metals_Analytics.py`)
+**Files Modified:** 1 (`frontend/src/pages/MetalsAnalytics.tsx`)
 **Documentation Created:** 2 (`COMMODITIES_PAGE_ENHANCEMENTS.md`, this file)

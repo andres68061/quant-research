@@ -80,7 +80,7 @@ def main():
     print("Next steps:")
     print("  • Run 'python scripts/update_commodities.py' to update data")
     print("  • Add to cron for daily updates")
-    print("  • View in Streamlit app: Metals Analytics page")
+    print("  • View in frontend: Metals Analytics page (make frontend)")
     print()
 
 

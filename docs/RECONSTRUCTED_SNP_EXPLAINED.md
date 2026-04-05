@@ -31,7 +31,7 @@ Where:
 ## Implementation in Portfolio Simulator
 
 ### Code Location
-`apps/portfolio_simulator.py` → `calculate_benchmark_returns()` function
+`core/backtest/portfolio.py` → `calculate_benchmark_returns()` function
 
 ### Step-by-Step Process
 
@@ -49,7 +49,7 @@ for date in df_prices.index:
     # Returns: ['AAPL', 'MSFT', 'GOOGL', ...] for that specific date
 ```
 
-**Data Source:** `data/S&P 500 Historical Components & Changes(01-17-2026).csv`
+**Data Source:** newest `data/S&P 500 Historical Components & Changes*.csv` in `data/` (see `resolve_sp500_historical_csv` in `core/data/sp500_constituents.py`)
 - Contains S&P 500 membership changes from 1996-2026
 - Shows which stocks were in the index on each date
 - Includes additions, removals, ticker changes
@@ -268,7 +268,7 @@ If you backtest a strategy using only current S&P 500 members:
 ## Code Reference
 
 ### Full Implementation
-See `apps/portfolio_simulator.py` lines 343-391:
+See `core/backtest/portfolio.py` (originally lines 343-391 of the legacy Streamlit app):
 
 ```python
 elif benchmark_type == "S&P 500 Reconstructed (2020+)":
@@ -290,9 +290,10 @@ elif benchmark_type == "S&P 500 Reconstructed (2020+)":
 
 ## Usage in Portfolio Simulator
 
-1. **Open Streamlit app:**
+1. **Start the dev servers:**
    ```bash
-   streamlit run apps/portfolio_simulator.py
+   make api       # terminal 1
+   make frontend  # terminal 2
    ```
 
 2. **Select Benchmark:**

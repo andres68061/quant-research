@@ -15,12 +15,12 @@ Examples:
 
 Results are automatically cached when training completes in Interactive mode.
 
-Access cached results via Quick View mode in the Streamlit UI.
+Access cached results via the ML Alpha page in the frontend.
 
 ## Clear Cache
 
 ```python
-from src.utils.ml_cache import clear_cache
+from core.utils.ml_cache import clear_cache
 
 # Clear specific commodity
 clear_cache(symbol="GLD")

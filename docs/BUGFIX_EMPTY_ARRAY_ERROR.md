@@ -4,7 +4,7 @@
 
 **Error:** `ValueError: zero-size array to reduction operation maximum which has no identity`
 
-**Location:** `apps/pages/2_📊_Metals_Analytics.py`, line 449
+**Location:** `frontend/src/pages/MetalsAnalytics.tsx`
 
 **Root Cause Identified:** Commodities have **different start dates** for their data availability:
 - Gold (GLD) - Available since ~2004
@@ -77,6 +77,7 @@ for symbol in selected_commodities:
         if valid_count > 1:
             valid_commodities.append(symbol)
 
+Legacy Streamlit code (now replaced by React frontend):
 if not valid_commodities:
     st.warning("""
     ⚠️ **No valid data for selected commodities in this date range.**
@@ -95,6 +96,7 @@ if not valid_commodities:
 
 ### 2. Inform User About Excluded Commodities
 
+Legacy Streamlit code (now replaced by React frontend):
 ```python
 # Show info about filtered commodities
 if len(valid_commodities) < len(selected_commodities):
@@ -300,7 +302,7 @@ Please select a longer date range or different assets.
 
 ## Files Modified
 
-- `apps/pages/2_📊_Metals_Analytics.py`
+- `frontend/src/pages/MetalsAnalytics.tsx`
   - Added data validation checks to 7 analysis sections
   - Fixed empty array handling in scatter plot
   - Added minimum data point requirements
@@ -311,7 +313,7 @@ Please select a longer date range or different assets.
 
 ```bash
 # Syntax check
-python -m py_compile apps/pages/2_📊_Metals_Analytics.py
+npx tsc --noEmit frontend/src/pages/MetalsAnalytics.tsx
 # Result: ✅ PASSED
 
 # Expected: No errors, file compiles successfully

@@ -1,7 +1,7 @@
 # Machine Learning Price Prediction Feature
 
 **Status:** ✅ Implemented (February 2026)  
-**Location:** `apps/pages/2_📊_Metals_Analytics.py` → "ML Price Prediction"
+**Location:** `frontend/src/pages/MetalsAnalytics.tsx` → "ML Price Prediction"
 
 ---
 
@@ -189,7 +189,7 @@ Split 3: Train[0:73]   → Test[73:78]  (expanding)
 
 ## Usage Guide
 
-### In Streamlit App
+### In the Frontend
 
 1. **Select ONE commodity** (ML requires single asset)
 2. **Choose date range** (recommend 2+ years, minimum 100 days)
@@ -457,9 +457,10 @@ quant/
 │   │   └── ml_features.py          # Feature engineering
 │   └── models/
 │       └── commodity_direction.py  # XGBoost + LSTM models
-├── apps/
-│   └── pages/
-│       └── 2_📊_Metals_Analytics.py  # Streamlit integration
+├── frontend/
+│   └── src/
+│       └── pages/
+│           └── MetalsAnalytics.tsx   # Frontend integration
 ├── docs/
 │   └── ML_PRICE_PREDICTION.md      # This file
 └── requirements.txt                # Added xgboost, tensorflow

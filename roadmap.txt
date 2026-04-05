@@ -1,0 +1,50 @@
+# Quant platform roadmap (prioritized backlog)
+
+Maintained as a simple text backlog. For narrative context see docs/PLATFORM_STATUS.md and ARCHITECTURE.md.
+
+## Done / maintained (reference)
+
+- Platform audit captured in docs/PLATFORM_STATUS.md.
+- Strategy boundaries in .cursor/rules/quant-strategies.mdc (Cursor applies when editing matching files).
+- Migration cleanup: runtime is React + FastAPI; legacy Streamlit/Dash code removed (no _archive/ on disk).
+- core/strategies/ registry v1: metadata in core/strategies/registry.py, GET /strategies, run_factor_cross_section_backtest shared by POST /run-backtest and GET /replay/frames. v2: unify ML POST /run-ml-strategy behind the same dispatcher (optional).
+- Pandas resample: legacy rebalance aliases (e.g. M, Q) normalized to ME/QE/YE in core/backtest/portfolio.py; BacktestRequest default rebalance_freq ME.
+- Event-driven backtesting v0: core/backtest/events/ (EventLog validation, simulate_equal_weight_rebalances); see docs/EVENT_DRIVEN_BACKTEST.md.
+- Options / implied vol (partial MVP): core/surfaces/black_scholes.py (European BS, implied vol via Brent), core/surfaces/grid.py (IV grid from price matrix). Still open: Dupire/local vol, SABR/SVI, option-chain ingestion, API/UI.
+- Event-driven backtesting: POST /backtest/events/simulate (FastAPI) delegates to core/backtest/events/simulator.py; see docs/EVENT_DRIVEN_BACKTEST.md.
+- Data / factor inventory doc: docs/DATA_INVENTORY.md (artifacts, yfinance/FRED/FMP sources, gap vs systematic factor families).
+- Fama-French 5 factor daily returns: core/data/factors/fama_french.py fetches FF5 (Mkt-RF, SMB, HML, RMW, CMA, RF) from Kenneth French library via pandas_datareader; wired into backfill_all.py and update_daily.py; persisted as fama_french_5.parquet + DuckDB view.
+- Scheduling: crontab active (daily 6 PM: prices/macro/FF5/factors/sectors, commodities, market caps). Reference in scripts/crontab.txt.
+- Repo hygiene: .gitignore covers outputs/; config/settings.py uses logging (no print); artifact dir consolidated to outputs/ml_results; notebook 05 uses core/ imports; stale _archive/ references removed; ad-hoc scripts deleted.
+- Market cap wired into factor pipeline: log_market_cap column from historical_market_caps.parquet (when available).
+- Survivorship bias fix: backfill uses full historical S&P 500 universe (1,194 tickers); create_signals_from_factor accepts universe_filter; sp500_universe_filter() for point-in-time membership; BacktestRequest.survivorship_free=True by default; replay route likewise.
+- Factor outlier bounds: core/backtest/portfolio.py `_infer_abs_bound` — `mom_*` abs<10, `vol_*` abs<5, `beta_*` and `log_market_cap` no abs cap (finite only); optional `max_abs_value` on `create_signals_from_factor` / `run_factor_cross_section_backtest`.
+- Strategy validation notebooks: 08_factor_cross_section (factor signals, equity curves, min_stocks diagnostics), 09_sortino_momentum (grid search, bootstrap, regime for single asset).
+- Frontend nav cleanup: Replay merged into Factor Backtest page (Summary/Replay tabs); StrategyReplay.tsx removed. Nav labels renamed: Factor Backtest, ML Direction, Momentum Grid, Custom Portfolio.
+
+## Next (ordered — pick one initiative per planning cycle)
+
+1. Event-driven backtesting — v1+: intraday bars, richer event payloads, optional UI; REST simulate is shipped — build on core/backtest/events/.
+2. Options / implied vol — extend beyond BS/IV grid: surface fits (e.g. SVI/SABR), Dupire, chains ingestion, optional API/UI when prioritized.
+3. Strategy Builder UI (optional) — compose from building blocks (signal, filter, rebalance, risk model) without user Python; each block maps to core/ functions.
+4. Optional — persist backtest/ML run results (artifacts + config hash) for compare/replay across sessions.
+5. Optional — strategy registry v2: single runner table including ML walk-forward.
+
+## Research / decisions (open questions — not scheduled as work yet)
+
+- Data inventory and systematic factor gaps: **documented** in docs/DATA_INVENTORY.md. FF5 daily pulled; market cap wired; remaining gaps: FF momentum (UMD), liquidity.
+- Workflow: **resolved** — prototype in notebooks (explore only); extract to core/ + tests for production. Notebook 05 cleaned as example.
+- Portfolio optimization: should the objective be pluggable (e.g. maximize CAGR vs mean return; downside deviation vs variance)? API and core changes if yes.
+- Stock universe quality: survivorship bias eliminated via point-in-time S&P 500 filter (default on). Remaining: macro lookahead (FRED publication lag), same-close trading assumption, historical shares outstanding accuracy.
+
+
+Area	Risk	Severity	What's happening
+Survivorship bias	YES	CRITICAL	backfill_all.py fetches today's S&P 500 list and backtests on it for 10 years. Companies that were removed (Lehman, GE at times, acquired firms) are excluded. Historical constituents code exists (core/data/sp500_constituents.py) but is not wired into the pipeline.
+Macro lookahead	YES	CRITICAL	load_default_macro() uses FRED series dates as-is with forward-fill. CPI for January appears on Jan 1 in the data, but it's actually released mid-February. Same for unemployment, fed funds. Daily yields (DGS10, T10Y2Y) are fine — minimal lag.
+Same-close trading	PARTIAL	MEDIUM	calculate_portfolio_returns computes signals from close prices, then assumes you trade at the same close — physically impossible. Standard fix: 1-day delay between signal and execution.
+Market cap historical accuracy	YES	MEDIUM	historical_market_caps.parquet = today's shares outstanding x historical adjusted prices. Buybacks/dilution over time are ignored, biasing size rankings for buyback-heavy (large, quality) stocks.
+Momentum formula	NO (bug)	LOW	momentum_excluding_recent uses arithmetic subtraction cum_12m - cum_1m instead of geometric (1+cum_12m)/(1+cum_1m) - 1. Not lookahead, but produces slightly different rankings.
+Fundamentals	NO	Safe	60-day as-of lag is correctly applied via apply_asof_lag.
+FF5	PARTIAL	LOW	No publication lag, but only used for attribution (not signals) currently.
+ML features	NO	Safe	Properly .shift(1) lagged.
+Data snooping	NO	LOW	All defaults are standard academic/industry values.

@@ -13,7 +13,7 @@
 - Factors now calculated only on available data (no future information)
 
 **Code Changes:**
-- `apps/portfolio_simulator.py`: Date selection moved to top of sidebar
+- `frontend/src/pages/PortfolioSimulator.tsx` (legacy: `apps/portfolio_simulator.py`): Date selection moved to top of sidebar
 - Data filtering: `df_prices_filtered = df_prices[df_prices.index.date >= start_date]`
 
 ---
@@ -228,7 +228,7 @@ $100.00 → $150.25 (+50.25%)
   - Added cash position tracking
 
 ### UI
-- `apps/portfolio_simulator.py`
+- `frontend/src/pages/PortfolioSimulator.tsx` (legacy: `apps/portfolio_simulator.py`)
   - Moved date selection to top (Step 1)
   - Added data filtering before factor calculation
   - Added portfolio value display

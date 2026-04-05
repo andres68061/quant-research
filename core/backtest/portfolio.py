@@ -5,10 +5,74 @@ This module provides functions for simulating portfolio strategies,
 calculating returns with transaction costs, and managing portfolio positions.
 """
 
-from typing import Optional
+from __future__ import annotations
+
+import logging
+from typing import Callable, Optional
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
+
+# Pandas 2.2+ deprecates legacy resample aliases (e.g. M -> ME). Map before resample().
+_LEGACY_RESAMPLE_FREQ: dict[str, str] = {
+    "M": "ME",
+    "Q": "QE",
+    "A": "YE",
+    "Y": "YE",
+}
+
+
+def _infer_abs_bound(factor_col: str) -> float:
+    """
+    Default maximum absolute factor value for outlier filtering before ranking.
+
+    Momentum columns are cumulative-return style (clip extreme names). Volatility
+    uses annualized vol scale. Beta and log market cap rely on ``notna()`` and
+    ``isfinite()`` only (no absolute cap).
+
+    Args:
+        factor_col: Column name in the factor panel (e.g. ``mom_12_1``, ``beta_60d``).
+
+    Returns:
+        Upper bound on ``abs(factor)`` for a row to count as valid; ``inf`` means
+        no cap beyond non-finite exclusion.
+
+    Example:
+        >>> _infer_abs_bound("mom_12_1")
+        10.0
+        >>> _infer_abs_bound("beta_60d") == float("inf")
+        True
+    """
+    if factor_col == "log_market_cap":
+        return float("inf")
+    if factor_col.startswith("mom_"):
+        return 10.0
+    if factor_col.startswith("vol_"):
+        return 5.0
+    if factor_col.startswith("beta_"):
+        return float("inf")
+    return 10.0
+
+
+def _normalize_rebalance_freq(freq: str) -> str:
+    """
+    Map deprecated pandas offset strings to current resample aliases.
+
+    Args:
+        freq: User or API input (e.g. ``M``, ``ME``, ``W``, ``D``).
+
+    Returns:
+        String safe for ``Series.resample`` without FutureWarning for known legacy forms.
+
+    Example:
+        >>> _normalize_rebalance_freq("M")
+        'ME'
+    """
+    if freq in _LEGACY_RESAMPLE_FREQ:
+        return _LEGACY_RESAMPLE_FREQ[freq]
+    return freq
 
 
 def create_signals_from_factor(
@@ -18,6 +82,8 @@ def create_signals_from_factor(
     bottom_pct: float = 0.20,
     long_only: bool = False,
     min_stocks: int = 20,
+    universe_filter: Optional[Callable[[pd.Timestamp], set[str]]] = None,
+    max_abs_value: Optional[float] = None,
 ) -> pd.DataFrame:
     """
     Create long/short signals based on a factor.
@@ -29,6 +95,12 @@ def create_signals_from_factor(
         bottom_pct: Percentage of stocks to short (0.20 = bottom 20%)
         long_only: If True, only create long signals
         min_stocks: Minimum number of valid stocks required per date
+        universe_filter: Optional callable ``(date) -> set[str]`` that returns the
+            set of symbols eligible for trading on that date. Stocks outside the
+            returned set receive signal = 0 regardless of their factor value. Use
+            :func:`sp500_universe_filter` for survivorship-bias-free S&P 500 backtests.
+        max_abs_value: Maximum ``abs(factor)`` for a row to be valid; if ``None``,
+            inferred from ``factor_col`` via :func:`_infer_abs_bound`.
 
     Returns:
         DataFrame with 'signal' column: 1 (long), -1 (short), 0 (neutral)
@@ -41,24 +113,53 @@ def create_signals_from_factor(
     df = factors_df.copy()
     df["signal"] = 0
 
-    valid = (
-        df[factor_col].notna()
-        & np.isfinite(df[factor_col])
-        & (df[factor_col].abs() < 10)
-    )
+    bound = max_abs_value if max_abs_value is not None else _infer_abs_bound(factor_col)
+    valid = df[factor_col].notna() & np.isfinite(df[factor_col]) & (df[factor_col].abs() < bound)
     valid_df = df.loc[valid, [factor_col]].copy()
+
+    if universe_filter is not None:
+        dates = valid_df.index.get_level_values("date").unique()
+        mask_parts = []
+        for dt in dates:
+            eligible = universe_filter(dt)
+            dt_slice = valid_df.loc[dt]
+            symbols_in = dt_slice.index.get_level_values("symbol")
+            keep = symbols_in.isin(eligible)
+            idx = dt_slice.index[keep]
+            mask_parts.append(
+                pd.MultiIndex.from_arrays(
+                    [[dt] * len(idx), idx.get_level_values("symbol")],
+                    names=["date", "symbol"],
+                )
+            )
+        if mask_parts:
+            eligible_idx = mask_parts[0].append(mask_parts[1:])
+            valid_df = valid_df.loc[valid_df.index.isin(eligible_idx)]
+        else:
+            valid_df = valid_df.iloc[:0]
 
     grp = valid_df.groupby(level="date")[factor_col]
     counts = grp.transform("count")
 
-    # Skip dates with fewer than min_stocks valid entries
     enough = counts >= min_stocks
+    insufficient = ~enough
+    if insufficient.any():
+        dropped_dates = valid_df.index.get_level_values("date")[insufficient].unique().tolist()
+        preview = dropped_dates[:20]
+        suffix = " ..." if len(dropped_dates) > 20 else ""
+        logger.debug(
+            "create_signals_from_factor(%s): %d dates dropped (valid count < min_stocks=%d): "
+            "%s%s",
+            factor_col,
+            len(dropped_dates),
+            min_stocks,
+            preview,
+            suffix,
+        )
     valid_df = valid_df.loc[enough]
     counts = counts.loc[enough]
 
-    ranks = valid_df.groupby(level="date")[factor_col].rank(
-        ascending=False, method="first"
-    )
+    ranks = valid_df.groupby(level="date")[factor_col].rank(ascending=False, method="first")
     n_long = (counts * top_pct).clip(lower=1).astype(int)
 
     df.loc[ranks[ranks <= n_long].index, "signal"] = 1
@@ -70,10 +171,44 @@ def create_signals_from_factor(
     return df
 
 
+def sp500_universe_filter() -> Callable[[pd.Timestamp], set[str]]:
+    """
+    Return a callable that maps a date to the set of S&P 500 members on that date.
+
+    Uses :class:`~core.data.sp500_constituents.SP500Constituents` with the default
+    historical CSV. The constituents are loaded once; subsequent calls are a dict
+    lookup (fast).
+
+    Returns:
+        A function ``(pd.Timestamp) -> set[str]`` suitable for the
+        ``universe_filter`` parameter of :func:`create_signals_from_factor`.
+
+    Example:
+        >>> uf = sp500_universe_filter()
+        >>> members = uf(pd.Timestamp("2020-06-15"))
+        >>> "AAPL" in members
+        True
+    """
+    from core.data.sp500_constituents import SP500Constituents
+
+    sp500 = SP500Constituents()
+    sp500.load()
+    _cache: dict[str, set[str]] = {}
+
+    def _filter(date: pd.Timestamp) -> set[str]:
+        key = str(date.date()) if hasattr(date, "date") else str(date)
+        if key not in _cache:
+            members = sp500.get_constituents_on_date(date)
+            _cache[key] = set(members) if members else set()
+        return _cache[key]
+
+    return _filter
+
+
 def calculate_portfolio_returns(
     signals: pd.DataFrame,
     prices: pd.DataFrame,
-    rebalance_freq: str = "M",
+    rebalance_freq: str = "ME",
     transaction_cost: float = 0.001,
     long_only: bool = False,
 ) -> pd.DataFrame:
@@ -85,7 +220,8 @@ def calculate_portfolio_returns(
     Args:
         signals: DataFrame with 'signal' column (MultiIndex: date, symbol)
         prices: DataFrame with prices (wide format: date x symbols)
-        rebalance_freq: Rebalancing frequency ('D', 'W', 'M', 'Q')
+        rebalance_freq: Pandas offset for resampling (prefer ``ME``, ``QE``; ``M``/``Q``
+            are normalized to ``ME``/``QE`` for pandas 2.2+ compatibility).
         transaction_cost: Cost per trade as decimal (0.001 = 10 bps)
         long_only: If True, ignore short signals
 
@@ -95,7 +231,7 @@ def calculate_portfolio_returns(
 
     Example:
         >>> results = calculate_portfolio_returns(
-        ...     signals, prices, rebalance_freq='M', transaction_cost=0.001
+        ...     signals, prices, rebalance_freq='ME', transaction_cost=0.001
         ... )
     """
     returns = prices.pct_change()
@@ -106,7 +242,8 @@ def calculate_portfolio_returns(
     returns = returns.loc[common_dates]
     signals_wide = signals_wide.loc[common_dates]
 
-    rebalance_dates = returns.resample(rebalance_freq).last().index
+    freq = _normalize_rebalance_freq(rebalance_freq)
+    rebalance_dates = returns.resample(freq).last().index
 
     positions = pd.DataFrame(0.0, index=returns.index, columns=returns.columns)
     cash_position = pd.Series(0.0, index=returns.index)
@@ -136,9 +273,7 @@ def calculate_portfolio_returns(
         else:
             next_rebal = returns.index[-1] + pd.Timedelta(days=1)
 
-        hold_dates = returns.index[
-            (returns.index >= rebal_date) & (returns.index < next_rebal)
-        ]
+        hold_dates = returns.index[(returns.index >= rebal_date) & (returns.index < next_rebal)]
 
         for col in weights.index:
             if col in positions.columns:
@@ -214,7 +349,7 @@ def create_weighted_portfolio(
     weighting_scheme: str = "equal",
     manual_weights: Optional[dict] = None,
     share_counts: Optional[dict] = None,
-    rebalance_freq: str = "M",
+    rebalance_freq: str = "ME",
 ) -> pd.Series:
     """
     Create portfolio returns with various weighting schemes.
@@ -225,7 +360,7 @@ def create_weighted_portfolio(
         weighting_scheme: One of 'equal', 'manual', 'cap', 'shares', 'harmonic'
         manual_weights: Dict of {symbol: weight} for manual weighting
         share_counts: Dict of {symbol: shares} for share-based weighting
-        rebalance_freq: Rebalancing frequency ('D', 'W', 'M', 'Q')
+        rebalance_freq: Pandas offset (prefer ``ME``, ``QE``; legacy ``M``/``Q`` normalized).
 
     Returns:
         Series of portfolio returns
@@ -235,7 +370,8 @@ def create_weighted_portfolio(
     """
     prices_selected = prices[symbols].copy()
     returns = prices_selected.pct_change()
-    rebalance_dates = returns.resample(rebalance_freq).last().index
+    freq = _normalize_rebalance_freq(rebalance_freq)
+    rebalance_dates = returns.resample(freq).last().index
 
     weights = pd.DataFrame(0.0, index=returns.index, columns=returns.columns)
 
@@ -276,9 +412,7 @@ def create_weighted_portfolio(
         else:
             next_rebal = returns.index[-1] + pd.Timedelta(days=1)
 
-        hold_dates = returns.index[
-            (returns.index >= rebal_date) & (returns.index < next_rebal)
-        ]
+        hold_dates = returns.index[(returns.index >= rebal_date) & (returns.index < next_rebal)]
 
         for symbol in symbols:
             if symbol in weights.columns:
@@ -291,7 +425,7 @@ def create_weighted_portfolio(
 def create_equal_weight_portfolio(
     prices: pd.DataFrame,
     symbols: Optional[list] = None,
-    rebalance_freq: str = "M",
+    rebalance_freq: str = "ME",
 ) -> pd.Series:
     """
     Create equal-weight portfolio returns.
@@ -299,7 +433,7 @@ def create_equal_weight_portfolio(
     Args:
         prices: DataFrame with prices (wide format: date x symbols)
         symbols: List of symbols to include (None = all symbols)
-        rebalance_freq: Rebalancing frequency ('D', 'W', 'M', 'Q')
+        rebalance_freq: Pandas offset (prefer ``ME``, ``QE``; legacy aliases normalized).
 
     Returns:
         Series of portfolio returns
@@ -345,9 +479,7 @@ def calculate_rolling_metrics(
             return np.nan
         return (mean_return - risk_free_rate) / downside_dev
 
-    rolling_sortino_ratio = returns.rolling(window).apply(
-        _rolling_sortino, raw=False
-    )
+    rolling_sortino_ratio = returns.rolling(window).apply(_rolling_sortino, raw=False)
 
     cum_returns = (1 + returns).cumprod()
     rolling_max = cum_returns.rolling(window, min_periods=1).max()

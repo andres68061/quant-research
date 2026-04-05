@@ -41,7 +41,7 @@ export default function PortfolioVariance() {
       </h2>
 
       <div className="bg-zinc-900/50 border border-zinc-800 rounded p-3">
-        <TeX tex="\sigma^2_p = \mathbf{w}^\top \Sigma \mathbf{w}" />
+        <TeX math="\sigma^2_p = \mathbf{w}^\top \Sigma \mathbf{w}" />
       </div>
 
       <div className="grid grid-cols-2 gap-4">

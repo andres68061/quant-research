@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import EconomicIndicators from "./pages/EconomicIndicators.tsx";
 import ETFOptimizer from "./pages/ETFOptimizer.tsx";
+import ManualPortfolioBuilder from "./pages/ManualPortfolioBuilder.tsx";
 import ExcludedStocks from "./pages/ExcludedStocks.tsx";
 import LinearAlgebra from "./pages/LinearAlgebra.tsx";
 import MetalsAnalytics from "./pages/MetalsAnalytics.tsx";
@@ -12,7 +13,6 @@ import PortfolioSimulator from "./pages/PortfolioSimulator.tsx";
 import SectorBreakdown from "./pages/SectorBreakdown.tsx";
 import SharpeRatioLimitations from "./pages/SharpeRatioLimitations.tsx";
 import SortinoMomentum from "./pages/SortinoMomentum.tsx";
-import StrategyReplay from "./pages/StrategyReplay.tsx";
 
 const pageVariants = {
   initial: { opacity: 0, y: 6 },
@@ -43,8 +43,8 @@ export default function App() {
         <Route path="/" element={<AnimatedPage><PortfolioSimulator /></AnimatedPage>} />
         <Route path="/ml-alpha" element={<AnimatedPage><MLAlphaReplay /></AnimatedPage>} />
         <Route path="/momentum" element={<AnimatedPage><SortinoMomentum /></AnimatedPage>} />
-        <Route path="/replay" element={<AnimatedPage><StrategyReplay /></AnimatedPage>} />
         <Route path="/etf-optimizer" element={<AnimatedPage><ETFOptimizer /></AnimatedPage>} />
+        <Route path="/manual-portfolio" element={<AnimatedPage><ManualPortfolioBuilder /></AnimatedPage>} />
         <Route path="/metals" element={<AnimatedPage><MetalsAnalytics /></AnimatedPage>} />
         <Route path="/economic" element={<AnimatedPage><EconomicIndicators /></AnimatedPage>} />
         <Route path="/sectors" element={<AnimatedPage><SectorBreakdown /></AnimatedPage>} />

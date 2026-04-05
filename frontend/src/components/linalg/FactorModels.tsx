@@ -63,7 +63,7 @@ export default function FactorModels() {
       <h2 className="text-sm font-semibold text-zinc-200">Factor Models</h2>
 
       <div className="bg-zinc-900/50 border border-zinc-800 rounded p-3 space-y-1">
-        <TeX tex="R_i = \alpha_i + \sum_j \beta_{ij} F_j + \varepsilon_i" />
+        <TeX math="R_i = \alpha_i + \sum_j \beta_{ij} F_j + \varepsilon_i" />
         <p className="text-[10px] text-zinc-500 mt-1">
           Single period: returns decomposed into alpha, factor exposures, and idiosyncratic risk.
         </p>

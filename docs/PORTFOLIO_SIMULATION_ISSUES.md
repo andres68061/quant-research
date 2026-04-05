@@ -205,15 +205,17 @@ def rebalance_portfolio(
     return new_positions
 ```
 
-### 4. Streamlit UI Changes
+### 4. Legacy UI Changes (Streamlit)
 
-**Current:**
+> **Note:** The Streamlit UI has been replaced by a React frontend. The code below is historical.
+
+**Current (legacy Streamlit):**
 ```python
 # User selects date range at the END
 date_range = st.sidebar.date_input(...)
 ```
 
-**Should be:**
+**Should be (legacy Streamlit):**
 ```python
 # User selects date range at the START (before factor selection)
 st.sidebar.header("1️⃣ Date Range Selection")
@@ -273,6 +275,6 @@ This makes it easy to say: "$100 invested grew to $250 (150% total return)"
 
 1. Review and approve approach
 2. Implement portfolio_v2 with proper logic
-3. Update Streamlit UI to prioritize date selection
+3. Update frontend UI to prioritize date selection
 4. Add portfolio value visualization
 5. Test with known scenarios (e.g., 2008 financial crisis with Lehman)

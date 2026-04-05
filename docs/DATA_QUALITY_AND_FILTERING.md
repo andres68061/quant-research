@@ -197,7 +197,7 @@ When running backtests, the system ensures:
 
 ### Adjusting the Price Filter
 
-If you want a different threshold, edit `apps/portfolio_simulator.py`:
+If you want a different threshold, edit `core/backtest/portfolio.py`:
 
 ```python
 # Current: $5 minimum
