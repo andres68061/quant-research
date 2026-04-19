@@ -28,6 +28,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+!frontend/src/lib/
+!frontend/src/lib/*.ts
 
 # Jupyter notebooks checkpoints
 .ipynb_checkpoints
