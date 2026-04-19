@@ -1,0 +1,28 @@
+---
+description: Jupyter notebook conventions — path resolution, no business logic, guard clauses
+globs:
+  - notebooks/**/*.ipynb
+alwaysApply: false
+---
+
+# Notebook Standards
+
+## Path resolution
+- Resolve project root robustly whether Jupyter starts in repo root or `notebooks/`:
+  ```python
+  from pathlib import Path
+  ROOT = Path.cwd()
+  if ROOT.name == "notebooks":
+      ROOT = ROOT.parent
+  ```
+- Guard missing data files: check `path.exists()` before loading, raise clear error if absent.
+
+## Purpose
+- Notebooks are for **exploration, visualization, and documentation** only.
+- No production logic — if a computation is reusable, extract to `core/` and import.
+- Each notebook starts with a title cell and a brief purpose statement.
+
+## Do NOT
+- Leave unnamed variables (`df`, `x`, `tmp`) — use descriptive names.
+- Commit notebooks with large cell outputs (use `nbstripout` or clear before commit).
+- Hardcode absolute paths (`/Users/andres/...`) — always derive from `ROOT`.

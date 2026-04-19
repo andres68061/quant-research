@@ -125,14 +125,12 @@ if (num_valid_risky_assets == 0) {
 ```
 
 ### Python Code Behavior (Now Matches)
-Legacy Streamlit code (now replaced by React frontend):
 ```python
 if len(valid_assets_list) < 2:
-    st.error(
-        f"❌ Not enough risky assets with returns above risk-free rate"
+    raise ValueError(
+        f"Not enough risky assets with returns above risk-free rate. "
+        f"Excluded: {excluded_assets}"
     )
-    st.info(f"Assets below risk-free rate: {excluded_assets}")
-    st.stop()
 ```
 
 ## Key Takeaways

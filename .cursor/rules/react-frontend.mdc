@@ -1,0 +1,42 @@
+---
+description: React + TypeScript frontend conventions — components, styling, data fetching
+globs:
+  - frontend/src/**/*.ts
+  - frontend/src/**/*.tsx
+alwaysApply: false
+---
+
+# React Frontend Standards
+
+## Component structure
+- Functional components only. No class components.
+- One component per file. File name matches component name (`KPICard.tsx` exports `KPICard`).
+- Pages in `pages/`, reusable UI in `components/{charts,cards,controls,layout,tables}/`.
+- Use `AppLayout` with `LeftSidebar`, `RightSidebar`, `BottomPanel` for page scaffolding.
+
+## Naming
+- Components: PascalCase (`EquityCurve`, `KPIPanel`).
+- Props interfaces: `{ComponentName}Props` (`EquityCurveProps`).
+- Hooks: `use` prefix (`useReplayStore`, `useBacktestQuery`).
+- Event handlers: `on` prefix (`onRunBacktest`, `onDateChange`).
+- Booleans: `is`/`has`/`should` prefix (`isLoading`, `hasError`).
+- API functions: verb + resource (`fetchEquityCurve`, `runBacktest`).
+
+## Data fetching
+- Use TanStack Query for all API calls. No raw `fetch` in components.
+- API client methods live in `lib/api.ts`. Types in `lib/types.ts`.
+- Never duplicate type definitions — single source of truth in `types.ts`.
+
+## Styling (hedge-fund terminal aesthetic)
+- Background: `bg-zinc-950` (page), `bg-zinc-900` (panels).
+- Text: `text-zinc-100` (primary), `text-zinc-400` (secondary), `text-zinc-500` (labels).
+- Semantics: `text-emerald-400` positive, `text-red-400` negative, `text-blue-400` neutral.
+- Numbers: always `font-mono tabular-nums` (JetBrains Mono).
+- Charts: transparent backgrounds, zinc axes, 2-3 semantic colors max.
+- No shadows, no gradients, no rounded-xl. Minimal borders (`border-zinc-800`).
+
+## Do NOT
+- Put quant math or strategy logic in TypeScript — API only.
+- Use `any` type — define proper interfaces.
+- Create god components > 300 lines — extract hooks and sub-components.
+- Add external UI libraries (no MUI, no Chakra) — Tailwind only.

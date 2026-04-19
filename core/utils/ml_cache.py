@@ -151,7 +151,9 @@ def clear_cache(symbol: Optional[str] = None, freq: Optional[str] = None):
     if not CACHE_DIR.exists():
         return
     
-    pattern = f"{symbol or '*'}_{freq or '*}_*.pkl"
+    sym_part = symbol or "*"
+    freq_part = freq or "*"
+    pattern = f"{sym_part}_{freq_part}_*.pkl"
     count = 0
     
     for path in CACHE_DIR.glob(pattern):

@@ -42,19 +42,7 @@
 
 **Key UI Improvements:**
 
-> **Note:** The code below shows the legacy Streamlit UI, now replaced by React components in `frontend/src/pages/MetalsAnalytics.tsx`.
-
-```python
-# Before (legacy Streamlit)
-initial_train = st.sidebar.number_input("Initial Training Periods", ...)
-test_period = st.sidebar.number_input("Test Period", ...)
-lstm_sequence = st.number_input("Sequence Length", ...)
-
-# After (legacy Streamlit)
-train_size = st.sidebar.number_input("1️⃣ Training Window (train_size)", ...)
-test_size = st.sidebar.number_input("2️⃣ Test Window (test_size)", ...)
-seq_len = st.sidebar.number_input("3️⃣ Sequence Length (seq_len)", ...)
-```
+The React frontend (`frontend/src/pages/MetalsAnalytics.tsx`) uses the standardized parameter names throughout its controls.
 
 ### 2. `/docs/ML_TERMINOLOGY_REFERENCE.md`
 **Created:** Complete reference document with:

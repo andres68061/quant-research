@@ -77,40 +77,12 @@ for symbol in selected_commodities:
         if valid_count > 1:
             valid_commodities.append(symbol)
 
-Legacy Streamlit code (now replaced by React frontend):
+# If no valid commodities, show a warning and stop
 if not valid_commodities:
-    st.warning("""
-    ⚠️ **No valid data for selected commodities in this date range.**
-    
-    This can happen when:
-    - Commodities started trading after your selected start date
-    - Data is not available for the selected period
-    
-    **Try:**
-    - Selecting a more recent date range
-    - Choosing different commodities
-    - Checking when each commodity's data begins
-    """)
-    st.stop()
+    raise ValueError("No valid data for selected commodities in this date range.")
 ```
 
-### 2. Inform User About Excluded Commodities
-
-Legacy Streamlit code (now replaced by React frontend):
-```python
-# Show info about filtered commodities
-if len(valid_commodities) < len(selected_commodities):
-    excluded = set(selected_commodities) - set(valid_commodities)
-    excluded_names = [COMMODITIES_CONFIG.get(s, {}).get("name", s) for s in excluded]
-    st.info(f"""
-    ℹ️ **Note:** Excluding {len(excluded)} commodity/commodities with insufficient data:
-    {', '.join(excluded_names)}
-    
-    Analyzing {len(valid_commodities)} commodities with valid data.
-    """)
-```
-
-### 3. Use Filtered List for Analysis
+### 2. Use Filtered List for Analysis
 
 ```python
 # Update to use only valid commodities

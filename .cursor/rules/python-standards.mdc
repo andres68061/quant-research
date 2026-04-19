@@ -1,0 +1,36 @@
+---
+description: Python coding standards — style, structure, naming, error handling
+alwaysApply: true
+---
+
+# Python Standards
+
+## Style
+- Format with Black (88 chars), sort with isort, lint with Ruff. No PRs with lint failures.
+- No `print()` — use `logging` with structured context (`logger.info("msg", extra={...})`).
+- Type-hint every public function signature. Run `mypy --strict` on `core/` and `api/`.
+
+## Naming
+- Functions: `calculate_sharpe_ratio`, not `calcSR` or `get_sharpe`. Verb + noun, snake_case.
+- DataFrames: name by content — `daily_returns`, `factor_exposures`, not `df`, `df2`, `temp`.
+- Series: `spy_cumulative_return`, not `s` or `series1`.
+- Constants: `TRADING_DAYS_PER_YEAR = 252`, `RISK_FREE_RATE_DEFAULT = 0.0`.
+- Booleans: `is_survivorship_free`, `has_benchmark`, not `flag` or `check`.
+- Avoid single-letter variables except `i/j/k` in tight loops or `x/y` in lambdas.
+
+## Structure
+- One module per concern, ≤ 300 lines. Split when it grows.
+- Public API ≤ 10 items per module. Use `__all__` in `__init__.py`.
+- No business logic in `api/routes/` — delegate to `core.*`.
+- No I/O in `core/` computation functions — accept DataFrames, return DataFrames.
+
+## Error handling
+- Raise domain exceptions (`DataSchemaError`, `LeakageError`, `ConfigError`), not bare `Exception`.
+- Fail fast on missing keys, schema violations, rate limits.
+- Wrap external API calls with retries + exponential backoff + timeout.
+
+## Do NOT
+- Use mutable default arguments (`def f(items=[]):`).
+- Catch and silence exceptions (`except: pass`).
+- Import with `*` (except in `__init__.py` for controlled re-exports).
+- Put secrets, API keys, or credentials in code — use `.env` + `config/settings.py`.

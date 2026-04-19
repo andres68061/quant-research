@@ -268,7 +268,7 @@ If you backtest a strategy using only current S&P 500 members:
 ## Code Reference
 
 ### Full Implementation
-See `core/backtest/portfolio.py` (originally lines 343-391 of the legacy Streamlit app):
+See `core/backtest/portfolio.py`:
 
 ```python
 elif benchmark_type == "S&P 500 Reconstructed (2020+)":

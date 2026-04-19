@@ -1,0 +1,27 @@
+---
+description: Testing conventions — pytest structure, fixtures, property-based tests
+globs:
+  - tests/**/*.py
+alwaysApply: false
+---
+
+# Testing Standards
+
+## Structure
+- Test file mirrors source: `core/metrics/risk.py` → `tests/test_metrics_risk.py`.
+- Test function names: `test_{function_name}_{scenario}` (`test_calculate_var_empty_returns`).
+- Use `pytest` fixtures for shared data (price series, factor DataFrames).
+
+## Coverage expectations
+- Every new `core/` function: happy path, edge case (empty input, NaN), and type check.
+- ML code: verify walk-forward splits have no leakage (train max date < test min date).
+- API routes: test status codes, schema validation, and error responses.
+
+## Property-based tests (hypothesis)
+- Use for math invariants: Sharpe sign, drawdown ≤ 0, cumulative return monotonicity.
+- Use `@given(st.floats(min_value=-0.99, max_value=10.0))` for return inputs.
+
+## Do NOT
+- Use `assert True` or `assert result is not None` as meaningful tests.
+- Mock core computation functions — test them with real (small) data.
+- Skip tests with `@pytest.mark.skip` without a linked issue or comment.

@@ -1,0 +1,51 @@
+---
+description: Project scaffolding — where to put new files, module boundaries, dependency rules
+alwaysApply: true
+---
+
+# Project Scaffolding
+
+## Where things go
+
+| What | Where | Example |
+|------|-------|---------|
+| Quant math, signals, models | `core/{submodule}/` | `core/signals/mean_reversion.py` |
+| Pydantic schemas | `api/schemas/` | `api/schemas/backtest.py` |
+| API route handlers | `api/routes/` | `api/routes/momentum.py` |
+| React pages | `frontend/src/pages/` | `ManualPortfolioBuilder.tsx` |
+| Reusable UI components | `frontend/src/components/{category}/` | `components/charts/EquityCurve.tsx` |
+| TypeScript types + API client | `frontend/src/lib/` | `lib/types.ts`, `lib/api.ts` |
+| Data scripts (ETL, backfill) | `scripts/` | `scripts/update_daily.py` |
+| Tests | `tests/` | `tests/test_metrics_risk.py` |
+| Exploration | `notebooks/` | `notebooks/09_vol_surface.ipynb` |
+| Config and environment | `config/` | `config/settings.py` |
+| Feature docs | `docs/` | `docs/PLATFORM_STATUS.md` |
+
+## Dependency direction (never violate)
+
+```
+frontend → api (HTTP only, never Python imports)
+api/routes → core (Python imports, thin delegation)
+core → (no upward imports to api or frontend)
+scripts → core + config (standalone CLI)
+tests → core + api (test both layers)
+notebooks → core (import, never copy-paste logic)
+```
+
+## Adding a new strategy (checklist)
+
+1. `core/` — implement logic + add tests in `tests/`
+2. `core/strategies/registry.py` — register `StrategyMetadata`
+3. `api/schemas/` — request/response Pydantic models
+4. `api/routes/` — thin handler, register router in `api/main.py`
+5. `frontend/src/lib/types.ts` — TypeScript interfaces
+6. `frontend/src/lib/api.ts` — client method
+7. `frontend/src/pages/` — page component with `AppLayout`
+8. `App.tsx` — add route; `TopBar.tsx` — add nav link
+
+## Adding a new frontend page (checklist)
+
+1. Create `frontend/src/pages/MyPage.tsx` using `AppLayout` slots
+2. Add types in `lib/types.ts`, API methods in `lib/api.ts`
+3. Import in `App.tsx`, add `<Route>`
+4. Add nav link in `components/layout/TopBar.tsx`

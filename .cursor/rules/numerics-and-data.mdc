@@ -1,0 +1,34 @@
+---
+description: Numerics, time-series, and data-integrity rules for quant computations
+globs:
+  - core/**/*.py
+  - scripts/**/*.py
+  - notebooks/**/*.ipynb
+alwaysApply: false
+---
+
+# Numerics & Data Integrity
+
+## Precision
+- Default to `float64`. Guard divisions with `eps = 1e-10`. Guard `log()` with `np.maximum(x, eps)`.
+- Money amounts: use `Decimal` or integer minor units when precision matters.
+
+## Time-series
+- Indexes must be **tz-aware** (`UTC` or `America/New_York`), **monotonic**, **unique**.
+- Respect market calendars — no forward-fill over weekends/holidays/closures.
+- Use `pd.Timestamp`, not raw strings, for date comparisons.
+
+## Data leakage prevention
+- **Always** time-based train/test splits. Never random-shuffle time-series.
+- Fit transforms (scaling, encoding) on train only; apply to test via pipeline.
+- Walk-forward validation: retrain each fold on expanding or rolling window.
+- No future data in features (e.g., using close price to predict same-day return).
+
+## Naming data artifacts
+- Parquet files: `{source}_{frequency}_{content}.parquet` (e.g., `ff5_daily_factors.parquet`).
+- Columns: lowercase snake_case, unit suffix when ambiguous (`return_pct`, `price_usd`, `vol_ann`).
+
+## Do NOT
+- Use `.iloc` for date-based slicing — use `.loc` with timestamps.
+- Assume data is clean — validate shape, dtypes, NaN counts on load.
+- Silently drop NaN rows in returns — log the count and reason.

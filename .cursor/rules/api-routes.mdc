@@ -1,0 +1,28 @@
+---
+description: FastAPI route conventions — thin handlers, Pydantic schemas, no business logic
+globs:
+  - api/**/*.py
+alwaysApply: false
+---
+
+# API Route Standards
+
+## Handler pattern
+- Route handlers are **thin**: validate input (Pydantic), call `core.*`, serialize output (Pydantic).
+- No DataFrame manipulation, no math, no ML in route files.
+- Return Pydantic response models, not raw dicts.
+
+## Schemas
+- Request/response models in `api/schemas/`. One file per domain (`backtest.py`, `metrics.py`).
+- Use descriptive field names with `Field(description=...)` for Swagger docs.
+- Validate enums, ranges, and required fields at the schema level.
+
+## Naming
+- Route files: noun-based (`metrics.py`, `strategies.py`), not verb-based.
+- Endpoints: RESTful (`GET /data/prices`, `POST /run-backtest`).
+- Path parameters: `{symbol}`, `{strategy_id}` — not `{s}` or `{id}`.
+
+## Do NOT
+- Add query parameters without Pydantic validation.
+- Return 200 with error messages in the body — use proper HTTP status codes.
+- Import frontend code or notebook utilities.
