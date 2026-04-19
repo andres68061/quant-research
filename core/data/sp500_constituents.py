@@ -15,6 +15,7 @@ from core.exceptions import ConfigError
 
 logger = logging.getLogger(__name__)
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _HISTORICAL_CSV_GLOB = "S&P 500 Historical Components & Changes*.csv"
 
 
@@ -23,7 +24,7 @@ def _strip_tz(ts: pd.Timestamp) -> pd.Timestamp:
     return ts.tz_localize(None) if ts.tzinfo is not None else ts
 
 
-def resolve_sp500_historical_csv(data_dir: Path = Path("data")) -> Path:
+def resolve_sp500_historical_csv(data_dir: Optional[Path] = None) -> Path:
     """
     Resolve the path to the newest historical S&P 500 constituents CSV under ``data_dir``.
 
@@ -32,15 +33,15 @@ def resolve_sp500_historical_csv(data_dir: Path = Path("data")) -> Path:
     break callers.
 
     Args:
-        data_dir: Directory to search. Default ``data`` (relative to process working directory).
+        data_dir: Directory to search. Defaults to ``<project_root>/data``.
 
     Returns:
-        Absolute or relative path to the selected CSV (same form as ``data_dir`` inputs).
+        Absolute path to the selected CSV.
 
     Raises:
         ConfigError: If ``data_dir`` is not a directory, or no matching CSV exists.
     """
-    data_dir = Path(data_dir)
+    data_dir = Path(data_dir) if data_dir is not None else _PROJECT_ROOT / "data"
     if not data_dir.is_dir():
         raise ConfigError(
             f"S&P 500 constituents data directory does not exist or is not a directory: "
@@ -88,8 +89,7 @@ class SP500Constituents:
                 Ignored when ``csv_path`` is provided.
         """
         if csv_path is None:
-            base = Path("data") if data_dir is None else Path(data_dir)
-            csv_path = resolve_sp500_historical_csv(base)
+            csv_path = resolve_sp500_historical_csv(data_dir)
 
         self.csv_path = csv_path
         self._constituents: Optional[pd.DataFrame] = None
