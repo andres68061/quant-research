@@ -1,0 +1,69 @@
+---
+description: Always use the project's conda env (quant) for Python, pip, pytest, jupyter
+alwaysApply: true
+---
+
+# Conda Environment Enforcement
+
+This project runs in the **`quant`** conda environment. Every Python-related
+shell command MUST target that env explicitly. Never install, run, or test
+against `base` or any other environment.
+
+## Canonical interpreter paths
+
+| Tool | Correct invocation |
+|---|---|
+| Python | `/opt/anaconda3/envs/quant/bin/python` |
+| pip | `/opt/anaconda3/envs/quant/bin/pip` |
+| pytest | `/opt/anaconda3/envs/quant/bin/python -m pytest` |
+| jupyter | `/opt/anaconda3/envs/quant/bin/jupyter` |
+| ipykernel | `/opt/anaconda3/envs/quant/bin/python -m ipykernel ...` |
+
+## Required pre-flight check before any Python command
+
+Before the first `pip`, `python`, `pytest`, or `jupyter` call of a session:
+
+```bash
+which python && /opt/anaconda3/envs/quant/bin/python -c "import sys; print(sys.prefix)"
+```
+
+If `sys.prefix` is not `/opt/anaconda3/envs/quant`, STOP and use the explicit
+absolute path above.
+
+## Do ✓
+
+- Install deps with the env's pip: `/opt/anaconda3/envs/quant/bin/pip install <pkg>`
+- Run tests: `/opt/anaconda3/envs/quant/bin/python -m pytest tests/...`
+- Execute notebooks: `/opt/anaconda3/envs/quant/bin/jupyter nbconvert --execute ...`
+- After installing, pin the version in `requirements.txt`
+
+## Don't ✗
+
+- ❌ `pip install <pkg>` without an env-qualified path (defaults to whatever pip
+  is first on PATH — usually `/opt/anaconda3/bin/pip`, which is `base`)
+- ❌ `python script.py` (same ambiguity)
+- ❌ `conda activate quant && pip install …` in a single shell call — the shell
+  is stateful but activation in one command line does not always persist through
+  subprocesses spawned by the tool. Prefer absolute paths.
+- ❌ Installing into `base` "just to test"
+- ❌ Assuming the Jupyter kernel named `quant` maps to the `quant` conda env
+  without confirming (`jupyter kernelspec list` + inspect `kernel.json`)
+
+## When a dep is missing
+
+1. Add it to `requirements.txt` with a version floor (`pkg>=x.y`).
+2. Install it into the `quant` env: `/opt/anaconda3/envs/quant/bin/pip install <pkg>`.
+3. Re-run any failing command with the same env-qualified interpreter.
+
+## Notebook kernel sanity
+
+Every notebook in `notebooks/` must declare kernel `quant` in its metadata
+(`kernelspec.name == "quant"`). When creating or editing a notebook, verify
+`jupyter kernelspec list` contains `quant → /Users/andres/Library/Jupyter/kernels/quant`.
+If the kernel points anywhere other than `/opt/anaconda3/envs/quant/bin/python`,
+re-register:
+
+```bash
+/opt/anaconda3/envs/quant/bin/python -m ipykernel install --user \
+    --name quant --display-name "Python (quant)"
+```

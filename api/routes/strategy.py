@@ -60,6 +60,8 @@ def run_backtest(req: BacktestRequest) -> dict:
         rebalance_freq=req.rebalance_freq,
         transaction_cost=req.transaction_cost_bps / 10_000,
         universe_filter=uf,
+        min_stocks=req.min_stocks,
+        signal_lag_days=req.signal_lag_days,
     )
     _last_backtest_returns = net_returns
 

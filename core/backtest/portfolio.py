@@ -84,6 +84,7 @@ def create_signals_from_factor(
     min_stocks: int = 20,
     universe_filter: Optional[Callable[[pd.Timestamp], set[str]]] = None,
     max_abs_value: Optional[float] = None,
+    signal_lag_days: int = 1,
 ) -> pd.DataFrame:
     """
     Create long/short signals based on a factor.
@@ -101,6 +102,14 @@ def create_signals_from_factor(
             :func:`sp500_universe_filter` for survivorship-bias-free S&P 500 backtests.
         max_abs_value: Maximum ``abs(factor)`` for a row to be valid; if ``None``,
             inferred from ``factor_col`` via :func:`_infer_abs_bound`.
+        signal_lag_days: Trading-day lag between factor observation and the date
+            the resulting signal is considered actionable. Default 1 (standard
+            close-to-close execution: the factor built at close(t-1) drives the
+            weight that earns the return from close(t-1) to close(t)). Set to 0
+            to reproduce legacy MOC-style execution where the factor at close(t)
+            drives the weight that earns the return from close(t) onward — this
+            is NOT realistic because it uses the closing print that the rebalance
+            itself is meant to trade on. See docs/FACTOR_BACKTEST_AUDIT.md §3 Bug 3.
 
     Returns:
         DataFrame with 'signal' column: 1 (long), -1 (short), 0 (neutral)
@@ -110,12 +119,26 @@ def create_signals_from_factor(
         ...     factors_df, 'mom_12_1', top_pct=0.20, bottom_pct=0.20
         ... )
     """
+    if signal_lag_days < 0:
+        raise ValueError(f"signal_lag_days must be >= 0, got {signal_lag_days}")
+
     df = factors_df.copy()
     df["signal"] = 0
 
+    # Shift the factor per symbol so the signal emitted on date t is derived
+    # from the factor value observed on date (t - signal_lag_days). This
+    # eliminates same-close trading: the close used to compute the factor is
+    # strictly earlier than the close used to open the position.
+    if signal_lag_days > 0:
+        factor_series = (
+            df[factor_col].groupby(level="symbol", group_keys=False).shift(signal_lag_days)
+        )
+    else:
+        factor_series = df[factor_col]
+
     bound = max_abs_value if max_abs_value is not None else _infer_abs_bound(factor_col)
-    valid = df[factor_col].notna() & np.isfinite(df[factor_col]) & (df[factor_col].abs() < bound)
-    valid_df = df.loc[valid, [factor_col]].copy()
+    valid = factor_series.notna() & np.isfinite(factor_series) & (factor_series.abs() < bound)
+    valid_df = pd.DataFrame({factor_col: factor_series[valid]})
 
     if universe_filter is not None:
         dates = valid_df.index.get_level_values("date").unique()
@@ -229,12 +252,21 @@ def calculate_portfolio_returns(
         DataFrame with columns: gross_return, transaction_cost,
         net_return, turnover, n_long, n_short, cash
 
+    Delisting / bankruptcy handling:
+        When a held position has a non-NaN price on day t-1 and NaN on day t,
+        the position is treated as realising a **-100% loss** on day t
+        (bankruptcy convention) and zeroed out going forward. `pct_change` is
+        called with `fill_method=None` so NaN prices no longer silently forward-fill
+        to 0% returns. See docs/FACTOR_BACKTEST_AUDIT.md §3 Bug 4.
+
     Example:
         >>> results = calculate_portfolio_returns(
         ...     signals, prices, rebalance_freq='ME', transaction_cost=0.001
         ... )
     """
-    returns = prices.pct_change()
+    # Do NOT forward-fill NaN prices: a delisted / suspended stock must not be
+    # treated as flat at its last price (that silently hides bankruptcies).
+    returns = prices.pct_change(fill_method=None)
 
     signals_wide = signals["signal"].unstack(fill_value=0)
 
@@ -300,16 +332,30 @@ def calculate_portfolio_returns(
         pos = positions.loc[prev_date]
         ret = returns.loc[date]
 
-        cash_from_delistings = 0.0
+        # Delisting / bankruptcy handling: a held position that had a valid
+        # price on prev_date and now has NaN on `date` (or has exited the panel)
+        # is realised as -100% on the long leg, +100% on the short leg, and
+        # then zeroed out going forward. This matches the standard bankruptcy
+        # convention; we deliberately do not assume a merger payout.
+        delisting_pnl = 0.0
         for symbol in pos[pos != 0].index:
-            if pd.isna(ret[symbol]) or symbol not in ret.index:
-                cash_from_delistings += abs(pos[symbol])
+            price_missing = (symbol not in ret.index) or pd.isna(ret[symbol])
+            if price_missing:
+                # pos[symbol] is the dollar weight; a -100% return on a long
+                # position (pos>0) loses the full weight; on a short (pos<0)
+                # covering at 0 pays back the full weight.
+                delisting_pnl += -pos[symbol]  # long loses, short gains
                 positions.loc[date:, symbol] = 0.0
 
+        # For names that are still active, use their returns; others contribute 0
+        # (their P&L was already recorded via `delisting_pnl`).
         valid_returns = ret[pos.index].fillna(0.0)
-        gross_ret = (pos * valid_returns).sum()
+        gross_ret = (pos * valid_returns).sum() + delisting_pnl
 
-        cash = cash_position.loc[prev_date] + cash_from_delistings
+        # `cash_position` is now purely informational (delistings are realised
+        # directly into gross_ret). Keep the series for backward compatibility
+        # but do not mutate on delistings.
+        cash = cash_position.loc[prev_date]
         if date in rebalance_dates:
             cash = 0.0
 

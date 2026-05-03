@@ -1,14 +1,15 @@
-"""
-Performance metrics calculation for portfolio analysis.
+"""Performance metrics calculation for portfolio analysis.
 
-This module provides functions to calculate various portfolio performance metrics
-including risk-adjusted returns, drawdowns, and statistical measures.
+This module provides functions to calculate portfolio performance metrics
+including returns, downside risk, drawdowns, and statistical measures.
 """
 
-from typing import Dict, Optional
+from typing import Dict, Optional, Sequence
 
 import numpy as np
 import pandas as pd
+
+from core.metrics.risk import calculate_historical_var
 
 
 def calculate_cumulative_returns(returns: pd.Series) -> pd.Series:
@@ -58,6 +59,86 @@ def calculate_max_drawdown(returns: pd.Series) -> float:
     return float(drawdown.min())
 
 
+def calculate_time_underwater(returns: pd.Series) -> int:
+    """Calculate the longest drawdown duration in periods.
+
+    Args:
+        returns: Series of periodic returns.
+
+    Returns:
+        Longest streak where cumulative wealth is below its running peak.
+
+    Example:
+        >>> calculate_time_underwater(pd.Series([0.1, -0.1, 0.0, 0.2]))
+        2
+    """
+    returns_clean = returns.dropna()
+    if returns_clean.empty:
+        return 0
+
+    cumulative_returns = calculate_cumulative_returns(returns_clean)
+    running_max = cumulative_returns.expanding().max()
+    underwater = cumulative_returns < running_max
+
+    longest = 0
+    current = 0
+    for is_underwater in underwater:
+        if is_underwater:
+            current += 1
+            longest = max(longest, current)
+        else:
+            current = 0
+    return int(longest)
+
+
+def calculate_loss_probability(
+    returns: pd.Series,
+    horizon_days: int,
+    n_bootstrap: int = 10_000,
+    seed: int = 42,
+    block_length: int = 21,
+) -> float:
+    """Estimate probability of losing money over a horizon via block bootstrap.
+
+    Args:
+        returns: Series of periodic returns as decimals.
+        horizon_days: Number of return observations in each simulated path.
+        n_bootstrap: Number of bootstrap paths.
+        seed: Random seed for reproducibility.
+        block_length: Average sampled block length in observations.
+
+    Returns:
+        Probability that the bootstrapped cumulative return is below zero.
+
+    Example:
+        >>> r = pd.Series([0.01, -0.02, 0.005, 0.004])
+        >>> 0.0 <= calculate_loss_probability(r, 2, n_bootstrap=100, seed=1) <= 1.0
+        True
+    """
+    returns_clean = returns.dropna().astype(float)
+    if returns_clean.empty or horizon_days <= 0 or n_bootstrap <= 0:
+        return 0.0
+
+    values = returns_clean.to_numpy()
+    rng = np.random.default_rng(seed)
+    losses = 0
+    block_length = max(1, int(block_length))
+
+    for _ in range(n_bootstrap):
+        sampled = []
+        while len(sampled) < horizon_days:
+            start = int(rng.integers(0, len(values)))
+            length = int(rng.geometric(1.0 / block_length))
+            positions = (start + np.arange(length)) % len(values)
+            sampled.extend(values[positions].tolist())
+
+        path = np.array(sampled[:horizon_days], dtype=float)
+        cumulative_return = float(np.prod(1.0 + path) - 1.0)
+        losses += cumulative_return < 0.0
+
+    return float(losses / n_bootstrap)
+
+
 def calculate_sharpe_ratio(
     returns: pd.Series,
     risk_free_rate: float = 0.0,
@@ -103,9 +184,7 @@ def calculate_sortino_ratio(
     if len(downside_returns) == 0 or downside_returns.std() == 0:
         return 0.0
 
-    sortino = (
-        excess_returns.mean() / downside_returns.std() * np.sqrt(periods_per_year)
-    )
+    sortino = excess_returns.mean() / downside_returns.std() * np.sqrt(periods_per_year)
     return float(sortino)
 
 
@@ -160,6 +239,9 @@ def calculate_performance_metrics(
     benchmark_returns: Optional[pd.Series] = None,
     risk_free_rate: float = 0.0,
     periods_per_year: int = 252,
+    loss_probability_horizons: Optional[Sequence[int]] = None,
+    loss_probability_bootstraps: int = 10_000,
+    loss_probability_seed: int = 42,
 ) -> Dict[str, float]:
     """
     Calculate comprehensive performance metrics.
@@ -169,6 +251,10 @@ def calculate_performance_metrics(
         benchmark_returns: Optional benchmark returns for relative metrics
         risk_free_rate: Annual risk-free rate (default: 0)
         periods_per_year: Number of periods per year
+        loss_probability_horizons: Optional horizons, in observations, for
+            bootstrapped loss probability estimates.
+        loss_probability_bootstraps: Number of bootstrap paths per horizon.
+        loss_probability_seed: Random seed for bootstrap reproducibility.
 
     Returns:
         Dictionary of performance metrics
@@ -180,7 +266,7 @@ def calculate_performance_metrics(
     returns_clean = returns.dropna()
 
     if len(returns_clean) == 0:
-        return {
+        empty_metrics = {
             "total_return": 0.0,
             "annualized_return": 0.0,
             "annualized_volatility": 0.0,
@@ -188,7 +274,14 @@ def calculate_performance_metrics(
             "sortino_ratio": 0.0,
             "max_drawdown": 0.0,
             "calmar_ratio": 0.0,
+            "cvar_95": 0.0,
+            "cvar_99": 0.0,
+            "time_underwater_days": 0,
         }
+        if loss_probability_horizons is not None:
+            for horizon_days in loss_probability_horizons:
+                empty_metrics[f"loss_probability_{int(horizon_days)}d"] = 0.0
+        return empty_metrics
 
     total_return = (1 + returns_clean).prod() - 1
     ann_return = returns_clean.mean() * periods_per_year
@@ -198,6 +291,9 @@ def calculate_performance_metrics(
     sortino = calculate_sortino_ratio(returns_clean, risk_free_rate, periods_per_year)
     max_dd = calculate_max_drawdown(returns_clean)
     calmar = calculate_calmar_ratio(returns_clean, periods_per_year)
+    cvar_95 = calculate_historical_var(returns_clean.to_numpy(), confidence=95)["cvar"] / 100
+    cvar_99 = calculate_historical_var(returns_clean.to_numpy(), confidence=99)["cvar"] / 100
+    time_underwater_days = calculate_time_underwater(returns_clean)
 
     metrics = {
         "total_return": float(total_return),
@@ -207,23 +303,32 @@ def calculate_performance_metrics(
         "sortino_ratio": float(sortino),
         "max_drawdown": float(max_dd),
         "calmar_ratio": float(calmar),
+        "cvar_95": float(cvar_95),
+        "cvar_99": float(cvar_99),
+        "time_underwater_days": int(time_underwater_days),
         "n_periods": int(len(returns_clean)),
     }
 
+    if loss_probability_horizons is not None:
+        for horizon_days in loss_probability_horizons:
+            key = f"loss_probability_{int(horizon_days)}d"
+            metrics[key] = calculate_loss_probability(
+                returns_clean,
+                horizon_days=int(horizon_days),
+                n_bootstrap=loss_probability_bootstraps,
+                seed=loss_probability_seed,
+            )
+
     if benchmark_returns is not None:
         benchmark_clean = benchmark_returns.reindex(returns_clean.index).fillna(0)
-        ir = calculate_information_ratio(
-            returns_clean, benchmark_clean, periods_per_year
-        )
+        ir = calculate_information_ratio(returns_clean, benchmark_clean, periods_per_year)
 
         cov = returns_clean.cov(benchmark_clean)
         var = benchmark_clean.var()
         beta = cov / var if var != 0 else 0.0
 
         benchmark_ann_return = benchmark_clean.mean() * periods_per_year
-        alpha = ann_return - (
-            risk_free_rate + beta * (benchmark_ann_return - risk_free_rate)
-        )
+        alpha = ann_return - (risk_free_rate + beta * (benchmark_ann_return - risk_free_rate))
 
         metrics["information_ratio"] = float(ir)
         metrics["beta"] = float(beta)
@@ -250,6 +355,9 @@ def format_performance_table(metrics: Dict[str, float]) -> pd.DataFrame:
         "sortino_ratio": "Sortino Ratio",
         "max_drawdown": "Max Drawdown",
         "calmar_ratio": "Calmar Ratio",
+        "cvar_95": "CVaR 95%",
+        "cvar_99": "CVaR 99%",
+        "time_underwater_days": "Time Underwater (Days)",
         "information_ratio": "Information Ratio",
         "beta": "Beta",
         "alpha": "Alpha",
@@ -258,16 +366,28 @@ def format_performance_table(metrics: Dict[str, float]) -> pd.DataFrame:
 
     rows = []
     for key, value in metrics.items():
-        if key in display_names:
-            if "return" in key or "drawdown" in key or "alpha" in key:
+        if key.startswith("loss_probability_"):
+            horizon = key.removeprefix("loss_probability_").removesuffix("d")
+            display_name = f"Loss Probability ({horizon}d)"
+        else:
+            display_name = display_names.get(key)
+
+        if display_name is not None:
+            if (
+                "return" in key
+                or "drawdown" in key
+                or "alpha" in key
+                or "cvar" in key
+                or "loss_probability" in key
+            ):
                 formatted_value = f"{value * 100:.2f}%"
             elif "ratio" in key or "beta" in key:
                 formatted_value = f"{value:.2f}"
-            elif key == "n_periods":
+            elif key in {"n_periods", "time_underwater_days"}:
                 formatted_value = f"{int(value)}"
             else:
                 formatted_value = f"{value:.4f}"
 
-            rows.append({"Metric": display_names[key], "Value": formatted_value})
+            rows.append({"Metric": display_name, "Value": formatted_value})
 
     return pd.DataFrame(rows)

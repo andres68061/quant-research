@@ -38,6 +38,27 @@ class BacktestRequest(BaseModel):
             "survivorship bias. Set False for legacy behavior (full panel, no filter)."
         ),
     )
+    min_stocks: int = Field(
+        20,
+        ge=2,
+        description=(
+            "Minimum number of stocks with valid factor values on a given date for "
+            "ranking to produce any signal. Dates with fewer valid names yield zero "
+            "signals and the portfolio is flat (cash) through them. Lower this to "
+            "trade sparser factor panels; raise it to demand more breadth."
+        ),
+    )
+    signal_lag_days: int = Field(
+        1,
+        ge=0,
+        description=(
+            "Trading-day lag between factor observation and execution. Default 1 "
+            "(standard close-to-close: factor at close(t-1) drives the weight that "
+            "earns the return from close(t-1) to close(t)). Set to 0 to reproduce "
+            "legacy MOC-style execution (NOT realistic — assumes you can trade at "
+            "the same close used to compute the factor)."
+        ),
+    )
     walkforward: Optional[WalkForwardConfig] = None
 
 

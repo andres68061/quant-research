@@ -27,6 +27,8 @@ def get_replay_frames(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     survivorship_free: bool = True,
+    min_stocks: int = Query(20, ge=2),
+    signal_lag_days: int = Query(1, ge=0),
 ) -> dict:
     """
     Precompute and return frame-by-frame replay data for a factor-based
@@ -61,6 +63,8 @@ def get_replay_frames(
         rebalance_freq=rebalance_freq,
         transaction_cost=transaction_cost_bps / 10_000,
         universe_filter=uf,
+        min_stocks=min_stocks,
+        signal_lag_days=signal_lag_days,
     )
     frames = precompute_backtest_frames(net_returns)
 

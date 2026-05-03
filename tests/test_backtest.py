@@ -91,6 +91,10 @@ class TestCreateSignals:
             min_stocks=2,
             top_pct=0.5,
             bottom_pct=0.5,
+            # This test checks the `_infer_abs_bound` filter for beta, not the
+            # 1-day execution lag; use lag=0 so the single-date fixture produces
+            # a signal row to assert on.
+            signal_lag_days=0,
         )
         assert set(signals["signal"].unique()) == {-1, 1}
         assert (signals["signal"] != 0).all()
@@ -107,7 +111,12 @@ class TestCreateSignals:
         )
         factors = pd.DataFrame({"custom_x": [0.1, 0.2, 15.0]}, index=idx)
         signals_default = create_signals_from_factor(
-            factors, "custom_x", min_stocks=2, top_pct=0.33, bottom_pct=0.33
+            factors,
+            "custom_x",
+            min_stocks=2,
+            top_pct=0.33,
+            bottom_pct=0.33,
+            signal_lag_days=0,
         )
         assert (signals_default.loc[(slice(None), "C"), "signal"] == 0).all()
 
@@ -128,6 +137,7 @@ class TestCreateSignals:
             top_pct=0.33,
             bottom_pct=0.33,
             max_abs_value=20.0,
+            signal_lag_days=0,
         )
         assert (signals.loc[(slice(None), "C"), "signal"] != 0).any()
 
@@ -256,3 +266,188 @@ class TestRebalanceFreqNormalization:
             )
         future = [x for x in w if issubclass(x.category, FutureWarning)]
         assert not future, [str(x.message) for x in future]
+
+
+class TestDelistingRealization:
+    """
+    Guards for Bug 4 + Bug 8 in docs/FACTOR_BACKTEST_AUDIT.md.
+
+    A long position whose price goes to NaN (delisting / suspension) must be
+    realized as a -100% return on the position weight on the first NaN day.
+    The prior implementation moved the weight to a "cash" column and let the
+    NaN silently ffill to zero-return, which understated long-only drawdowns
+    substantially in historical backtests.
+    """
+
+    def test_long_position_delisting_realizes_minus_100_percent(self) -> None:
+        dates = pd.bdate_range("2023-01-02", periods=10)
+        prices = pd.DataFrame(
+            {
+                "AAA": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109],
+                # BBB trades for 4 days, then goes to NaN (bankruptcy)
+                "BBB": [100, 101, 102, 103, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
+            },
+            index=dates,
+        )
+        # Long BBB continuously until delisting. Use daily rebalance so the
+        # position is maintained until BBB drops out of the available universe.
+        sig_idx = pd.MultiIndex.from_product([dates, ["AAA", "BBB"]], names=["date", "symbol"])
+        signals = pd.DataFrame(0, index=sig_idx, columns=["signal"])
+        for d in dates[:4]:
+            signals.loc[(d, "BBB"), "signal"] = 1
+
+        result = calculate_portfolio_returns(
+            signals,
+            prices,
+            rebalance_freq="D",
+            transaction_cost=0.0,
+            long_only=True,
+        )
+
+        # Day 4 is the first day BBB is NaN. Position carried from day 3 (weight
+        # 1.0) must realize -100% on day 4.
+        day4 = dates[4]
+        assert np.isclose(result.loc[day4, "gross_return"], -1.0, atol=1e-10), (
+            f"Expected -100% on delisting day, got {result.loc[day4, 'gross_return']}"
+        )
+        # Subsequent days must not double-count (position zeroed out)
+        for later in dates[5:]:
+            assert np.isclose(result.loc[later, "gross_return"], 0.0, atol=1e-10)
+
+    def test_pct_change_does_not_forward_fill_nans(self) -> None:
+        """
+        Regression: pct_change previously used the default fill_method='pad'
+        which silently forward-filled NaN prices. This test asserts NaN prices
+        produce NaN returns, which are then handled by the delisting path.
+        """
+        dates = pd.bdate_range("2023-01-02", periods=6)
+        prices = pd.DataFrame(
+            {"X": [100.0, 101.0, np.nan, np.nan, 103.0, 104.0]},
+            index=dates,
+        )
+        returns = prices.pct_change(fill_method=None)
+        # Day 2 and 3 must be NaN. (Not 0% as under ffill.)
+        assert pd.isna(returns.iloc[2, 0])
+        assert pd.isna(returns.iloc[3, 0])
+
+
+class TestSignalLag:
+    """
+    Guards for Bug 3 in docs/FACTOR_BACKTEST_AUDIT.md.
+
+    With default `signal_lag_days=1`, the signal emitted on date t must be
+    derived from the factor value observed on date (t-1). With
+    `signal_lag_days=0`, the factor value on t is used (same-close / MOC
+    execution — retained only for legacy parity, NOT realistic).
+    """
+
+    def test_default_lag_shifts_factor_by_one_day(self) -> None:
+        dates = pd.date_range("2023-01-03", periods=5, freq="D")
+        symbols = ["A", "B", "C", "D"]
+        # Factor = rank(symbol) increasing each day so shift is easy to detect.
+        records = []
+        for t, d in enumerate(dates):
+            for i, s in enumerate(symbols):
+                # On day t: A=t, B=t+1, C=t+2, D=t+3  (D is highest every day)
+                records.append({"date": d, "symbol": s, "f": float(t + i)})
+        factors = pd.DataFrame(records).set_index(["date", "symbol"])
+
+        # With lag=1, date t uses factor at date (t-1). Day 0 has no prior
+        # factor so all signals should be 0. Day 1 uses day 0's factor.
+        sigs = create_signals_from_factor(
+            factors, "f", top_pct=0.25, bottom_pct=0.25, min_stocks=2, signal_lag_days=1
+        )
+        day0_signals = sigs.loc[dates[0], "signal"]
+        assert (day0_signals == 0).all(), (
+            "signal_lag_days=1: day 0 must have no signals (no prior factor)"
+        )
+
+        # With lag=0, day 0 produces signals immediately.
+        sigs0 = create_signals_from_factor(
+            factors, "f", top_pct=0.25, bottom_pct=0.25, min_stocks=2, signal_lag_days=0
+        )
+        day0_signals_nolag = sigs0.loc[dates[0], "signal"]
+        assert (day0_signals_nolag != 0).any(), (
+            "signal_lag_days=0: day 0 should produce signals"
+        )
+
+    def test_lag_zero_reproduces_legacy_behavior(self) -> None:
+        """signal_lag_days=0 should produce identical signals to the old
+        factor-on-t approach (same-close MOC)."""
+        dates = pd.date_range("2023-01-03", periods=3, freq="D")
+        symbols = ["A", "B", "C"]
+        records = []
+        for t, d in enumerate(dates):
+            for i, s in enumerate(symbols):
+                records.append({"date": d, "symbol": s, "f": float(t + i)})
+        factors = pd.DataFrame(records).set_index(["date", "symbol"])
+
+        sigs = create_signals_from_factor(
+            factors, "f", top_pct=0.34, bottom_pct=0.34, min_stocks=2, signal_lag_days=0
+        )
+        # On every day, C has highest factor -> long; A has lowest -> short.
+        for d in dates:
+            assert sigs.loc[(d, "C"), "signal"] == 1
+            assert sigs.loc[(d, "A"), "signal"] == -1
+
+    def test_negative_lag_rejected(self) -> None:
+        dates = pd.date_range("2023-01-03", periods=2, freq="D")
+        factors = pd.DataFrame(
+            {"f": [1.0, 2.0]},
+            index=pd.MultiIndex.from_product([dates, ["A"]], names=["date", "symbol"]),
+        )
+        with pytest.raises(ValueError, match="signal_lag_days"):
+            create_signals_from_factor(factors, "f", signal_lag_days=-1, min_stocks=1)
+
+
+class TestEndOfDayTzBoundary:
+    """
+    Guards for Bug 5 in docs/FACTOR_BACKTEST_AUDIT.md.
+
+    When the factor index is tz-aware UTC, a tz-naive request date like
+    '2024-06-28' localizes to 00:00 UTC — which is BEFORE the ~20:00 UTC
+    US equity close. Without end-of-day normalization, the last trading bar
+    is silently dropped from the backtest window.
+    """
+
+    def test_factor_runner_includes_last_bar_under_utc_index(self) -> None:
+        from core.strategies.factor_runner import run_factor_cross_section_backtest
+
+        # Build a tz-aware UTC factor and price panel spanning 3 days.
+        dates = pd.to_datetime(
+            ["2024-06-26 20:00", "2024-06-27 20:00", "2024-06-28 20:00"], utc=True
+        )
+        symbols = ["AAA", "BBB", "CCC"]
+        price_df = pd.DataFrame(
+            {"AAA": [100, 101, 102], "BBB": [50, 51, 52], "CCC": [200, 198, 199]},
+            index=dates,
+        )
+        records = []
+        for t, d in enumerate(dates):
+            for i, s in enumerate(symbols):
+                records.append({"date": d, "symbol": s, "f": float(t * 10 + i)})
+        factors = pd.DataFrame(records).set_index(["date", "symbol"])
+
+        # Pass a tz-naive end date at midnight; the runner must push to EOD
+        # so the 20:00 UTC bar on 2024-06-28 is included.
+        net = run_factor_cross_section_backtest(
+            factors,
+            price_df,
+            factor_col="f",
+            start=pd.Timestamp("2024-06-26"),
+            end=pd.Timestamp("2024-06-28"),  # midnight => would exclude 20:00 bar
+            top_pct=0.34,
+            bottom_pct=0.34,
+            rebalance_freq="D",
+            transaction_cost=0.0,
+            min_stocks=2,
+            signal_lag_days=0,
+        )
+        # If the tz bug returned, `net` would miss the last day and be shorter.
+        assert len(net) >= 2, (
+            f"Got {len(net)} return rows from 3-day panel; "
+            "last-bar drop (Bug 5) likely regressed."
+        )
+        assert dates[-1] in net.index, (
+            "The 2024-06-28 20:00 UTC bar must be in the net return index."
+        )

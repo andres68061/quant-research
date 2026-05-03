@@ -10,7 +10,9 @@ router = APIRouter(tags=["strategies"])
 @router.get("/strategies")
 def get_strategies_catalog() -> dict:
     """
-    Return all registered strategies (id, title, description, kind, post_path).
+    Return all registered strategies, including the hypothesis, reference,
+    expected Sharpe range, and known limitations used to populate the
+    Strategy Brief and Methodology pages in the frontend.
 
     Execution remains on the referenced POST routes (e.g. /run-backtest).
     """
@@ -23,6 +25,14 @@ def get_strategies_catalog() -> dict:
                 "description": meta.description,
                 "kind": meta.kind.value,
                 "post_path": meta.post_path,
+                "hypothesis": meta.hypothesis,
+                "reference": meta.reference,
+                "expected_sharpe_range": (
+                    list(meta.expected_sharpe_range)
+                    if meta.expected_sharpe_range is not None
+                    else None
+                ),
+                "known_limitations": list(meta.known_limitations),
             }
         )
     return {"strategies": strategies}

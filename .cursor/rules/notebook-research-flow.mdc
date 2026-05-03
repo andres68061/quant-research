@@ -1,0 +1,67 @@
+---
+description: Research notebook flow — validate one variable fully before moving to the next
+globs:
+  - notebooks/**/*.ipynb
+alwaysApply: false
+---
+
+# Research Notebook Flow
+
+Use this rule when authoring or restructuring exploratory quant notebooks.
+The notebook should read like a research trail: one variable is loaded,
+inspected, transformed, inspected again, and gated before the next variable.
+
+## Required order
+
+1. Upstream inputs first.
+2. Derived features second.
+3. Feature matrix assembly third.
+4. Modeling fourth.
+5. Evaluation and conclusions last.
+
+Do not run modeling code before every input and derived feature has been
+validated.
+
+## Per-variable mini-section
+
+Every research variable gets this sequence:
+
+1. Markdown header: `### <section.subsection> <variable_name>` plus one
+   sentence explaining why the variable matters.
+2. Code: load or select the most-upstream artifact this notebook consumes and
+   show dtype, index range, timezone, missing-value rate, `head()`, and
+   `describe()`.
+3. Code: chart that upstream variable by itself.
+4. Markdown: explain where upstream preparation lives and what transformation
+   or cleaning this notebook adds.
+5. Code: apply the transformation, repeat diagnostics, chart the transformed
+   series, and end with at least one explicit gate or assertion.
+
+## Avoid
+
+- Building the entire feature matrix before inspecting individual inputs.
+- Transforming many variables in one opaque cell.
+- Charting all variables together before each variable has its own upstream and
+  transformed chart.
+- Splitting a variable's transformation and validation across unrelated
+  sections.
+- Keeping reusable business logic in the notebook; extract reusable computation
+  to `core/` and import it.
+
+## Example
+
+```python
+upstream_vix = load_vix(start=START_DATE, end=END_DATE)
+display(describe_series(upstream_vix, "upstream_vix"))
+plot_series(upstream_vix, title="Upstream VIX")
+```
+
+```python
+vix_feature = upstream_vix.asfreq("B").ffill(limit=5).rename("vix")
+display(describe_series(vix_feature, "vix_feature"))
+plot_series(vix_feature, title="VIX Feature")
+assert vix_feature.notna().mean() > 0.95
+```
+
+Also follow `.cursor/rules/notebooks.mdc` for robust path resolution, missing
+data guards, and the no-business-logic boundary.

@@ -15,13 +15,35 @@ def compute_returns(close: pd.Series) -> pd.Series:
 
 
 def momentum_excluding_recent(close: pd.Series, months: int) -> pd.Series:
-    # 12-1 style: past m months excluding the most recent 21 trading days
+    """
+    Jegadeesh-Titman style (m-1) momentum: return over the past ``months`` months
+    **excluding** the most recent 21 trading days.
+
+    Computes the GEOMETRIC ex-recent return:
+
+        mom = P(t-21) / P(t-252) - 1   (for months=12)
+
+    equivalently
+
+        mom = (1 + cum_{months}) / (1 + cum_1m) - 1
+
+    Notes
+    -----
+    - Arithmetic `cum_{months} - cum_1m` is incorrect for non-infinitesimal returns and
+      re-introduces the short-term reversal effect that the m-1 construction is
+      designed to remove. See `docs/FACTOR_BACKTEST_AUDIT.md` §3 Bug 1.
+    - Returns NaN until the full ``months*21`` history is available. Short-history
+      stocks (IPOs) correctly get no signal instead of a spurious one equal to
+      ``-cum_1m`` (previous `fill_value=0.0` bug).
+    """
     ret = close.pct_change(fill_method=None)
     recent = 21
     window = months * 21
     cum = (1 + ret).rolling(window).apply(np.prod, raw=True) - 1.0
     ex_recent = (1 + ret).rolling(recent).apply(np.prod, raw=True) - 1.0
-    return cum.sub(ex_recent, fill_value=0.0)
+    # Geometric, without fill_value: both operands must be present or the
+    # result is NaN (correct for IPO / short-history names).
+    return (1 + cum) / (1 + ex_recent) - 1.0
 
 
 def rolling_volatility(ret: pd.Series, window: int) -> pd.Series:
