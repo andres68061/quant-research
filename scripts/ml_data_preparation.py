@@ -2,8 +2,7 @@
 """
 Machine Learning Data Preparation Example
 
-This script demonstrates how to use the database system to prepare data
-for machine learning models, including feature engineering and dataset creation.
+This script prepares a small ML dataset from the active Parquet price panel.
 """
 
 import logging
@@ -14,14 +13,68 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from config.settings import FINNHUB_API_KEY, TECHNICAL_INDICATORS
-from core.data.enhanced_stock_data import EnhancedStockDataFetcher
+from config.settings import PROJECT_ROOT, TECHNICAL_INDICATORS
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
 logger = logging.getLogger("ml_data_preparation")
 
 
-def create_ml_dataset(symbols: list, period: str = "2y", features: list = None):
+def _period_to_date_offset(period: str) -> pd.DateOffset:
+    """Convert compact periods like '2y' or '6mo' to a pandas offset."""
+    if period.endswith("y"):
+        return pd.DateOffset(years=int(period[:-1]))
+    if period.endswith("mo"):
+        return pd.DateOffset(months=int(period[:-2]))
+    if period.endswith("d"):
+        return pd.DateOffset(days=int(period[:-1]))
+    raise ValueError(f"Unsupported period {period!r}. Use values like '2y', '6mo', or '90d'.")
+
+
+def load_symbol_data_from_price_panel(
+    symbol: str,
+    period: str = "2y",
+    prices_path: Path | None = None,
+) -> pd.DataFrame:
+    """Load one symbol from the adjusted-close Parquet price panel.
+
+    Args:
+        symbol: Ticker column to load from ``prices.parquet``.
+        period: Trailing period to keep, e.g. ``"2y"`` or ``"6mo"``.
+        prices_path: Optional override path for the wide adjusted-close panel.
+
+    Returns:
+        DataFrame indexed by date with ``Close`` and derived return columns.
+        ``Close`` is the adjusted close from the project price panel.
+    """
+    resolved_prices_path = prices_path or PROJECT_ROOT / "data" / "factors" / "prices.parquet"
+    if not resolved_prices_path.exists():
+        raise FileNotFoundError(f"Missing price panel: {resolved_prices_path}")
+
+    price_panel = pd.read_parquet(resolved_prices_path)
+    if symbol not in price_panel.columns:
+        logger.warning("symbol_missing_from_price_panel", extra={"symbol": symbol})
+        return pd.DataFrame()
+
+    symbol_close = price_panel[symbol].dropna().rename("Close")
+    if symbol_close.empty:
+        return pd.DataFrame()
+
+    start_date = symbol_close.index.max() - _period_to_date_offset(period)
+    symbol_close = symbol_close.loc[symbol_close.index >= start_date]
+    if getattr(symbol_close.index, "tz", None) is not None:
+        symbol_close.index = symbol_close.index.tz_localize(None)
+
+    symbol_data = symbol_close.to_frame()
+    symbol_data["Daily_Return"] = symbol_data["Close"].pct_change(fill_method=None)
+    symbol_data["Cumulative_Return"] = (1 + symbol_data["Daily_Return"]).cumprod() - 1
+    symbol_data["Log_Return"] = np.log(symbol_data["Close"] / symbol_data["Close"].shift(1))
+    symbol_data["Volatility_30d"] = symbol_data["Daily_Return"].rolling(window=30).std() * np.sqrt(252)
+    symbol_data["MA_20"] = symbol_data["Close"].rolling(window=20).mean()
+    symbol_data["MA_50"] = symbol_data["Close"].rolling(window=50).mean()
+    return symbol_data
+
+
+def create_ml_dataset(symbols: list[str], period: str = "2y", features: list[str] | None = None):
     """
     Create a machine learning dataset with technical indicators.
     
@@ -37,42 +90,44 @@ def create_ml_dataset(symbols: list, period: str = "2y", features: list = None):
 
     if features is None:
         features = [
-            'Close', 'Volume', 'Daily_Return', 'Volatility_30d',
-            'MA_20', 'MA_50', 'RSI', 'MACD', 'MACD_Signal',
-            'BB_Upper', 'BB_Lower', 'BB_Position'
+            "Close",
+            "Daily_Return",
+            "Volatility_30d",
+            "MA_20",
+            "MA_50",
+            "RSI",
+            "MACD",
+            "MACD_Signal",
+            "BB_Upper",
+            "BB_Lower",
+            "BB_Position",
         ]
 
-    fetcher = EnhancedStockDataFetcher(FINNHUB_API_KEY)
+    all_data = {}
+    for symbol in symbols:
+        logger.info("load_symbol", extra={"symbol": symbol})
+        data = load_symbol_data_from_price_panel(symbol, period=period)
+        if not data.empty:
+            all_data[symbol] = add_technical_indicators(data)
+            logger.info("load_symbol_done", extra={"symbol": symbol, "rows": int(len(data))})
+        else:
+            logger.error("load_symbol_fail", extra={"symbol": symbol})
 
-    try:
-        all_data = {}
-        for symbol in symbols:
-            logger.info("fetch_symbol", extra={"symbol": symbol})
-            data = fetcher.get_stock_data(symbol, period=period)
-            if data is not None:
-                data = add_technical_indicators(data)
-                all_data[symbol] = data
-                logger.info("fetch_symbol_done", extra={"symbol": symbol, "rows": int(len(data))})
-            else:
-                logger.error("fetch_symbol_fail", extra={"symbol": symbol})
-
-        combined_data = combine_stock_data(all_data, features)
-        if combined_data.empty:
-            logger.error("dataset_empty")
-            return combined_data
-
-        logger.info(
-            "ml_dataset_done",
-            extra={
-                "rows": int(len(combined_data)),
-                "cols": int(len(combined_data.columns)),
-                "start": str(combined_data.index[0].date()),
-                "end": str(combined_data.index[-1].date()),
-            },
-        )
+    combined_data = combine_stock_data(all_data, features)
+    if combined_data.empty:
+        logger.error("dataset_empty")
         return combined_data
-    finally:
-        fetcher.close()
+
+    logger.info(
+        "ml_dataset_done",
+        extra={
+            "rows": int(len(combined_data)),
+            "cols": int(len(combined_data.columns)),
+            "start": str(combined_data.index[0].date()),
+            "end": str(combined_data.index[-1].date()),
+        },
+    )
+    return combined_data
 
 
 def add_technical_indicators(data: pd.DataFrame) -> pd.DataFrame:
@@ -196,8 +251,9 @@ def create_time_series_features(data: pd.DataFrame, lookback_periods: list = [1,
         df[f'Return_Min_{period}'] = df['Daily_Return'].rolling(window=period).min()
         df[f'Price_Lag_{period}'] = df['Close'].shift(period)
         df[f'Price_Change_{period}'] = df['Close'].pct_change(period)
-        df[f'Volume_Lag_{period}'] = df['Volume'].shift(period)
-        df[f'Volume_Change_{period}'] = df['Volume'].pct_change(period)
+        if "Volume" in df.columns:
+            df[f'Volume_Lag_{period}'] = df['Volume'].shift(period)
+            df[f'Volume_Change_{period}'] = df['Volume'].pct_change(period)
 
     return df
 

@@ -9,6 +9,17 @@ This document answers: **what variables and files exist in the repo today**, **w
 
 Paths are relative to the repository root unless noted.
 
+### Raw vs derived data layers
+
+The repo separates **raw** from **derived** data:
+
+| Layer | Definition | Files |
+|-------|------------|-------|
+| Raw | Source of truth. No publication lag, no business-day fill, no standardisation, no per-symbol cleaning beyond yfinance's own adjustment. | `data/raw/macro_fred.parquet`, `data/factors/prices.parquet` (light option: yfinance-adjusted close treated as raw), `data/factors/vix.parquet` |
+| Derived | Deterministic functions of the raw layer. Rebuilt by scripts; safe to delete and regenerate. | `data/factors/macro.parquet`, `data/factors/macro_z.parquet`, `data/factors/factors_price.parquet`, `data/factors/factors_all.parquet`, `data/factors/fama_french_5.parquet` |
+
+The macro raw layer is long-format (`reference_date`, `series_id`, `value`) at the FRED native frequency. `core/data/factors/macro.py::derive_macro_panel_from_raw` is the canonical pivot + publication-lag + business-day fill helper. Notebooks load from the raw layer and apply transformations inline so each step is visible.
+
 ### Loaded by the FastAPI app at startup
 
 Defined in [`api/dependencies.py`](../api/dependencies.py):
@@ -27,9 +38,10 @@ See [`scripts/backfill_all.py`](../scripts/backfill_all.py). Output directory de
 
 | File | Contents (high level) |
 |------|------------------------|
-| `prices.parquet` | Wide close panel from `build_prices_panel` (yfinance-backed in `core/data/factors/prices.py`) |
-| `macro.parquet` | Macro series from `load_default_macro` |
-| `macro_z.parquet` | Z-scored macro (`compute_macro_zscores`) |
+| `prices.parquet` | Wide close panel from `build_prices_panel` (yfinance-backed in `core/data/factors/prices.py`); treated as the raw stock layer under the light option |
+| `../raw/macro_fred.parquet` | **Raw** long-format FRED panel `(reference_date, series_id, value)` at native frequency. Source of truth for all macro derivations. Built by `scripts/fetch_raw_macro.py`. |
+| `macro.parquet` | **Derived** publication-lagged business-day macro panel from `derive_macro_panel_from_raw(raw_long)` |
+| `macro_z.parquet` | **Derived** 5-year rolling z-scores from `compute_macro_zscores(macro)` |
 | `factors_price.parquet` | Price-derived factors from `build_price_factors` (see below) |
 | `fundamentals_daily.parquet` | Dailyized fundamentals (FMP bulk), when fundamentals pipeline runs |
 | `factors_vq.parquet` | Value/quality composites from `compute_value_quality_factors`, when fundamentals present |

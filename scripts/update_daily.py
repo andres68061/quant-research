@@ -28,7 +28,12 @@ if str(ROOT) not in sys.path:
 from core.data.factors.build_factors import build_price_factors, merge_market_cap
 from core.data.factors.fama_french import update_ff5_parquet
 from core.data.factors.io import connect_duckdb, register_parquet
-from core.data.factors.macro import compute_macro_zscores, load_default_macro
+from core.data.factors.macro import (
+    RAW_MACRO_PARQUET,
+    compute_macro_zscores,
+    derive_macro_panel_from_raw,
+    load_raw_macro_default,
+)
 from core.data.factors.prices import update_prices_panel_incremental
 from core.data.sector_classification import (
     add_or_update_sectors,
@@ -90,46 +95,46 @@ def update_prices(out_root: Path) -> bool:
         return False
 
 
-def update_macro(out_root: Path) -> bool:
+def update_macro(out_root: Path, raw_path: Path = RAW_MACRO_PARQUET) -> bool:
     """
-    Update macro.parquet and macro_z.parquet with new data.
+    Refresh the raw FRED panel and derive macro.parquet plus macro_z.parquet.
+
+    The raw long-format panel at ``raw_path`` is the source of truth; the
+    publication-lagged business-day panel and z-score panel are deterministic
+    derivations of it.
 
     Returns:
-        True if new data was added, False otherwise
+        True if the latest derived ``macro.parquet`` extended further than the
+        prior version, False otherwise.
     """
     macro_path = out_root / "macro.parquet"
     macro_z_path = out_root / "macro_z.parquet"
 
-    print(f"📊 Updating macro from {macro_path}...")
+    print(f"📊 Refreshing raw macro layer at {raw_path}...")
 
     existing_macro = read_parquet(macro_path)
+    last_date = existing_macro.index.max() if existing_macro is not None and not existing_macro.empty else None
 
-    if existing_macro is None or existing_macro.empty:
-        print("⚠️  No existing macro data found. Run backfill_all.py first.")
+    print("   Fetching latest raw FRED series...")
+    raw_long = load_raw_macro_default()
+    if raw_long.empty:
+        print("⚠️  Raw FRED fetch returned no rows; skipping macro derivation.")
         return False
 
-    last_date = existing_macro.index.max()
-    print(f"   Last date in macro: {last_date.strftime('%Y-%m-%d')}")
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    write_parquet(raw_long, raw_path)
+    print(f"   ✅ Wrote raw panel ({len(raw_long):,} rows) to {raw_path}")
 
-    # Fetch fresh macro data (FRED API typically provides full history)
-    print("   Fetching latest macro data...")
-    new_macro = load_default_macro()
+    derived_macro = derive_macro_panel_from_raw(raw_long)
+    new_last_date = derived_macro.index.max()
 
-    new_last_date = new_macro.index.max()
+    if last_date is not None and new_last_date <= last_date:
+        print("   ℹ️  Macro data is up to date; rewriting derived files for consistency.")
 
-    if new_last_date > last_date:
-        print(f"   ✅ New macro data available through {new_last_date.strftime('%Y-%m-%d')}")
-
-        # Compute z-scores
-        macro_z = compute_macro_zscores(new_macro)
-
-        # Write updated files
-        write_parquet(new_macro, macro_path)
-        write_parquet(macro_z, macro_z_path)
-        return True
-    else:
-        print("   ℹ️  Macro data is up to date")
-        return False
+    write_parquet(derived_macro, macro_path)
+    write_parquet(compute_macro_zscores(derived_macro), macro_z_path)
+    print(f"   ✅ Derived macro.parquet through {new_last_date.strftime('%Y-%m-%d')}")
+    return last_date is None or new_last_date > last_date
 
 
 def rebuild_factors(out_root: Path, prices_updated: bool) -> None:

@@ -1,8 +1,8 @@
 """
 Configuration settings for the quant project.
 
-This module contains all configuration settings including API keys,
-database paths, and other project settings.
+This module contains project configuration settings, API keys, paths,
+and other runtime defaults.
 """
 
 import logging
@@ -19,10 +19,6 @@ PROJECT_ROOT = Path(__file__).parent.parent
 
 # Load environment variables from a local .env file if present
 load_dotenv()
-
-# Database settings
-DATABASE_PATH = PROJECT_ROOT / "data" / "stock_data.db"
-DATABASE_BACKUP_PATH = PROJECT_ROOT / "data" / "backups"
 
 # API Keys (store these securely in environment variables)
 # Core market data providers
@@ -62,10 +58,6 @@ DATA_SOURCES = {
 DEFAULT_PERIOD = "1y"
 DEFAULT_SOURCE = "auto"
 DEFAULT_RESOLUTION = "1d"
-
-# Database retention settings
-DATA_RETENTION_DAYS = 3650  # 10 years
-CLEANUP_INTERVAL_DAYS = 30  # Clean up every 30 days
 
 # Logging configuration
 LOG_LEVEL = "INFO"
@@ -171,18 +163,6 @@ def validate_api_keys() -> Dict[str, bool]:
     return validation
 
 
-def get_database_path() -> Path:
-    """
-    Get the database path, creating the directory if needed.
-
-    Returns:
-        Path: Database file path
-    """
-    db_dir = DATABASE_PATH.parent
-    db_dir.mkdir(parents=True, exist_ok=True)
-    return DATABASE_PATH
-
-
 def get_log_file_path() -> Path:
     """
     Get the log file path, creating the directory if needed.
@@ -201,7 +181,6 @@ class DevelopmentConfig:
 
     DEBUG = True
     LOG_LEVEL = "DEBUG"
-    DATABASE_PATH = PROJECT_ROOT / "data" / "stock_data_dev.db"
 
 
 class ProductionConfig:
@@ -209,7 +188,6 @@ class ProductionConfig:
 
     DEBUG = False
     LOG_LEVEL = "WARNING"
-    DATABASE_PATH = PROJECT_ROOT / "data" / "stock_data_prod.db"
 
 
 class TestingConfig:
@@ -217,7 +195,6 @@ class TestingConfig:
 
     DEBUG = True
     LOG_LEVEL = "DEBUG"
-    DATABASE_PATH = PROJECT_ROOT / "data" / "stock_data_test.db"
 
 
 # Configuration mapping
@@ -251,7 +228,6 @@ if __name__ == "__main__":
     print("=" * 40)
 
     print(f"Project Root: {PROJECT_ROOT}")
-    print(f"Database Path: {get_database_path()}")
     print(f"Log File: {get_log_file_path()}")
 
     print(f"\nAPI Keys:")
