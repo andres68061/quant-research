@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from api.dependencies import get_prices
+from api.time_utils import slice_by_dates
 from core.metrics.performance import calculate_performance_metrics
 from core.optimization.portfolio import (
     calculate_cal_points,
@@ -57,11 +58,7 @@ def _aligned_price_panel(symbols: List[str], start: Optional[str], end: Optional
         raise HTTPException(status_code=404, detail=f"Symbols not found: {missing}")
 
     df = prices[symbols].dropna()
-    if start:
-        df = df[df.index >= start]
-    if end:
-        df = df[df.index <= end]
-    return df
+    return slice_by_dates(df, start, end)
 
 
 def _solo_row_counts(symbols: List[str], start: Optional[str], end: Optional[str]) -> Dict[str, int]:
@@ -71,10 +68,7 @@ def _solo_row_counts(symbols: List[str], start: Optional[str], end: Optional[str
     out: Dict[str, int] = {}
     for s in symbols:
         ser = prices[s].dropna()
-        if start:
-            ser = ser[ser.index >= start]
-        if end:
-            ser = ser[ser.index <= end]
+        ser = slice_by_dates(ser, start, end)
         out[s] = int(len(ser))
     return out
 
@@ -144,10 +138,7 @@ def price_row_counts(
         if ser_full.empty:
             continue
         ser_window = ser_full
-        if start_date:
-            ser_window = ser_window[ser_window.index >= start_date]
-        if end_date:
-            ser_window = ser_window[ser_window.index <= end_date]
+        ser_window = slice_by_dates(ser_window, start_date, end_date)
         symbols[str(col)] = {
             "count": int(len(ser_window)),
             "first": str(ser_full.index.min().date()),
@@ -226,10 +217,7 @@ def simulate(req: SimulateRequest) -> dict:
         raise HTTPException(status_code=404, detail=f"Symbols not found: {missing}")
 
     df = prices[symbols].dropna()
-    if req.start_date:
-        df = df[df.index >= req.start_date]
-    if req.end_date:
-        df = df[df.index <= req.end_date]
+    df = slice_by_dates(df, req.start_date, req.end_date)
 
     weights = np.array([req.weights.get(s, 0.0) for s in symbols])
     weights = weights / weights.sum()

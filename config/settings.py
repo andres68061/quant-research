@@ -22,7 +22,6 @@ load_dotenv()
 
 # API Keys (store these securely in environment variables)
 # Core market data providers
-FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
 ALPHAVANTAGE_API_KEY = os.getenv("ALPHAVANTAGE_API_KEY")
 FMP_API_KEY = os.getenv("FMP_API_KEY") or os.getenv("FINANCIAL_MODELING_PREP_API_KEY")
 
@@ -40,18 +39,10 @@ REDDIT_USER_AGENT = os.getenv("REDDIT_USER_AGENT")
 REDDIT_USERNAME = os.getenv("REDDIT_USERNAME")
 REDDIT_PASSWORD = os.getenv("REDDIT_PASSWORD")
 
-if not FINNHUB_API_KEY:
-    logger.warning("FINNHUB_API_KEY not found in environment variables")
-    FINNHUB_API_KEY = None
-
 # Data sources configuration
 DATA_SOURCES = {
-    "yfinance": {"enabled": True, "rate_limit": 100, "timeout": 30},  # requests per minute
-    "finnhub": {
-        "enabled": bool(FINNHUB_API_KEY),
-        "rate_limit": 60,  # requests per minute (free tier)
-        "timeout": 30,
-    },
+    "fmp": {"enabled": bool(FMP_API_KEY), "rate_limit": 500, "timeout": 60},
+    "fred": {"enabled": bool(FRED_API_KEY), "rate_limit": 120, "timeout": 30},
 }
 
 # Default data fetching settings
@@ -137,8 +128,7 @@ def validate_api_keys() -> Dict[str, bool]:
     """
     validation = {}
 
-    # Market data providers
-    validation["finnhub"] = bool(FINNHUB_API_KEY and len(FINNHUB_API_KEY) > 0)
+    # Market data / macro
     validation["alphavantage"] = bool(ALPHAVANTAGE_API_KEY)
     validation["fmp"] = bool(FMP_API_KEY)
 

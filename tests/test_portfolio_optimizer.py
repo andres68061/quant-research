@@ -11,6 +11,7 @@ from api.routes.portfolio import (
     joint_history,
     price_row_counts,
 )
+from api.time_utils import bound_timestamp, slice_by_dates
 
 
 @pytest.fixture
@@ -27,7 +28,8 @@ def test_price_row_counts_respects_start(toy_prices: pd.DataFrame) -> None:
     with patch("api.routes.portfolio.get_prices", return_value=toy_prices):
         out = price_row_counts(start_date=start)
     assert out["min_required"] == MIN_OPTIMIZER_PRICE_ROWS
-    expected = int(toy_prices.loc[toy_prices.index >= start].shape[0])
+    start_ts = bound_timestamp(start, toy_prices.index)
+    expected = int(toy_prices.loc[toy_prices.index >= start_ts].shape[0])
     voo = out["symbols"]["VOO"]
     gld = out["symbols"]["GLD"]
     assert voo["count"] == expected
@@ -36,6 +38,17 @@ def test_price_row_counts_respects_start(toy_prices: pd.DataFrame) -> None:
     assert voo["first"] == "2020-01-01"
     assert voo["last"] == str(toy_prices.index.max().date())
     assert out["last_panel_date"] == str(toy_prices.index.max().date())
+
+
+def test_slice_by_dates_tz_aware_strings() -> None:
+    idx = pd.bdate_range("2024-01-01", periods=10, tz="America/New_York")
+    frame = pd.DataFrame({"A": range(10)}, index=idx)
+    sliced = slice_by_dates(frame, start="2024-01-05", end="2024-01-09")
+    assert sliced.index.min() == bound_timestamp("2024-01-05", idx)
+    assert sliced.index.max() == bound_timestamp("2024-01-09", idx)
+    # Naive Timestamp must not be used raw against tz-aware indexes.
+    with pytest.raises(TypeError):
+        _ = frame.index >= pd.Timestamp("2024-01-05")
 
 
 def test_price_row_counts_reports_delisted_window(toy_prices: pd.DataFrame) -> None:

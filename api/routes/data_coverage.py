@@ -111,7 +111,7 @@ _DATASET_CATALOG: dict[str, tuple[str, str, str, str]] = {
     ),
     "commodities": (
         "data/commodities/prices.parquet",
-        "yfinance futures",
+        "FMP (ETFs + futures)",
         "raw",
         "Commodity futures price history",
     ),

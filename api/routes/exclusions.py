@@ -16,6 +16,8 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from api.time_utils import slice_by_dates
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/exclusions", tags=["exclusions"])
 
@@ -75,10 +77,8 @@ def exclusion_summary(
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    if start_date:
-        df = df[df.index >= start_date]
-    if end_date:
-        df = df[df.index <= end_date]
+    if start_date or end_date:
+        df = slice_by_dates(df, start_date, end_date)
 
     mask = (df.fillna(np.inf) >= price_threshold).all(axis=0)
     valid_syms = df.columns[mask].tolist()
@@ -127,10 +127,8 @@ def exclusion_detail(
     if symbol not in df.columns:
         raise HTTPException(status_code=404, detail=f"Symbol {symbol} not found")
 
-    if start_date:
-        df = df[df.index >= start_date]
-    if end_date:
-        df = df[df.index <= end_date]
+    if start_date or end_date:
+        df = slice_by_dates(df, start_date, end_date)
 
     s = df[symbol].dropna()
     if len(s) == 0:

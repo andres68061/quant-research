@@ -42,8 +42,8 @@ def main():
         print()
         print("✗ No data fetched. Please check:")
         print("  1. Internet connection")
-        print("  2. Alpha Vantage API key in .env file")
-        print("  3. API rate limits")
+        print("  2. FMP_API_KEY in .env")
+        print("  3. FMP Premium coverage for the mapped futures symbols")
         sys.exit(1)
     
     print()

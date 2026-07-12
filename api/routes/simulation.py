@@ -104,7 +104,9 @@ def _realized_sharpe(returns: np.ndarray, rf: float) -> float:
 def _realized_sortino(returns: np.ndarray, rf: float) -> float:
     excess = returns - rf / 252
     down = returns[returns < 0]
-    down_std = down.std(ddof=0) if len(down) > 1 else returns.std(ddof=0)
+    # Use downside obs whenever any exist (including a single negative day).
+    # Falling back only when there are zero downside days matches _metrics_and_lists.
+    down_std = down.std(ddof=0) if len(down) > 0 else returns.std(ddof=0)
     if down_std < 1e-14:
         return float(np.sign(excess.mean()) * 1e6) if excess.mean() != 0 else 0.0
     return float(np.sqrt(252) * excess.mean() / down_std)
@@ -131,10 +133,9 @@ def _metrics_and_lists(returns: np.ndarray, rf: float) -> SimulatedInvestment:
     ann_ret = float(returns.mean() * 252)
     calmar = ann_ret / abs(max_dd) if abs(max_dd) > 1e-12 else 0.0
 
-    down = returns[returns < 0]
-    down_std = down.std() if len(down) > 0 else returns.std()
-    sortino = float(np.sqrt(252) * excess.mean() / down_std) if down_std > 1e-14 else 0.0
-    sharpe_actual = float(np.sqrt(252) * excess.mean() / returns.std()) if returns.std() > 1e-14 else 0.0
+    sortino = _realized_sortino(returns, rf)
+    ret_std = float(returns.std(ddof=0))
+    sharpe_actual = float(np.sqrt(252) * excess.mean() / ret_std) if ret_std > 1e-14 else 0.0
 
     return SimulatedInvestment(
         name="",
@@ -147,7 +148,7 @@ def _metrics_and_lists(returns: np.ndarray, rf: float) -> SimulatedInvestment:
             max_drawdown=round(max_dd * 100, 2),
             calmar=round(calmar, 4),
             total_return=round((prices[-1] / 100 - 1) * 100, 2),
-            annualized_vol=round(float(returns.std() * np.sqrt(252) * 100), 2),
+            annualized_vol=round(float(ret_std * np.sqrt(252) * 100), 2),
             skewness=round(float(sp_stats.skew(returns)), 4),
             kurtosis=round(float(sp_stats.kurtosis(returns)), 4),
             win_rate=round(float((returns > 0).sum() / len(returns) * 100), 2),

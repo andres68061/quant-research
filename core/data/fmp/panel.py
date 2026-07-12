@@ -38,6 +38,52 @@ def _update_raw_symbol_file(symbol: str, new_history: pd.DataFrame, raw_dir: Pat
     combined.to_parquet(raw_path)
 
 
+def add_symbol_to_fmp_panel(
+    existing_panel: pd.DataFrame,
+    symbol: str,
+    start: Optional[pd.Timestamp] = None,
+    end: Optional[pd.Timestamp] = None,
+    raw_dir: Path = RAW_PRICES_DIR,
+) -> pd.DataFrame:
+    """
+    Fetch one symbol from FMP, write its raw file, and add/replace the panel column.
+
+    Args:
+        existing_panel: Wide adjusted-close panel.
+        symbol: FMP ticker (e.g. ``"BNY"``).
+        start: First date to fetch (default 1985-01-01).
+        end: Last date (default today).
+        raw_dir: Per-symbol raw parquet directory.
+
+    Returns:
+        Panel with ``symbol`` column merged in (index unioned).
+    """
+    fetch_start = start if start is not None else pd.Timestamp("1985-01-01")
+    fetch_end = end if end is not None else pd.Timestamp.now().normalize()
+    history = fetch_dividend_adjusted_history(symbol, fetch_start, fetch_end)
+    if history.empty:
+        logger.warning("No FMP history for %s; panel unchanged", symbol)
+        return existing_panel
+
+    _update_raw_symbol_file(symbol, history, raw_dir)
+    close = history["adj_close"].rename(symbol)
+    if close.index.tz is None and existing_panel.index.tz is not None:
+        close.index = close.index.tz_localize(existing_panel.index.tz)
+
+    updated = existing_panel.copy()
+    if symbol in updated.columns:
+        updated = updated.drop(columns=[symbol])
+    updated = updated.join(close, how="outer").sort_index()
+    logger.info(
+        "Added %s to panel: %d rows (%s → %s)",
+        symbol,
+        close.notna().sum(),
+        close.index.min().date(),
+        close.index.max().date(),
+    )
+    return updated
+
+
 def update_panel_from_fmp(
     existing_panel: pd.DataFrame,
     raw_dir: Path = RAW_PRICES_DIR,

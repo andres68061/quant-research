@@ -183,4 +183,4 @@ Notebook research flow: validate one variable fully (load → inspect → chart 
 
 ## Environment Variables
 
-API keys and secrets are loaded from `.env` via `config/settings.py`. Required keys for full functionality: `FINNHUB_API_KEY`, `FRED_API_KEY`, `FMP_API_KEY`. See `.env.example` for the full list.
+API keys and secrets are loaded from `.env` via `config/settings.py`. Required keys for full functionality: `FMP_API_KEY`, `FRED_API_KEY`. See `.env.example` for the full list.

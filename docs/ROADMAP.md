@@ -4,67 +4,41 @@ Working log for the platform build-out. Each entry has enough context to
 resume cold ("continue with the roadmap" should be sufficient instruction).
 Update this file whenever an item ships or a decision changes.
 
-_Last updated: 2026-07-11 night (ADV-scaled transaction costs)._
+_Last updated: 2026-07-12 (commodities→FMP, Finnhub dropped, STI/BNY, value+quality NB)._
 
 ## Recently shipped
 
-- FMP prices, market caps, VIX, PIT fundamentals, value/quality strategies,
-  quarantine, survivorship leave-disclosed (see prior entries).
-- **Sectors → FMP `/profile`** (`core/data/sector_classification.py`). No more
-  yfinance for sectors. Limitation: today's sector applied to history (mild
-  lookahead; documented). Finnhub no longer needed for this path.
-- **Symbol lifecycle truncation** (`core/data/lifecycle.py`,
-  `scripts/build_symbol_lifecycle.py`): windows from price gaps + trusted
-  FMP delisted/symbol-change (only when the series ends within 30–90 days of
-  the event — avoids recycled-ticker false positives). Applied to derived
-  `prices.parquet` (6,156 cells cleared). Example: BK ends 2026-05-21 on the
-  BK→BNY rename; AET ends at the 2018 CVS deal. STI: FMP only has post-2022 junk
-  (SunTrust era absent) — still flagged, should be escalated to quarantined.
-- **ADV-scaled transaction costs** (`core/data/liquidity.py`,
-  `data/factors/dollar_adv_21d.parquet`): buckets ≥$100M→5bps, ≥$20M→10bps,
-  ≥$5M→20bps, else 40bps. Wired into `calculate_portfolio_returns` /
-  factor runner / API backtest+replay. Rebuilds in `update_daily.py`.
-  On SP500 short-term reversal 2018–2025, scaled costs cut cumulative drag
-  ~12%→7% vs flat 10bps (most names are liquid).
+- FMP prices, market caps, VIX, sectors, PIT fundamentals, quarantine,
+  lifecycle truncation, ADV-scaled costs (prior commit).
+- **Commodities → FMP** (`core/data/commodities.py`). Internal keys unchanged
+  (`GLD`, `WTI`, …); mapped to FMP ETFs/futures (`GLD`, `CLUSD`, `BZUSD`, …).
+  Uses dividend-adjusted EOD (futures that 402 on `/full` still work there).
+  **Series break**: energy/ag/industrial columns were Alpha Vantage *spot*;
+  they are now FMP *futures*. Backup: `data/commodities/prices_backup_pre_fmp.parquet`.
+- **Finnhub dropped**: deleted `core/data/finnhub_data.py`; removed from
+  `config/settings.py`, `.env.example`, `CLAUDE.md`, `setup_environment.sh`.
+  Required keys: `FMP_API_KEY`, `FRED_API_KEY`.
+- **STI → quarantined** (extreme_returns + stale_prices). Recycled post-2022
+  junk excluded at API load.
+- **BNY continuation**: `scripts/add_fmp_symbol.py --symbols BNY --rebuild-factors`.
+  FMP `BNY` carries full BNY Mellon history (corr≈1.0 vs `BK` through the
+  2026-05-21 rename); `BK` stays truncated at the rename by lifecycle.
+- **Value + quality notebook**: `notebooks/15_strategy_value_quality_sector_neutral.ipynb`
+  + `core/signals/sector_neutral.py` (sector demean → z-score composite).
 
 ## 0. Survivorship gap — leave disclosed
 
 Prefer 2015+ windows. Needs Norgate/CRSP/Tiingo to close.
 
-## 1. Fundamentals — DONE
+## 1–5. DONE
 
-Open: sector-neutral / value+quality composite notebook.
+Fundamentals, lifecycle v1, vendor consolidation (commodities included),
+S&P refresh (CSV canonical until `--promote`), ADV costs.
 
-## 2. Symbol lifecycle — DONE (v1)
+## Open / optional
 
-Open: fetch continuation tickers after renames (BNY for BK); escalate STI to
-quarantined; optional monthly refresh in `update_daily.py`.
-
-## 3. Vendor consolidation — NEARLY DONE
-
-| Source | Status |
-|---|---|
-| Prices / mcaps / VIX / sectors | ✅ FMP |
-| S&P membership refresh | ✅ FMP (CSV canonical until `--promote`) |
-| Commodities | ⏳ yfinance; FMP `GCUSD` etc. works on Premium — migrate when needed |
-| Finnhub | ⏳ unused in live flows after sectors move — safe to drop from required env |
-
-## 4. S&P membership — MOSTLY DONE
-
-Optional `--promote` after notation review; show CSV age on coverage page.
-
-## 5. Transaction-cost realism — DONE
-
-ADV panel + bucket costs live. Flat `transaction_cost` remains the fallback
-when ADV is missing.
-
-## Next (pick one)
-
-1. **Commodities → FMP** (finish vendor consolidation)
-2. **Drop Finnhub** from required env / settings
-3. **STI → quarantined** + fetch **BNY** continuation for BK
-4. Sector-neutral / value+quality research notebook
-
-## 6–7. Macro vintages / smaller items
-
-Unchanged (low priority).
+1. S&P CSV `--promote` after notation review; show CSV age on coverage page
+2. Monthly lifecycle refresh inside `update_daily.py`
+3. Register `value_quality_sn` as a strategy after notebook holdout looks stable
+4. Macro vintages (low priority)
+5. Remove stale `FINNHUB_API_KEY` line from local `.env` (not in git)
