@@ -12,6 +12,10 @@ const PL: Partial<Plotly.Layout> = {
   margin: { t: 8, r: 8, b: 8, l: 8 },
 };
 
+/** Space for TopBar, padding, heading, and transform controls above the plot. */
+const PLOT_VIEWPORT_CLASS =
+  "w-full h-[calc(100dvh-18rem)] min-h-[280px] shrink-0";
+
 export default function Transform3D() {
   const [type, setType] = useState<TransformType>("rotation-z");
   const [angle, setAngle] = useState(45);
@@ -51,10 +55,10 @@ export default function Transform3D() {
   });
 
   return (
-    <div className="space-y-4 overflow-y-auto h-full">
-      <h2 className="text-sm font-semibold text-zinc-200">3D Geometric Transformations</h2>
+    <div className="flex flex-col gap-4 pb-2">
+      <h2 className="text-sm font-semibold text-zinc-200 shrink-0">3D Geometric Transformations</h2>
 
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap shrink-0">
         {(["rotation-x", "rotation-y", "rotation-z", "scale", "shear", "custom"] as TransformType[]).map((t) => (
           <button
             key={t}
@@ -136,30 +140,33 @@ export default function Transform3D() {
         </div>
       )}
 
-      {/* LaTeX */}
-      <div className="bg-zinc-900/50 border border-zinc-800 rounded p-2">
+      <div className={PLOT_VIEWPORT_CLASS}>
+        <Plot
+          data={traces}
+          layout={{
+            ...PL,
+            autosize: true,
+            scene: {
+              xaxis: { range: [-3, 3], title: "X", gridcolor: "#27272a" },
+              yaxis: { range: [-3, 3], title: "Y", gridcolor: "#27272a" },
+              zaxis: { range: [-3, 3], title: "Z", gridcolor: "#27272a" },
+              aspectmode: "cube",
+            },
+            showlegend: false,
+          }}
+          useResizeHandler
+          className="w-full h-full"
+          style={{ width: "100%", height: "100%" }}
+          config={{ displayModeBar: false }}
+        />
+      </div>
+
+      {/* LaTeX below plot so the 3D view uses most of the viewport */}
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded p-2 shrink-0">
         <TeX math={matToTex(T)} />
       </div>
 
-      <Plot
-        data={traces}
-        layout={{
-          ...PL,
-          scene: {
-            xaxis: { range: [-3, 3], title: "X", gridcolor: "#27272a" },
-            yaxis: { range: [-3, 3], title: "Y", gridcolor: "#27272a" },
-            zaxis: { range: [-3, 3], title: "Z", gridcolor: "#27272a" },
-            aspectmode: "cube",
-          },
-          showlegend: false,
-          height: 480,
-        }}
-        useResizeHandler
-        className="w-full"
-        config={{ displayModeBar: false }}
-      />
-
-      <p className="text-[11px] text-zinc-500">
+      <p className="text-[11px] text-zinc-500 shrink-0">
         Gray dashed = original cube, Purple = transformed. Solid/dashed arrows = transformed/original basis.
       </p>
     </div>

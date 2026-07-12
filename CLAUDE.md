@@ -111,6 +111,41 @@ For factor backtests, always delegate to `run_factor_cross_section_backtest` in 
 
 - Default `float64`. Guard divisions: `eps = 1e-10`. Guard `log()`: `np.maximum(x, eps)`.
 - Time-series indexes must be **tz-aware**, **monotonic**, **unique**. No forward-fill over weekends/holidays.
+
+### Point-in-time vocabulary (use these exact terms everywhere)
+
+Every dated observation has up to three dates. Name them consistently in code,
+schemas, parquet columns, and docs:
+
+- **`reference_date`** — the period the value describes (June CPI → June 30; a Q2 balance sheet → the quarter end, aka `period_end` for fundamentals).
+- **`publication_date`** — when the value became publicly knowable (FRED release day; SEC `filing_date`/`accepted_date` for fundamentals).
+- **`as_of_date`** — the backtest clock. A value is usable iff `publication_date <= as_of_date`.
+
+Rules: raw layer stores `reference_date` (and `publication_date` when the vendor provides it); derived/signal layers must align on **publication_date, never reference_date** (macro panels shift by per-series lags in `MACRO_PUBLICATION_LAGS_DAYS`; fundamentals must join on filing date). EOD prices are the special case where publication ≈ reference (same evening). Never name an ambiguous column `date` in new datasets — say which date it is.
+
+### Project vocabulary (use these exact terms in code, schemas, and docs)
+
+| Term | Meaning | Never call it |
+|---|---|---|
+| **panel** | wide DataFrame: date index × symbol columns (`prices.parquet`) | "table", "matrix" |
+| **long panel** | MultiIndex (date, symbol) DataFrame (`factors_*.parquet`) | "stacked df" |
+| **raw layer** | immutable vendor payloads in `data/raw/`; refetched, never edited | "cache", "backup" |
+| **derived layer** | deterministic rebuilds from raw (`data/factors/`, `data/sectors/`) | — |
+| **universe** | the set of symbols eligible on a date (point-in-time membership) | "watchlist", "symbols" |
+| **adj_close** | split+dividend adjusted close; the only price used for return math | "price" (ambiguous) |
+| **gross / net returns** | before / after transaction costs; always label which | plain "returns" in results |
+| **signal lag** | trading days between factor observation and execution (`signal_lag_days`, default 1) | — |
+| **quarantined / flagged / cleared** | excluded at load / needs review / reviewed-and-kept (`data/quality/`) | "blacklist", "bad" |
+| **bad print** | isolated vendor quote error that snaps back; repaired in derived layer, kept in raw | "outlier" (outliers can be real) |
+| **restatement** | vendor revising history (splits, corrections); handled by overlapping refetch | — |
+| **ticker reuse** | one symbol, two companies over time; guard with membership filter + lifecycle truncation | — |
+| **staleness cap** | max trading days a fundamental forward-fills before dying (273) | — |
+
+### Timezone conventions (current state — reconcile at the join, not ad hoc)
+
+- Equity layer (`prices.parquet`, factor panels): **tz-aware `America/New_York`**.
+- Macro / FF5 / calendar-like data: **tz-naive calendar dates**.
+- When joining the two, localize the naive side explicitly: `naive_df.index.tz_localize("America/New_York")`. Never strip tz from the equity layer, never compare naive vs aware (pandas raises — that's a feature).
 - Use `.loc` with `pd.Timestamp` for date slicing — never `.iloc` for date-based work.
 - ML: always time-based train/test splits. Fit transforms on train only. Walk-forward folds: retrain each fold.
 - Validate shape, dtypes, NaN counts on every load — do not silently drop NaN rows in returns.

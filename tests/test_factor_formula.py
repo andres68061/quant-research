@@ -18,7 +18,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from core.data.factors.build_factors import momentum_excluding_recent
+from core.data.factors.build_factors import momentum_excluding_recent, short_term_reversal
 
 
 class TestGeometricMomentum:
@@ -38,9 +38,9 @@ class TestGeometricMomentum:
         # Compare against the price-ratio identity for the last valid row.
         t = len(close) - 1
         expected = close.iloc[t - recent] / close.iloc[t - window] - 1.0
-        assert np.isclose(mom.iloc[t], expected, atol=1e-10), (
-            f"mom[{t}]={mom.iloc[t]} expected={expected}"
-        )
+        assert np.isclose(
+            mom.iloc[t], expected, atol=1e-10
+        ), f"mom[{t}]={mom.iloc[t]} expected={expected}"
 
     def test_arithmetic_form_would_flip_sign_vs_geometric(self) -> None:
         """
@@ -73,7 +73,7 @@ class TestGeometricMomentum:
         # We need: close[t - 21] / close[t - 252] == 0.50
         #         close[t]      / close[t - 21]  == 0.40  (=> cum_1 ≈ -0.60)
         t = 280  # index such that t-21 = 259 and t-252 = 28 are in range
-        close.iloc[:t + 1] = 1.0
+        close.iloc[: t + 1] = 1.0
         close.iloc[t - 21] = 0.50  # P(t-21) = 0.5 -> P(t-21)/P(t-252) = 0.5
         close.iloc[t] = 0.20  # P(t)/P(t-21) = 0.4 (but irrelevant for mom_12_1)
 
@@ -116,6 +116,49 @@ class TestGeometricMomentum:
         for months in (3, 6, 12):
             mom = momentum_excluding_recent(close, months)
             first_valid = mom.first_valid_index()
-            assert first_valid == months * 21, (
-                f"months={months}: first_valid={first_valid}, expected {months*21}"
-            )
+            assert (
+                first_valid == months * 21
+            ), f"months={months}: first_valid={first_valid}, expected {months*21}"
+
+
+class TestShortTermReversal:
+    def test_matches_negative_price_ratio_identity(self) -> None:
+        """`rev_21d` must equal `-(P(t)/P(t-21) - 1)` up to float noise."""
+        rng = np.random.default_rng(3)
+        n = 300
+        close = pd.Series(100 * np.exp(np.cumsum(rng.normal(0.0005, 0.02, n))))
+
+        window = 21
+        rev = short_term_reversal(close, window=window)
+
+        t = n - 1
+        expected = -(close.iloc[t] / close.iloc[t - window] - 1.0)
+        assert np.isclose(rev.iloc[t], expected, atol=1e-12)
+
+    def test_loser_gets_positive_signal(self) -> None:
+        """A stock that fell 10% over the window must rank HIGH (positive value)."""
+        close = pd.Series([100.0] * 21 + [90.0])
+        rev = short_term_reversal(close, window=21)
+        assert np.isclose(
+            rev.iloc[-1], 0.10, atol=1e-12
+        ), "A 10% loser must produce rev=+0.10 so ranking descending buys losers."
+
+    def test_winner_gets_negative_signal(self) -> None:
+        """A stock that rose 20% over the window must rank LOW (negative value)."""
+        close = pd.Series([100.0] * 21 + [120.0])
+        rev = short_term_reversal(close, window=21)
+        assert np.isclose(rev.iloc[-1], -0.20, atol=1e-12)
+
+    def test_short_history_returns_nan_not_zero(self) -> None:
+        """No signal until the full window of prices exists (no fill_value tricks)."""
+        close = pd.Series([100.0, 101.0, 99.0])
+        rev = short_term_reversal(close, window=21)
+        assert (
+            rev.isna().all()
+        ), f"Expected all-NaN for 3-day history; got {rev.notna().sum()} non-NaN values."
+
+    def test_first_valid_index_is_window(self) -> None:
+        """First non-NaN appears exactly at index `window` (needs P(t-window))."""
+        close = pd.Series(np.linspace(100.0, 110.0, 60))
+        rev = short_term_reversal(close, window=21)
+        assert rev.first_valid_index() == 21

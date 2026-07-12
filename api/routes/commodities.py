@@ -8,6 +8,7 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
 from core.data.commodities import COMMODITIES_CONFIG, CommodityDataFetcher
+from core.metrics.performance import calculate_sortino_ratio
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ def commodity_returns(
     start: Optional[str] = None,
     end: Optional[str] = None,
 ) -> dict:
-    """Return daily returns + summary statistics for selected commodities."""
+    """Return daily returns + summary statistics (incl. annualised Sortino) for selected commodities."""
     df = _load_prices()
     valid = [s for s in symbols if s in df.columns]
     if not valid:
@@ -105,7 +106,7 @@ def commodity_returns(
             "mean": float(r.mean()),
             "annualized": float(r.mean() * 252),
             "volatility": float(r.std() * np.sqrt(252)),
-            "sharpe": float(r.mean() / r.std() * np.sqrt(252)) if r.std() > 0 else 0.0,
+            "sortino": calculate_sortino_ratio(r, risk_free_rate=0.0, periods_per_year=252),
             "skew": float(r.skew()),
             "kurtosis": float(r.kurtosis()),
             "latest_price": latest,

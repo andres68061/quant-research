@@ -145,7 +145,7 @@ export default function MetalsAnalytics() {
                   <div className="text-[11px] font-mono text-zinc-300 mb-1">{s.symbol}</div>
                   <KPICard label="Price" value={`$${s.latest_price.toFixed(2)}`} />
                   <KPICard label="Ann. Return" value={fmtPct(s.annualized)} accent={s.annualized >= 0 ? "positive" : "negative"} />
-                  <KPICard label="Sharpe" value={fmtRatio(s.sharpe)} />
+                  <KPICard label="Sortino" value={fmtRatio(s.sortino)} />
                 </div>
               ))}
             </div>
@@ -347,7 +347,7 @@ function StatsTable({ stats }: { stats: CommodityReturnStats[] }) {
         <table className="w-full text-[11px] font-mono">
           <thead>
             <tr className="text-zinc-500 border-b border-zinc-800">
-              {["Symbol", "Price", "Ann. Return", "Volatility", "Sharpe", "Skew", "Kurtosis"].map((h) => (
+              {["Symbol", "Price", "Ann. Return", "Volatility", "Sortino", "Skew", "Kurtosis"].map((h) => (
                 <th key={h} className="text-left px-2 py-1 font-medium">{h}</th>
               ))}
             </tr>
@@ -361,7 +361,7 @@ function StatsTable({ stats }: { stats: CommodityReturnStats[] }) {
                   {fmtPct(s.annualized)}
                 </td>
                 <td className="px-2 py-1 tabular-nums">{fmtPct(s.volatility)}</td>
-                <td className="px-2 py-1 tabular-nums">{fmtRatio(s.sharpe)}</td>
+                <td className="px-2 py-1 tabular-nums">{fmtRatio(s.sortino)}</td>
                 <td className="px-2 py-1 tabular-nums">{fmtRatio(s.skew)}</td>
                 <td className="px-2 py-1 tabular-nums">{fmtRatio(s.kurtosis)}</td>
               </tr>

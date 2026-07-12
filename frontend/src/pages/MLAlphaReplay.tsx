@@ -53,6 +53,22 @@ export default function MLAlphaReplay() {
     <AppLayout
       left={
         <LeftSidebar>
+          <div className="text-[10px] text-zinc-500 leading-relaxed border border-zinc-800 bg-zinc-900/80 rounded px-2 py-2 mb-3 space-y-2">
+            <div className="text-[9px] uppercase tracking-wider text-zinc-600">What this page does</div>
+            <p>
+              For <span className="text-zinc-400">one symbol</span>, it scores how well a classifier predicts{" "}
+              <span className="text-zinc-400">next-day direction</span> (positive vs non-positive{" "}
+              <span className="font-mono text-zinc-400">log</span> return). Inputs are{" "}
+              <span className="text-zinc-400">lagged</span> technical features only—no future leakage.
+            </p>
+            <p>
+              <span className="text-zinc-400">Walk-forward:</span> training uses an{" "}
+              <span className="text-zinc-400">expanding</span> past window; each fold tests on the{" "}
+              <span className="text-zinc-400">next</span> block of days, then moves forward. Results are{" "}
+              <span className="text-zinc-400">classification metrics</span> (accuracy, AUC, folds)—not dollar PnL or position sizing.
+            </p>
+          </div>
+
           <Field label="Symbol">
             <input
               type="text"
@@ -75,7 +91,10 @@ export default function MLAlphaReplay() {
             </select>
           </Field>
 
-          <Field label="Model">
+          <Field
+            label="Model"
+            hint="XGBoost / RF fit the default tabular feature matrix. Logistic uses scaled features. LSTM builds sequences internally and is slower; use after shorter smoke tests."
+          >
             <select
               value={modelType}
               onChange={(e) => setModelType(e.target.value)}
@@ -88,7 +107,10 @@ export default function MLAlphaReplay() {
             </select>
           </Field>
 
-          <Field label="Initial Train Days">
+          <Field
+            label="Initial Train Days"
+            hint="First fold: this many rows (after feature warm-up) for training. Set ≥200 so 200-day MA features are valid throughout training; ~126 ≈ 6 months, ~63 ≈ 1 quarter (earlier folds see less history)."
+          >
             <input
               type="number"
               value={trainDays}
@@ -98,7 +120,10 @@ export default function MLAlphaReplay() {
             />
           </Field>
 
-          <Field label="Test Days">
+          <Field
+            label="Test Days"
+            hint="Each fold tests on exactly this many consecutive days, then the window advances by the same amount. 5 ≈ one week. Smaller → more folds and longer runs."
+          >
             <input
               type="number"
               value={testDays}
@@ -108,7 +133,10 @@ export default function MLAlphaReplay() {
             />
           </Field>
 
-          <Field label="Max Splits">
+          <Field
+            label="Max Splits"
+            hint="Cap on walk-forward steps (controls runtime). Prefer ≥20 for aggregate metrics that are less dominated by a few early folds."
+          >
             <input
               type="number"
               value={maxSplits}
@@ -173,13 +201,22 @@ export default function MLAlphaReplay() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <label className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1 block">
         {label}
       </label>
       {children}
+      {hint ? <p className="text-[10px] text-zinc-600 mt-1 leading-snug">{hint}</p> : null}
     </div>
   );
 }
@@ -213,10 +250,11 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
 function EmptyState() {
   return (
     <div className="flex items-center justify-center h-full">
-      <div className="text-center">
-        <div className="text-zinc-600 text-sm">Configure and run an ML strategy</div>
-        <div className="text-zinc-700 text-xs mt-1">
-          Walk-forward validation results will appear here
+      <div className="text-center max-w-md px-4">
+        <div className="text-zinc-600 text-sm">Configure parameters and run</div>
+        <div className="text-zinc-700 text-xs mt-2 leading-relaxed">
+          Out-of-sample diagnostics (feature importance, confusion matrix, per-fold accuracy) show up in the main area;
+          fold-level detail is in the bottom panel.
         </div>
       </div>
     </div>

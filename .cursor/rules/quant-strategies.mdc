@@ -26,6 +26,7 @@ Mirror [ARCHITECTURE.md](../../ARCHITECTURE.md) — **How to Add a New Strategy*
 1. Implement logic in a new or existing module under `core/` (e.g. `core/signals/`, `core/backtest/`). Add `pytest` coverage.
 2. Add request/response models in `api/schemas/`, wire a router in `api/routes/`, register in `api/main.py`.
 3. Add TypeScript types and API client methods in `frontend/src/lib/`, then a page or section under `frontend/src/pages/`. Register routes in `App.tsx` and navigation as needed.
+4. **Research notebook (mandatory)**: every strategy registered in `core/strategies/registry.py` must have a companion notebook `notebooks/NN_strategy_<id>.ipynb` that documents the hypothesis, audits inputs, runs the backtest via `core.*` imports, and states a yes/no decision with disclosed limitations. Follow the `research-notebook-narrative` skill; execute and `nbformat.validate` it before finishing. For the full step-by-step playbook use the `add-strategy` skill.
 
 ## Strategy registry (v1)
 

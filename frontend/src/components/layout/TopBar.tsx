@@ -15,23 +15,24 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/", label: "Factor Backtest" },
       { to: "/ml-alpha", label: "ML Direction" },
       { to: "/momentum", label: "Momentum Grid" },
-      { to: "/manual-portfolio", label: "Custom Portfolio" },
+      { to: "/portfolio", label: "Portfolio" },
     ],
   },
   {
     label: "Analytics",
     items: [
-      { to: "/etf-optimizer", label: "ETF Optimizer" },
       { to: "/metals", label: "Metals" },
       { to: "/economic", label: "Economic" },
       { to: "/sectors", label: "Sectors" },
       { to: "/excluded-stocks", label: "Excluded" },
+      { to: "/data-coverage", label: "Data Coverage" },
     ],
   },
   {
     label: "Reference",
     items: [
       { to: "/methodology", label: "Methodology" },
+      { to: "/fama-french", label: "Fama-French" },
       { to: "/sharpe-limitations", label: "Sharpe Limits" },
       { to: "/linear-algebra", label: "Linear Algebra" },
     ],

@@ -16,7 +16,7 @@ import pandas as pd
 from core.metrics.performance import (
     calculate_cumulative_returns,
     calculate_drawdown,
-    calculate_sharpe_ratio,
+    calculate_sortino_ratio,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,16 +33,17 @@ def precompute_backtest_frames(
     Each frame captures:
     - date
     - daily PnL (net return)
-    - cumulative PnL
+    - cumulative PnL: cumulative **return** since start (wealth index minus 1), a decimal
+      suitable for ``* 100`` percent display — not the wealth index itself.
     - drawdown
-    - rolling Sharpe (if enough history)
+    - rolling Sortino (if enough history; downside deviation, annualised)
     - signal value (if provided)
     - position label (long / short / flat)
 
     Args:
         net_returns: Series of daily net returns (date-indexed)
         signals: Optional Series of signal values aligned to same dates
-        rolling_window: Window for rolling Sharpe (default 60 trading days)
+        rolling_window: Window for rolling Sortino (default 60 trading days)
 
     Returns:
         List of frame dictionaries ready for JSON serialisation
@@ -55,11 +56,11 @@ def precompute_backtest_frames(
     cum = calculate_cumulative_returns(net_returns)
     dd = calculate_drawdown(net_returns)
 
-    rolling_sharpe = pd.Series(np.nan, index=net_returns.index)
+    rolling_sortino = pd.Series(np.nan, index=net_returns.index)
     if len(net_returns) > rolling_window:
         for i in range(rolling_window, len(net_returns)):
             window = net_returns.iloc[i - rolling_window : i]
-            rolling_sharpe.iloc[i] = calculate_sharpe_ratio(window)
+            rolling_sortino.iloc[i] = calculate_sortino_ratio(window)
 
     frames: List[Dict[str, Any]] = []
     for i, date in enumerate(net_returns.index):
@@ -77,11 +78,11 @@ def precompute_backtest_frames(
         frame = {
             "date": str(date.date()),
             "pnl_today": float(net_returns.iloc[i]),
-            "cumulative_pnl": float(cum.iloc[i]),
+            "cumulative_pnl": float(cum.iloc[i] - 1.0),
             "drawdown": float(dd.iloc[i]),
-            "rolling_sharpe": (
-                float(rolling_sharpe.iloc[i])
-                if pd.notna(rolling_sharpe.iloc[i])
+            "rolling_sortino": (
+                float(rolling_sortino.iloc[i])
+                if pd.notna(rolling_sortino.iloc[i])
                 else None
             ),
             "signal": signal_val,

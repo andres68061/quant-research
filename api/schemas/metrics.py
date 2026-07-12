@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PerformanceMetrics(BaseModel):
@@ -33,7 +33,10 @@ class AllVarResult(BaseModel):
 
 class EquityCurvePoint(BaseModel):
     date: str
-    cumulative_return: float
+    cumulative_return: float = Field(
+        ...,
+        description="Cumulative net return since the first point (decimal), i.e. wealth_index - 1",
+    )
 
 
 class FeatureImportanceItem(BaseModel):

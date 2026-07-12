@@ -50,6 +50,17 @@ class TestRegistry:
         ids = {m.id for m in list_strategies()}
         assert "factor_cross_section" in ids
         assert "ml_commodity_direction" in ids
+        assert "short_term_reversal" in ids
+        assert "earnings_yield" in ids
+        assert "book_to_market" in ids
+        assert "roe_quality" in ids
+        assert "low_asset_growth" in ids
+
+    def test_fundamental_strategies_share_backtest_endpoint(self) -> None:
+        for strategy_id in ("earnings_yield", "book_to_market", "roe_quality", "low_asset_growth"):
+            meta = get_strategy(strategy_id)
+            assert meta.post_path == "/run-backtest"
+            assert meta.kind.value == "factor_cross_section"
 
     def test_get_strategy(self) -> None:
         m = get_strategy("factor_cross_section")
@@ -72,13 +83,9 @@ class TestFactorRunner:
 
         f_dates = factors_df.index.get_level_values("date")
         factors_slice = factors_df[(f_dates >= start) & (f_dates <= end)]
-        prices_slice = price_panel[
-            (price_panel.index >= start) & (price_panel.index <= end)
-        ]
+        prices_slice = price_panel[(price_panel.index >= start) & (price_panel.index <= end)]
 
-        signals = create_signals_from_factor(
-            factors_slice, factor_col, min_stocks=3
-        )
+        signals = create_signals_from_factor(factors_slice, factor_col, min_stocks=3)
         results = calculate_portfolio_returns(
             signals,
             prices_slice,

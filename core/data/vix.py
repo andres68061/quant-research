@@ -1,11 +1,14 @@
-"""VIX index data fetcher with local parquet cache."""
+"""VIX index data fetcher with local parquet cache (FMP source of truth)."""
+
+from __future__ import annotations
 
 import logging
 from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-import yfinance as yf
+
+from core.data.fmp.prices import fetch_dividend_adjusted_history
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +21,7 @@ def load_vix(
     cache_path: Optional[Path] = None,
     force_refresh: bool = False,
 ) -> pd.Series:
-    """Load daily VIX close, fetching from Yahoo Finance if not cached.
+    """Load daily VIX close, fetching from FMP if not cached.
 
     Args:
         start: Earliest date to fetch (ISO format).
@@ -30,8 +33,7 @@ def load_vix(
         Series named ``"VIX"`` with tz-naive DatetimeIndex (business-day freq).
 
     Example:
-        >>> vix = load_vix()
-        >>> vix.head()
+        >>> vix = load_vix()  # doctest: +SKIP
     """
     cache_path = Path(cache_path) if cache_path else _DEFAULT_CACHE
 
@@ -42,19 +44,21 @@ def load_vix(
         series.name = "VIX"
         return series
 
-    logger.info("Fetching VIX from Yahoo Finance (start=%s)", start)
-    raw = yf.download("^VIX", start=start, auto_adjust=True, progress=False)
-
-    if raw.empty:
-        logger.warning("No VIX data returned from Yahoo Finance")
+    logger.info("Fetching VIX from FMP (start=%s)", start)
+    history = fetch_dividend_adjusted_history(
+        "^VIX",
+        pd.Timestamp(start),
+        pd.Timestamp.now().normalize(),
+    )
+    if history.empty:
+        logger.warning("No VIX data returned from FMP")
         return pd.Series(dtype=float, name="VIX")
 
-    close = raw["Close"].squeeze()
-    close.index = pd.to_datetime(close.index).tz_localize(None)
+    close = history["adj_close"].copy()
+    close.index = close.index.tz_localize(None)
     close.name = "VIX"
 
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     close.to_frame().to_parquet(cache_path)
     logger.info("Cached VIX data to %s (%d rows)", cache_path, len(close))
-
     return close

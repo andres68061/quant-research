@@ -46,6 +46,31 @@ def momentum_excluding_recent(close: pd.Series, months: int) -> pd.Series:
     return (1 + cum) / (1 + ex_recent) - 1.0
 
 
+def short_term_reversal(close: pd.Series, window: int = 21) -> pd.Series:
+    """
+    Short-term reversal signal: the NEGATIVE trailing ``window``-day return.
+
+        rev = -( P(t) / P(t - window) - 1 )
+
+    Sign convention: a HIGH value means the stock fell over the past month, so
+    ranking descending and buying the top tier longs recent losers and shorts
+    recent winners (Jegadeesh 1990, Lehmann 1990).
+
+    Notes
+    -----
+    - Uses the price-ratio identity directly; both P(t) and P(t-window) must be
+      present or the result is NaN (no spurious signal for short-history names).
+    - Units: decimal return (0.05 = the stock LOST 5% over the window).
+
+    Example
+    -------
+    >>> close = pd.Series([100.0] * 21 + [90.0])
+    >>> short_term_reversal(close, window=21).iloc[-1]
+    0.09999999999999998
+    """
+    return -(close / close.shift(window) - 1.0)
+
+
 def rolling_volatility(ret: pd.Series, window: int) -> pd.Series:
     return ret.rolling(window).std() * np.sqrt(252)
 
@@ -68,6 +93,7 @@ def build_price_factors(close_panel: pd.DataFrame, market_symbol: str = "SPY") -
         factors[(sym, "mom_12_1")] = momentum_excluding_recent(s_close, 12)
         factors[(sym, "mom_6_1")] = momentum_excluding_recent(s_close, 6)
         factors[(sym, "mom_3_1")] = momentum_excluding_recent(s_close, 3)
+        factors[(sym, "rev_21d")] = short_term_reversal(s_close, 21)
         factors[(sym, "vol_60d")] = rolling_volatility(s_ret, 60)
         if market_ret is not None:
             factors[(sym, "beta_60d")] = rolling_beta(s_ret, market_ret, 60)

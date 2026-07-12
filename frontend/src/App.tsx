@@ -1,10 +1,11 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
+import DataCoverage from "./pages/DataCoverage.tsx";
 import EconomicIndicators from "./pages/EconomicIndicators.tsx";
-import ETFOptimizer from "./pages/ETFOptimizer.tsx";
-import ManualPortfolioBuilder from "./pages/ManualPortfolioBuilder.tsx";
+import Portfolio from "./pages/Portfolio.tsx";
 import ExcludedStocks from "./pages/ExcludedStocks.tsx";
+import FamaFrench from "./pages/FamaFrench.tsx";
 import LinearAlgebra from "./pages/LinearAlgebra.tsx";
 import MetalsAnalytics from "./pages/MetalsAnalytics.tsx";
 import Methodology from "./pages/Methodology.tsx";
@@ -43,13 +44,16 @@ export default function App() {
         <Route path="/" element={<AnimatedPage><PortfolioSimulator /></AnimatedPage>} />
         <Route path="/ml-alpha" element={<AnimatedPage><MLAlphaReplay /></AnimatedPage>} />
         <Route path="/momentum" element={<AnimatedPage><SortinoMomentum /></AnimatedPage>} />
-        <Route path="/etf-optimizer" element={<AnimatedPage><ETFOptimizer /></AnimatedPage>} />
-        <Route path="/manual-portfolio" element={<AnimatedPage><ManualPortfolioBuilder /></AnimatedPage>} />
+        <Route path="/portfolio" element={<AnimatedPage><Portfolio /></AnimatedPage>} />
+        <Route path="/etf-optimizer" element={<Navigate to="/portfolio" replace />} />
+        <Route path="/manual-portfolio" element={<Navigate to="/portfolio" replace />} />
         <Route path="/metals" element={<AnimatedPage><MetalsAnalytics /></AnimatedPage>} />
         <Route path="/economic" element={<AnimatedPage><EconomicIndicators /></AnimatedPage>} />
         <Route path="/sectors" element={<AnimatedPage><SectorBreakdown /></AnimatedPage>} />
         <Route path="/excluded-stocks" element={<AnimatedPage><ExcludedStocks /></AnimatedPage>} />
+        <Route path="/data-coverage" element={<AnimatedPage><DataCoverage /></AnimatedPage>} />
         <Route path="/methodology" element={<AnimatedPage><Methodology /></AnimatedPage>} />
+        <Route path="/fama-french" element={<AnimatedPage><FamaFrench /></AnimatedPage>} />
         <Route path="/sharpe-limitations" element={<AnimatedPage><SharpeRatioLimitations /></AnimatedPage>} />
         <Route path="/linear-algebra" element={<AnimatedPage><LinearAlgebra /></AnimatedPage>} />
         <Route path="*" element={<Navigate to="/" replace />} />

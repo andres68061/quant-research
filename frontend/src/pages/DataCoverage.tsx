@@ -1,0 +1,270 @@
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+
+import KPICard from "@/components/cards/KPICard.tsx";
+import AppLayout from "@/components/layout/AppLayout.tsx";
+import LeftSidebar from "@/components/layout/LeftSidebar.tsx";
+import { api } from "@/lib/api.ts";
+import type { DatasetInfo, QuarantineEntry, YearCoverage } from "@/lib/types.ts";
+import { cn } from "@/lib/utils.ts";
+
+type Tab = "datasets" | "coverage" | "quarantine";
+
+const STATUS_STYLES: Record<QuarantineEntry["status"], string> = {
+  quarantined: "text-red-400 bg-red-950/40",
+  flagged: "text-amber-400 bg-amber-950/30",
+  cleared: "text-emerald-400 bg-emerald-950/30",
+};
+
+export default function DataCoverage() {
+  const [activeTab, setActiveTab] = useState<Tab>("datasets");
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["data-coverage"],
+    queryFn: api.getDataCoverage,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  return (
+    <AppLayout
+      left={
+        <LeftSidebar>
+          <div className="space-y-1">
+            {(["datasets", "coverage", "quarantine"] as Tab[]).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  "w-full text-left px-2.5 py-1.5 text-xs rounded transition-colors capitalize",
+                  activeTab === tab
+                    ? "bg-zinc-800 text-zinc-100"
+                    : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900",
+                )}
+              >
+                {tab === "coverage" ? "Universe Coverage" : tab}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 text-[11px] text-zinc-500 leading-relaxed space-y-2">
+            <p>
+              Primary vendor: <span className="text-zinc-300">FMP Premium</span> (dividend-adjusted
+              EOD). Raw per-symbol files are immutable; every derived panel is rebuildable from
+              them.
+            </p>
+            <p>
+              <span className="text-red-400">Quarantined</span> symbols are excluded from all
+              loaded data. <span className="text-amber-400">Flagged</span> symbols stay in but
+              await review.
+            </p>
+          </div>
+        </LeftSidebar>
+      }
+    >
+      <div className="p-4 space-y-4 overflow-y-auto h-full">
+        <h1 className="text-sm font-semibold text-zinc-200">Data Coverage &amp; Quality</h1>
+
+        {isLoading && <p className="text-xs text-zinc-500">Loading inventory…</p>}
+        {error && (
+          <p className="text-xs text-red-400">Failed to load: {(error as Error).message}</p>
+        )}
+
+        {data && (
+          <>
+            <div className="grid grid-cols-4 gap-3">
+              <KPICard label="Symbols Loaded" value={String(data.total_symbols_loaded)} />
+              <KPICard label="Datasets" value={String(data.datasets.length)} />
+              <KPICard
+                label="Quarantined"
+                value={String(data.quarantined_symbol_count)}
+                accent={data.quarantined_symbol_count > 0 ? "negative" : "positive"}
+              />
+              <KPICard label="Flagged for Review" value={String(data.flagged_symbol_count)} />
+            </div>
+
+            {activeTab === "datasets" && <DatasetsTable datasets={data.datasets} />}
+            {activeTab === "coverage" && (
+              <CoverageTable
+                coverage={data.coverage_by_year}
+                note={data.survivorship_note}
+              />
+            )}
+            {activeTab === "quarantine" && <QuarantineTable entries={data.quarantine} />}
+          </>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+
+function DatasetsTable({ datasets }: { datasets: DatasetInfo[] }) {
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-zinc-500 border-b border-zinc-800">
+            <Th>Dataset</Th>
+            <Th>Source</Th>
+            <Th>Layer</Th>
+            <Th className="text-right">Rows</Th>
+            <Th className="text-right">Cols</Th>
+            <Th>Range</Th>
+            <Th className="text-right">Size (MB)</Th>
+            <Th>Description</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {datasets.map((d) => (
+            <tr key={d.name} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
+              <Td className="font-mono text-zinc-200">{d.name}</Td>
+              <Td className="text-zinc-400">{d.source}</Td>
+              <Td>
+                <span
+                  className={cn(
+                    "px-1.5 py-0.5 rounded text-[10px] font-mono",
+                    d.layer === "raw" ? "text-blue-400 bg-blue-950/40" : "text-zinc-400 bg-zinc-800",
+                  )}
+                >
+                  {d.layer}
+                </span>
+              </Td>
+              <Td className="text-right font-mono tabular-nums text-zinc-300">
+                {d.rows.toLocaleString()}
+              </Td>
+              <Td className="text-right font-mono tabular-nums text-zinc-300">
+                {d.columns > 0 ? d.columns.toLocaleString() : "—"}
+              </Td>
+              <Td className="font-mono text-zinc-400 whitespace-nowrap">
+                {d.first_date ? `${d.first_date} → ${d.last_date}` : "—"}
+              </Td>
+              <Td className="text-right font-mono tabular-nums text-zinc-300">{d.size_mb}</Td>
+              <Td className="text-zinc-500 max-w-md">{d.description}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CoverageTable({
+  coverage,
+  note,
+}: {
+  coverage: YearCoverage[];
+  note?: string;
+}) {
+  const recentFirst = [...coverage].sort((a, b) => b.year - a.year);
+  return (
+    <div className="space-y-3">
+      {note && (
+        <p className="text-xs text-amber-400/90 bg-amber-950/20 border border-amber-900/40 px-3 py-2 leading-relaxed">
+          {note}
+        </p>
+      )}
+      <div className="bg-zinc-900 border border-zinc-800 rounded overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-zinc-500 border-b border-zinc-800">
+            <Th>Year</Th>
+            <Th className="text-right">Symbols With Data</Th>
+            <Th className="text-right">S&amp;P 500 Members</Th>
+            <Th className="text-right">Membership Covered</Th>
+            <Th>Coverage</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {recentFirst.map((c) => (
+            <tr key={c.year} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
+              <Td className="font-mono text-zinc-200">{c.year}</Td>
+              <Td className="text-right font-mono tabular-nums text-zinc-300">
+                {c.symbols_with_data}
+              </Td>
+              <Td className="text-right font-mono tabular-nums text-zinc-300">
+                {c.sp500_members || "—"}
+              </Td>
+              <Td
+                className={cn(
+                  "text-right font-mono tabular-nums",
+                  c.coverage_pct >= 95
+                    ? "text-emerald-400"
+                    : c.coverage_pct >= 80
+                      ? "text-amber-400"
+                      : "text-red-400",
+                )}
+              >
+                {c.sp500_members ? `${c.coverage_pct}%` : "—"}
+              </Td>
+              <Td className="w-40">
+                <div className="h-1.5 bg-zinc-800 rounded overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full",
+                      c.coverage_pct >= 95
+                        ? "bg-emerald-500/70"
+                        : c.coverage_pct >= 80
+                          ? "bg-amber-500/70"
+                          : "bg-red-500/70",
+                    )}
+                    style={{ width: `${Math.min(c.coverage_pct, 100)}%` }}
+                  />
+                </div>
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    </div>
+  );
+}
+
+function QuarantineTable({ entries }: { entries: QuarantineEntry[] }) {
+  const ordered = [...entries].sort((a, b) =>
+    a.status === b.status ? a.symbol.localeCompare(b.symbol) : a.status.localeCompare(b.status),
+  );
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-zinc-500 border-b border-zinc-800">
+            <Th>Symbol</Th>
+            <Th>Status</Th>
+            <Th>Check</Th>
+            <Th className="text-right">Value</Th>
+            <Th>Detail</Th>
+            <Th>Review Note</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {ordered.map((q, i) => (
+            <tr
+              key={`${q.symbol}-${q.check}-${i}`}
+              className="border-b border-zinc-800/50 hover:bg-zinc-800/30"
+            >
+              <Td className="font-mono text-zinc-200">{q.symbol}</Td>
+              <Td>
+                <span
+                  className={cn("px-1.5 py-0.5 rounded text-[10px] font-mono", STATUS_STYLES[q.status])}
+                >
+                  {q.status}
+                </span>
+              </Td>
+              <Td className="font-mono text-zinc-400">{q.check}</Td>
+              <Td className="text-right font-mono tabular-nums text-zinc-300">{q.value}</Td>
+              <Td className="text-zinc-500">{q.detail}</Td>
+              <Td className="text-zinc-500 italic">{q.review_note || "—"}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Th({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <th className={cn("px-3 py-2 text-left font-medium", className)}>{children}</th>;
+}
+
+function Td({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <td className={cn("px-3 py-1.5", className)}>{children}</td>;
+}

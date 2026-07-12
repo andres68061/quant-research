@@ -555,11 +555,11 @@ function FrameKPIs({
         accent="negative"
       />
       <KPICard
-        label="Rolling Sharpe"
-        value={frame.rolling_sharpe != null ? fmtRatio(frame.rolling_sharpe) : "---"}
+        label="Rolling Sortino"
+        value={frame.rolling_sortino != null ? fmtRatio(frame.rolling_sortino) : "---"}
         accent={
-          frame.rolling_sharpe != null
-            ? frame.rolling_sharpe >= 0
+          frame.rolling_sortino != null
+            ? frame.rolling_sortino >= 0
               ? "positive"
               : "negative"
             : undefined
@@ -581,7 +581,7 @@ function FrameTable({ frames, currentIndex }: { frames: ReplayFrame[]; currentIn
       <table className="w-full text-[11px] font-mono">
         <thead>
           <tr className="text-zinc-500 border-b border-zinc-800">
-            {["#", "Date", "Position", "PnL Today", "Cum PnL", "Drawdown", "Sharpe"].map((h) => (
+            {["#", "Date", "Position", "PnL Today", "Cum PnL", "Drawdown", "Sortino"].map((h) => (
               <th key={h} className="text-left px-2 py-1 font-medium">{h}</th>
             ))}
           </tr>
@@ -612,7 +612,7 @@ function FrameTable({ frames, currentIndex }: { frames: ReplayFrame[]; currentIn
                 </td>
                 <td className="px-2 py-1 tabular-nums text-red-400">{fmtPct(f.drawdown)}</td>
                 <td className="px-2 py-1 tabular-nums">
-                  {f.rolling_sharpe != null ? fmtRatio(f.rolling_sharpe) : "---"}
+                  {f.rolling_sortino != null ? fmtRatio(f.rolling_sortino) : "---"}
                 </td>
               </tr>
             );

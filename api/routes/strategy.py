@@ -2,21 +2,20 @@
 
 import logging
 from datetime import date, timedelta
-from typing import Optional
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-from api.dependencies import get_factors, get_prices
+from api.dependencies import get_dollar_adv, get_factors, get_prices
 from api.schemas.metrics import EquityCurvePoint, PerformanceMetrics
 from api.schemas.strategy import BacktestRequest, MLStrategyRequest
 from api.schemas.walkforward import ConfusionMatrixResult, FoldResult, WalkForwardResult
 from core.backtest.portfolio import sp500_universe_filter
-from core.strategies import run_factor_cross_section_backtest
 from core.metrics.performance import (
     calculate_cumulative_returns,
     calculate_performance_metrics,
 )
+from core.strategies import run_factor_cross_section_backtest
 
 logger = logging.getLogger(__name__)
 
@@ -62,14 +61,18 @@ def run_backtest(req: BacktestRequest) -> dict:
         universe_filter=uf,
         min_stocks=req.min_stocks,
         signal_lag_days=req.signal_lag_days,
+        dollar_adv=get_dollar_adv(),
     )
     _last_backtest_returns = net_returns
 
     metrics = calculate_performance_metrics(net_returns)
 
-    cum = calculate_cumulative_returns(net_returns)
+    cum_wealth = calculate_cumulative_returns(net_returns)
+    # Excess return since t0 (not wealth index). Frontend uses fmtPct / Plotly % formatting
+    # that assumes decimals like 0.0399 for 3.99%, not 1.0399.
     equity = [
-        EquityCurvePoint(date=str(d.date()), cumulative_return=float(v)) for d, v in cum.items()
+        EquityCurvePoint(date=str(d.date()), cumulative_return=float(v - 1.0))
+        for d, v in cum_wealth.items()
     ]
 
     return {
@@ -85,9 +88,10 @@ def get_equity_curve(tail: int = 500) -> dict:
     if _last_backtest_returns is None:
         raise HTTPException(status_code=404, detail="No backtest has been run yet")
 
-    cum = calculate_cumulative_returns(_last_backtest_returns)
+    cum_wealth = calculate_cumulative_returns(_last_backtest_returns)
     points = [
-        {"date": str(d.date()), "cumulative_return": float(v)} for d, v in cum.tail(tail).items()
+        {"date": str(d.date()), "cumulative_return": float(v - 1.0)}
+        for d, v in cum_wealth.tail(tail).items()
     ]
     return {"count": len(points), "equity_curve": points}
 

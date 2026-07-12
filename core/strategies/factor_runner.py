@@ -30,6 +30,7 @@ def run_factor_cross_section_backtest(
     universe_filter: Optional[Callable[[pd.Timestamp], set[str]]] = None,
     max_abs_value: Optional[float] = None,
     signal_lag_days: int = 1,
+    dollar_adv: Optional[pd.DataFrame] = None,
 ) -> pd.Series:
     """
     Run a factor long/short (or long-only) backtest over [start, end].
@@ -54,6 +55,7 @@ def run_factor_cross_section_backtest(
             (``None`` infers factor-specific bounds).
         signal_lag_days: Trading-day lag between factor observation and execution
             (default 1). See :func:`~core.backtest.portfolio.create_signals_from_factor`.
+        dollar_adv: Optional dollar-ADV panel for liquidity-scaled costs.
 
     Returns:
         ``net_return`` daily series (aligned to portfolio return index).
@@ -117,5 +119,6 @@ def run_factor_cross_section_backtest(
         rebalance_freq=rebalance_freq,
         transaction_cost=transaction_cost,
         long_only=long_only,
+        dollar_adv=None if dollar_adv is None else dollar_adv.loc[start_p:end_p],
     )
     return results["net_return"]

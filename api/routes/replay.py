@@ -7,10 +7,10 @@ from typing import Optional
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
-from api.dependencies import get_factors, get_prices
+from api.dependencies import get_dollar_adv, get_factors, get_prices
 from core.backtest.portfolio import sp500_universe_filter
-from core.strategies import run_factor_cross_section_backtest
 from core.replay.precompute import precompute_backtest_frames
+from core.strategies import run_factor_cross_section_backtest
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def get_replay_frames(
     """
     Precompute and return frame-by-frame replay data for a factor-based
     backtest.  Each frame includes date, daily PnL, cumulative PnL,
-    drawdown, rolling Sharpe, and position.
+    drawdown, rolling Sortino (annualised, trailing window), and position.
     """
     factors = get_factors()
     prices = get_prices()
@@ -65,6 +65,7 @@ def get_replay_frames(
         universe_filter=uf,
         min_stocks=min_stocks,
         signal_lag_days=signal_lag_days,
+        dollar_adv=get_dollar_adv(),
     )
     frames = precompute_backtest_frames(net_returns)
 

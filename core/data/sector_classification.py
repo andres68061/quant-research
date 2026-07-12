@@ -1,146 +1,128 @@
 """
-Sector classification data management using Yahoo Finance.
+Sector classification data management using FMP company profiles.
 
-This module provides functions to fetch, store, and manage sector/industry
-classifications for stocks. Classifications are stored in Parquet format
-and refreshed quarterly to minimize API calls.
+Classifications are stored in Parquet and refreshed quarterly.
 
 Storage Format:
     data/sectors/sector_classifications.parquet
-    Columns: symbol, sector, industry, industryKey, sectorKey, last_updated
+    Columns: symbol, sector, industry, industryKey, sectorKey, quoteType, last_updated
 
 Refresh Policy:
     - Fetch once when symbol is added
     - Refresh every 3 months (quarterly)
     - Label as 'Unknown' if data unavailable
+
+Limitation: FMP (and previously yfinance) expose *today's* sector/industry only.
+Applying that label to historical dates is mild lookahead for sector-neutral
+strategies — acceptable and documented; there is no PIT sector history on FMP.
 """
 
+from __future__ import annotations
+
 import logging
-from datetime import datetime, timedelta
-from pathlib import Path
+import re
+from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
-import yfinance as yf
 
 from config.settings import PROJECT_ROOT
+from core.data.fmp.client import fmp_get
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Constants
 SECTORS_DIR = PROJECT_ROOT / "data" / "sectors"
 SECTORS_FILE = SECTORS_DIR / "sector_classifications.parquet"
-REFRESH_DAYS = 90  # 3 months
+REFRESH_DAYS = 90
 UNKNOWN_LABEL = "Unknown"
 
 
 def ensure_sectors_directory() -> None:
     """Create sectors directory if it doesn't exist."""
     SECTORS_DIR.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Sectors directory: {SECTORS_DIR}")
+
+
+def _slugify(label: str) -> str:
+    """Turn 'Consumer Electronics' into 'consumer-electronics'."""
+    if not label or label == UNKNOWN_LABEL:
+        return UNKNOWN_LABEL
+    return re.sub(r"[^a-z0-9]+", "-", label.strip().lower()).strip("-") or UNKNOWN_LABEL
+
+
+def _quote_type_from_profile(profile: dict, symbol: str) -> str:
+    if symbol.startswith("^"):
+        return "INDEX"
+    if profile.get("isEtf"):
+        return "ETF"
+    if profile.get("isFund"):
+        return "MUTUALFUND"
+    return "EQUITY"
 
 
 def fetch_sector_info(symbol: str) -> Dict[str, str]:
     """
-    Fetch sector, industry, and asset type classification for a single symbol.
-    
+    Fetch sector, industry, and asset type for one symbol from FMP ``/profile``.
+
     Args:
-        symbol: Stock ticker symbol
-        
+        symbol: Stock ticker symbol.
+
     Returns:
-        Dict with keys: sector, industry, industryKey, sectorKey, quoteType
-        Returns 'Unknown' for missing fields
-        
-    Example:
-        >>> info = fetch_sector_info('AAPL')
-        >>> print(info)
-        {
-            'sector': 'Technology',
-            'industry': 'Consumer Electronics',
-            'industryKey': 'consumer-electronics',
-            'sectorKey': 'technology',
-            'quoteType': 'EQUITY'
-        }
+        Dict with keys: sector, industry, industryKey, sectorKey, quoteType.
+        Missing fields become ``Unknown``.
     """
     try:
-        ticker = yf.Ticker(symbol)
-        info = ticker.info
-        
-        result = {
-            'sector': info.get('sector', UNKNOWN_LABEL),
-            'industry': info.get('industry', UNKNOWN_LABEL),
-            'industryKey': info.get('industryKey', UNKNOWN_LABEL),
-            'sectorKey': info.get('sectorKey', UNKNOWN_LABEL),
-            'quoteType': info.get('quoteType', UNKNOWN_LABEL),
-        }
-        
-        logger.info(f"✅ Fetched sector for {symbol}: {result['sector']} ({result['quoteType']})")
-        return result
-        
-    except Exception as e:
-        logger.warning(f"⚠️  Failed to fetch sector for {symbol}: {e}")
+        rows = fmp_get("profile", {"symbol": symbol})
+        if not isinstance(rows, list) or not rows:
+            raise ValueError("empty profile payload")
+        profile = rows[0]
+        sector = profile.get("sector") or UNKNOWN_LABEL
+        industry = profile.get("industry") or UNKNOWN_LABEL
         return {
-            'sector': UNKNOWN_LABEL,
-            'industry': UNKNOWN_LABEL,
-            'industryKey': UNKNOWN_LABEL,
-            'sectorKey': UNKNOWN_LABEL,
-            'quoteType': UNKNOWN_LABEL,
+            "sector": sector,
+            "industry": industry,
+            "industryKey": _slugify(industry),
+            "sectorKey": _slugify(sector),
+            "quoteType": _quote_type_from_profile(profile, symbol),
+        }
+    except Exception as exc:
+        logger.warning("Failed to fetch sector for %s: %s", symbol, exc)
+        return {
+            "sector": UNKNOWN_LABEL,
+            "industry": UNKNOWN_LABEL,
+            "industryKey": UNKNOWN_LABEL,
+            "sectorKey": UNKNOWN_LABEL,
+            "quoteType": UNKNOWN_LABEL,
         }
 
 
 def fetch_sectors_batch(
     symbols: List[str],
-    delay_seconds: float = 0.5
+    delay_seconds: float = 0.0,
 ) -> pd.DataFrame:
     """
-    Fetch sector classifications for multiple symbols.
-    
-    Args:
-        symbols: List of ticker symbols
-        delay_seconds: Delay between requests to avoid rate limits
-        
-    Returns:
-        DataFrame with columns: symbol, sector, industry, industryKey,
-        sectorKey, quoteType, last_updated
-        
-    Example:
-        >>> df = fetch_sectors_batch(['AAPL', 'MSFT', 'JPM'])
-        >>> print(df)
-           symbol       sector              industry  quoteType
-        0   AAPL   Technology  Consumer Electronics     EQUITY
-        1   MSFT   Technology              Software     EQUITY
-        2    JPM   Financials                 Banks     EQUITY
+    Fetch sector classifications for multiple symbols via FMP.
+
+    ``delay_seconds`` is retained for call-site compatibility; the FMP client
+    already throttles requests.
     """
-    import time
-    
+    del delay_seconds  # client-side throttle in fmp_get
     records = []
-    
     for i, symbol in enumerate(symbols):
         info = fetch_sector_info(symbol)
-        
-        record = {
-            'symbol': symbol,
-            'sector': info['sector'],
-            'industry': info['industry'],
-            'industryKey': info['industryKey'],
-            'sectorKey': info['sectorKey'],
-            'quoteType': info['quoteType'],
-            'last_updated': datetime.now().isoformat(),
-        }
-        records.append(record)
-        
-        # Progress logging
-        if (i + 1) % 10 == 0:
-            logger.info(f"   Progress: {i + 1}/{len(symbols)} symbols")
-        
-        # Rate limiting
-        if i < len(symbols) - 1:
-            time.sleep(delay_seconds)
-    
-    df = pd.DataFrame(records)
-    return df
+        records.append(
+            {
+                "symbol": symbol,
+                "sector": info["sector"],
+                "industry": info["industry"],
+                "industryKey": info["industryKey"],
+                "sectorKey": info["sectorKey"],
+                "quoteType": info["quoteType"],
+                "last_updated": datetime.now().isoformat(),
+            }
+        )
+        if (i + 1) % 25 == 0:
+            logger.info("Sector fetch progress: %d/%d", i + 1, len(symbols))
+    return pd.DataFrame(records)
 
 
 def load_sector_classifications() -> Optional[pd.DataFrame]:
@@ -152,10 +134,10 @@ def load_sector_classifications() -> Optional[pd.DataFrame]:
         
     Columns:
         - symbol: Stock ticker
-        - sector: Yahoo Finance sector (e.g., 'Technology')
-        - industry: Yahoo Finance industry (e.g., 'Software')
-        - industryKey: Industry key code
-        - sectorKey: Sector key code
+        - sector: Sector name (e.g., 'Technology') — today's classification from FMP
+        - industry: Industry name (e.g., 'Software')
+        - industryKey: Slugified industry key
+        - sectorKey: Slugified sector key
         - quoteType: Asset type (EQUITY, ETF, INDEX, MUTUALFUND, etc.)
         - last_updated: ISO timestamp of last fetch
     """

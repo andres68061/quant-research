@@ -120,6 +120,52 @@ def load_ff5_parquet(path: Path) -> Optional[pd.DataFrame]:
     return df
 
 
+def prepare_ff5_view(
+    ff5_daily: pd.DataFrame,
+    start: Optional[str] = None,
+    resample_freq: str = "ME",
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Prepare FF5 data for presentation: cumulative growth plus summary stats.
+
+    Args:
+        ff5_daily: Daily decimal returns with columns
+            ``['mkt_rf', 'smb', 'hml', 'rmw', 'cma', 'rf']``.
+        start: Optional ISO date; rows before it are dropped.
+        resample_freq: Pandas offset for downsampling the growth series
+            (default month-end; keeps chart payloads small).
+
+    Returns:
+        Tuple of (growth, stats):
+        - growth: cumulative growth of $1 per factor, resampled, indexed by date.
+        - stats: per-factor annualized return, annualized volatility, and Sharpe
+          (mean/std * sqrt(252), computed on daily returns; rf excluded).
+
+    Example:
+        >>> growth, stats = prepare_ff5_view(ff5, start="2000-01-01")  # doctest: +SKIP
+    """
+    factor_columns = ["mkt_rf", "smb", "hml", "rmw", "cma"]
+    returns = ff5_daily[factor_columns].dropna(how="all")
+    if start is not None:
+        returns = returns.loc[pd.Timestamp(start) :]
+
+    growth = (1.0 + returns).cumprod().resample(resample_freq).last().dropna(how="all")
+
+    trading_days = 252
+    ann_return = (1.0 + returns.mean()) ** trading_days - 1.0
+    ann_vol = returns.std() * (trading_days**0.5)
+    eps = 1e-10
+    sharpe = returns.mean() / (returns.std() + eps) * (trading_days**0.5)
+    stats = pd.DataFrame(
+        {
+            "annualized_return": ann_return,
+            "annualized_volatility": ann_vol,
+            "sharpe_ratio": sharpe,
+        }
+    )
+    return growth, stats
+
+
 def update_ff5_parquet(path: Path, start: Optional[str] = None) -> pd.DataFrame:
     """
     Fetch FF5 daily returns, merge with existing Parquet if present, and write back.

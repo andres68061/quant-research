@@ -76,9 +76,9 @@ def exclusion_summary(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     if start_date:
-        df = df[df.index >= pd.Timestamp(start_date)]
+        df = df[df.index >= start_date]
     if end_date:
-        df = df[df.index <= pd.Timestamp(end_date)]
+        df = df[df.index <= end_date]
 
     mask = (df.fillna(np.inf) >= price_threshold).all(axis=0)
     valid_syms = df.columns[mask].tolist()
@@ -128,9 +128,9 @@ def exclusion_detail(
         raise HTTPException(status_code=404, detail=f"Symbol {symbol} not found")
 
     if start_date:
-        df = df[df.index >= pd.Timestamp(start_date)]
+        df = df[df.index >= start_date]
     if end_date:
-        df = df[df.index <= pd.Timestamp(end_date)]
+        df = df[df.index <= end_date]
 
     s = df[symbol].dropna()
     if len(s) == 0:

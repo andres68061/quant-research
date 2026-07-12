@@ -18,8 +18,10 @@ from api.routes import (
     benchmarks,
     commodities,
     data,
+    data_coverage,
     events_backtest,
     exclusions,
+    fama_french,
     fred,
     health,
     metrics,
@@ -70,6 +72,8 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(data.router)
+app.include_router(data_coverage.router)
+app.include_router(fama_french.router)
 app.include_router(strategy.router)
 app.include_router(strategies.router)
 app.include_router(metrics.router)

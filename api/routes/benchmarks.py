@@ -7,7 +7,6 @@ Exposes benchmark calculation logic for portfolio comparison.
 from datetime import date
 from typing import Optional
 
-import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
@@ -75,9 +74,11 @@ def get_benchmark_returns(
     if df_prices is None or df_prices.empty:
         raise HTTPException(status_code=503, detail="Price data not loaded")
 
-    start_ts = pd.Timestamp(start_date)
-    end_ts = pd.Timestamp(end_date)
-    df_slice = df_prices.loc[start_ts:end_ts]
+    # Label slices with ISO strings avoid tz-naive Timestamp vs tz-aware index errors.
+    df_prices = df_prices.sort_index()
+    start_lbl = start_date.isoformat()
+    end_lbl = end_date.isoformat()
+    df_slice = df_prices.loc[start_lbl:end_lbl]
 
     if df_slice.empty:
         raise HTTPException(

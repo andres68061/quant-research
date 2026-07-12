@@ -17,6 +17,7 @@ Sector classifications are automatically refreshed every 3 months.
 import argparse
 import sys
 from pathlib import Path
+from typing import Optional
 
 import pandas as pd
 
@@ -34,15 +35,20 @@ from core.data.factors.macro import (
     derive_macro_panel_from_raw,
     load_raw_macro_default,
 )
-from core.data.factors.prices import update_prices_panel_incremental
+from core.data.fmp.panel import update_panel_from_fmp
+from core.data.quality import (
+    load_quarantine_list,
+    merge_with_existing,
+    repair_isolated_bad_prints,
+    scan_price_panel,
+    write_quarantine_list,
+)
 from core.data.sector_classification import (
     add_or_update_sectors,
     get_symbols_needing_refresh,
     load_sector_classifications,
 )
 from core.utils.io import (
-    append_rows_to_parquet,
-    get_last_date_from_parquet,
     read_parquet,
     write_parquet,
 )
@@ -79,15 +85,26 @@ def update_prices(out_root: Path) -> bool:
         print("   ✅ Prices are already up to date!")
         return False
 
-    # Update with new data
-    print(f"   Fetching new data since {last_date.strftime('%Y-%m-%d')}...")
-    updated_prices = update_prices_panel_incremental(existing_prices)
+    # Update with new data from FMP (overlapping window catches vendor restatements)
+    print(f"   Fetching new FMP data since {last_date.strftime('%Y-%m-%d')}...")
+    updated_prices = update_panel_from_fmp(existing_prices)
 
     new_last_date = updated_prices.index.max()
     if new_last_date > last_date:
         new_rows = len(updated_prices) - len(existing_prices)
         print(f"   ✅ Added {new_rows} new dates")
         print(f"   New last date: {new_last_date.strftime('%Y-%m-%d')}")
+
+        # Clean isolated bad prints in the derived panel (raw layer keeps vendor values)
+        updated_prices, repair_log = repair_isolated_bad_prints(updated_prices)
+        if not repair_log.empty:
+            repairs_path = ROOT / "data" / "quality" / "bad_print_repairs.csv"
+            previous_repairs = pd.read_csv(repairs_path) if repairs_path.exists() else pd.DataFrame()
+            pd.concat([previous_repairs, repair_log.astype({"date": str})]).drop_duplicates(
+                subset=["symbol", "date"]
+            ).to_csv(repairs_path, index=False)
+            print(f"   🩹 Repaired {len(repair_log)} isolated bad prints")
+
         write_parquet(updated_prices, prices_path)
         return True
     else:
@@ -177,6 +194,141 @@ def rebuild_factors(out_root: Path, prices_updated: bool) -> None:
     mcap_path = _P("data/market_caps/historical_market_caps.parquet")
     factors_all = merge_market_cap(factors_price, mcap_path)
     write_parquet(factors_all, factors_all_path)
+
+    print("💧 Rebuilding dollar-ADV panel...")
+    from core.data.liquidity import DEFAULT_ADV_PATH, DEFAULT_RAW_DIR, build_dollar_adv_panel
+
+    dollar_adv = build_dollar_adv_panel(ROOT / DEFAULT_RAW_DIR)
+    adv_path = ROOT / DEFAULT_ADV_PATH
+    write_parquet(dollar_adv, adv_path)
+    print(f"   ✅ Wrote {adv_path}: {dollar_adv.shape}")
+
+
+def rescan_data_quality(out_root: Path, prices_updated: bool) -> None:
+    """
+    Re-run the quarantine scanner after new price data lands.
+
+    Manual ``cleared`` decisions in the existing list are preserved.
+    """
+    if not prices_updated:
+        print("🩺 Skipping quality rescan (no new price data)")
+        return
+
+    print("🩺 Rescanning data quality...")
+    prices = read_parquet(out_root / "prices.parquet")
+    if prices is None or prices.empty:
+        return
+
+    findings = scan_price_panel(prices)
+    merged = merge_with_existing(findings, load_quarantine_list())
+    write_quarantine_list(merged)
+    n_quarantined = (merged["status"] == "quarantined").sum() if not merged.empty else 0
+    print(f"   ✅ Quality scan done: {len(merged)} findings, {n_quarantined} quarantined rows")
+
+
+def refresh_fundamentals_if_due(max_age_days: int = 7) -> bool:
+    """
+    Weekly refresh of FMP statements + rebuild of the PIT fundamentals panel.
+
+    Skips when ``factors_fundamental.parquet`` is newer than ``max_age_days``.
+    Fetches only symbols whose raw income-statement file is missing or stale.
+    """
+    import subprocess
+
+    factors_path = ROOT / "data" / "factors" / "factors_fundamental.parquet"
+    if factors_path.exists():
+        age_days = (pd.Timestamp.now() - pd.Timestamp(factors_path.stat().st_mtime, unit="s")).days
+        if age_days < max_age_days:
+            print(f"📑 Fundamentals panel is {age_days}d old — skipping (refresh every {max_age_days}d)")
+            return False
+
+    print("📑 Refreshing FMP fundamentals (weekly)...")
+    fetch = subprocess.run(
+        ["/opt/anaconda3/envs/quant/bin/python", str(ROOT / "scripts" / "fetch_fmp_fundamentals.py"), "--refresh"],
+        cwd=str(ROOT),
+        check=False,
+    )
+    if fetch.returncode != 0:
+        print(f"   ⚠️  Fundamentals fetch exited {fetch.returncode}; skipping panel rebuild")
+        return False
+    build = subprocess.run(
+        ["/opt/anaconda3/envs/quant/bin/python", str(ROOT / "scripts" / "build_fundamentals_panel.py")],
+        cwd=str(ROOT),
+        check=False,
+    )
+    if build.returncode != 0:
+        print(f"   ⚠️  Fundamentals panel rebuild exited {build.returncode}")
+        return False
+    print("   ✅ Fundamentals panel refreshed")
+    return True
+
+
+def _file_age_days(path: Path) -> Optional[int]:
+    if not path.exists():
+        return None
+    return (pd.Timestamp.now() - pd.Timestamp(path.stat().st_mtime, unit="s")).days
+
+
+def refresh_market_caps_if_due(max_age_days: int = 7) -> bool:
+    """Weekly FMP historical market-cap refresh + panel rebuild."""
+    import subprocess
+
+    panel_path = ROOT / "data" / "market_caps" / "historical_market_caps.parquet"
+    age = _file_age_days(panel_path)
+    if age is not None and age < max_age_days:
+        print(f"💰 Market-cap panel is {age}d old — skipping (refresh every {max_age_days}d)")
+        return False
+
+    print("💰 Refreshing FMP historical market caps (weekly)...")
+    # Incremental: skip existing raw files; rebuild the stacked panel.
+    result = subprocess.run(
+        ["/opt/anaconda3/envs/quant/bin/python", str(ROOT / "scripts" / "fetch_fmp_market_caps.py")],
+        cwd=str(ROOT),
+        check=False,
+    )
+    if result.returncode != 0:
+        print(f"   ⚠️  Market-cap refresh exited {result.returncode}")
+        return False
+    print("   ✅ Market-cap panel refreshed")
+    return True
+
+
+def refresh_sp500_membership_if_due(max_age_days: int = 7) -> bool:
+    """Weekly FMP S&P membership rebuild + CSV reconciliation report."""
+    import subprocess
+
+    membership_path = ROOT / "data" / "raw" / "fmp" / "constituents" / "sp500_membership.parquet"
+    age = _file_age_days(membership_path)
+    if age is not None and age < max_age_days:
+        print(f"🏛️  S&P membership is {age}d old — skipping (refresh every {max_age_days}d)")
+        return False
+
+    print("🏛️  Refreshing S&P 500 membership from FMP (weekly)...")
+    result = subprocess.run(
+        ["/opt/anaconda3/envs/quant/bin/python", str(ROOT / "scripts" / "refresh_sp500_constituents.py")],
+        cwd=str(ROOT),
+        check=False,
+    )
+    if result.returncode != 0:
+        print(f"   ⚠️  S&P membership refresh exited {result.returncode}")
+        return False
+    print("   ✅ S&P membership refreshed (see data/quality/sp500_reconciliation.txt)")
+    return True
+
+
+def refresh_vix_if_due(max_age_days: int = 1) -> bool:
+    """Daily VIX refresh from FMP."""
+    from core.data.vix import load_vix
+
+    vix_path = ROOT / "data" / "factors" / "vix.parquet"
+    age = _file_age_days(vix_path)
+    if age is not None and age < max_age_days:
+        print(f"📉 VIX is {age}d old — skipping")
+        return False
+    print("📉 Refreshing VIX from FMP...")
+    series = load_vix(force_refresh=True)
+    print(f"   ✅ VIX refreshed: {len(series)} rows through {series.index.max().date() if len(series) else 'n/a'}")
+    return True
 
 
 def update_sectors_if_needed(out_root: Path) -> bool:
@@ -280,6 +432,26 @@ def main(out_root: str = "data/factors", db_path: str = "data/factors/factors.du
     rebuild_factors(out_root_p, prices_updated)
     print()
 
+    # Step 4b: Rescan data quality on the refreshed panel
+    rescan_data_quality(out_root_p, prices_updated)
+    print()
+
+    # Step 4c: Weekly fundamentals refresh (statements change slowly)
+    fundamentals_updated = refresh_fundamentals_if_due()
+    print()
+
+    # Step 4d: Weekly historical market caps
+    market_caps_updated = refresh_market_caps_if_due()
+    print()
+
+    # Step 4e: Weekly S&P membership + reconciliation report
+    sp500_updated = refresh_sp500_membership_if_due()
+    print()
+
+    # Step 4f: VIX (daily)
+    vix_updated = refresh_vix_if_due()
+    print()
+
     # Step 5: Update sector classifications (quarterly refresh)
     sectors_updated = update_sectors_if_needed(out_root_p)
     print()
@@ -289,10 +461,28 @@ def main(out_root: str = "data/factors", db_path: str = "data/factors/factors.du
     print()
 
     print("=" * 80)
-    if prices_updated or macro_updated or sectors_updated:
+    if any(
+        [
+            prices_updated,
+            macro_updated,
+            sectors_updated,
+            fundamentals_updated,
+            market_caps_updated,
+            sp500_updated,
+            vix_updated,
+        ]
+    ):
         print("✅ Incremental update completed successfully!")
         if sectors_updated:
             print("   📊 Sector classifications refreshed (quarterly update)")
+        if fundamentals_updated:
+            print("   📑 Fundamentals panel refreshed (weekly update)")
+        if market_caps_updated:
+            print("   💰 Market-cap panel refreshed (weekly update)")
+        if sp500_updated:
+            print("   🏛️  S&P membership refreshed (weekly update)")
+        if vix_updated:
+            print("   📉 VIX refreshed")
     else:
         print("✅ Data is already up to date - no changes needed")
     print("=" * 80)

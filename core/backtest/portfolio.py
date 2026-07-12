@@ -47,11 +47,21 @@ def _infer_abs_bound(factor_col: str) -> float:
     """
     if factor_col == "log_market_cap":
         return float("inf")
-    if factor_col.startswith("mom_"):
+    if factor_col.startswith("mom_") or factor_col.startswith("rev_"):
         return 10.0
     if factor_col.startswith("vol_"):
         return 5.0
     if factor_col.startswith("beta_"):
+        return float("inf")
+    # Valuation / quality ratios: distressed names can print extreme levels;
+    # filter only non-finite values, not an absolute magnitude cap.
+    if factor_col in {
+        "book_to_market",
+        "earnings_yield",
+        "roe",
+        "asset_growth",
+        "neg_asset_growth",
+    }:
         return float("inf")
     return 10.0
 
@@ -234,6 +244,7 @@ def calculate_portfolio_returns(
     rebalance_freq: str = "ME",
     transaction_cost: float = 0.001,
     long_only: bool = False,
+    dollar_adv: Optional[pd.DataFrame] = None,
 ) -> pd.DataFrame:
     """
     Calculate portfolio returns from signals and prices.
@@ -245,8 +256,13 @@ def calculate_portfolio_returns(
         prices: DataFrame with prices (wide format: date x symbols)
         rebalance_freq: Pandas offset for resampling (prefer ``ME``, ``QE``; ``M``/``Q``
             are normalized to ``ME``/``QE`` for pandas 2.2+ compatibility).
-        transaction_cost: Cost per trade as decimal (0.001 = 10 bps)
+        transaction_cost: Flat one-way cost per trade as decimal (0.001 = 10 bps).
+            Used when ``dollar_adv`` is None, and as the fallback when ADV is missing.
         long_only: If True, ignore short signals
+        dollar_adv: Optional wide panel of trailing dollar ADV (same index/columns
+            convention as ``prices``). When provided, each name's traded weight is
+            charged the ADV-bucket cost from :mod:`core.data.liquidity` instead of
+            the flat ``transaction_cost``.
 
     Returns:
         DataFrame with columns: gross_return, transaction_cost,
@@ -264,6 +280,8 @@ def calculate_portfolio_returns(
         ...     signals, prices, rebalance_freq='ME', transaction_cost=0.001
         ... )
     """
+    from core.data.liquidity import costs_for_date
+
     # Do NOT forward-fill NaN prices: a delisted / suspended stock must not be
     # treated as flat at its last price (that silently hides bankruptcies).
     returns = prices.pct_change(fill_method=None)
@@ -318,6 +336,10 @@ def calculate_portfolio_returns(
     daily_n_short = []
     daily_turnover = []
 
+    adv_aligned: Optional[pd.DataFrame] = None
+    if dollar_adv is not None:
+        adv_aligned = dollar_adv.reindex(index=returns.index).reindex(columns=returns.columns)
+
     for i, date in enumerate(returns.index):
         if i == 0:
             daily_gross_returns.append(0.0)
@@ -359,9 +381,19 @@ def calculate_portfolio_returns(
         if date in rebalance_dates:
             cash = 0.0
 
-        pos_change = (positions.loc[date] - positions.loc[prev_date]).abs().sum()
-        turnover_val = pos_change / 2
-        trans_cost = turnover_val * transaction_cost
+        pos_delta = (positions.loc[date] - positions.loc[prev_date]).abs()
+        turnover_val = float(pos_delta.sum() / 2.0)
+        if adv_aligned is not None and turnover_val > 0:
+            traded = pos_delta[pos_delta > 0]
+            cost_row = costs_for_date(
+                adv_aligned.loc[prev_date],
+                traded.index,
+                default_cost=transaction_cost,
+            )
+            # One-way: half of Σ |Δw_i| × cost_i  (matches flat turnover×cost).
+            trans_cost = float((traded * cost_row).sum() / 2.0)
+        else:
+            trans_cost = turnover_val * transaction_cost
 
         daily_gross_returns.append(gross_ret)
         daily_transaction_costs.append(trans_cost)

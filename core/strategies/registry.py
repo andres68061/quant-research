@@ -107,9 +107,7 @@ STRATEGIES: dict[str, StrategyMetadata] = {
     "size_small_minus_big": StrategyMetadata(
         id="size_small_minus_big",
         title="Size (small-minus-big)",
-        description=(
-            "Long small-cap, short large-cap. Ranked on log market capitalization."
-        ),
+        description=("Long small-cap, short large-cap. Ranked on log market capitalization."),
         kind=StrategyKind.FACTOR_CROSS_SECTION,
         post_path="/run-backtest",
         hypothesis=(
@@ -129,6 +127,160 @@ STRATEGIES: dict[str, StrategyMetadata] = {
             "sparser factor panels — min_stocks filter is critical.",
             "The premium is stronger when combined with other factors (quality, "
             "profitability) than in isolation.",
+        ),
+    ),
+    "short_term_reversal": StrategyMetadata(
+        id="short_term_reversal",
+        title="Short-term reversal (1-month)",
+        description=(
+            "Long the biggest losers of the past 21 trading days, short the "
+            "biggest winners. Ranked on the negative trailing 1-month return "
+            "(rev_21d) so the top tier is the losers."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Over 1-week to 1-month horizons stock returns partially reverse: "
+            "liquidity providers demand compensation for absorbing order-flow "
+            "imbalances, and prices overshoot on non-fundamental demand. Buying "
+            "recent losers and selling recent winners harvests that liquidity "
+            "premium."
+        ),
+        reference=(
+            "Jegadeesh (1990) 'Evidence of Predictable Behavior of Security "
+            "Returns', Journal of Finance 45(3); Lehmann (1990) 'Fads, "
+            "Martingales, and Market Efficiency', QJE 105(1); Nagel (2012) "
+            "'Evaporating Liquidity', RFS 25(7)."
+        ),
+        expected_sharpe_range=(0.2, 0.9),
+        known_limitations=(
+            "Extremely turnover-intensive (full position refresh every month or "
+            "faster); gross premium is largely consumed by transaction costs at "
+            "realistic bps — always compare gross vs net.",
+            "The premium decayed sharply after the 1990s as electronic market "
+            "making compressed liquidity-provision profits (Nagel 2012).",
+            "Loser stocks are often losers for fundamental reasons (earnings "
+            "misses, litigation); without news filtering the strategy buys some "
+            "genuinely deteriorating names.",
+            "Best results historically come from weekly rebalancing, which this "
+            "platform approximates with monthly rebalance — expect weaker "
+            "performance than published weekly numbers.",
+        ),
+    ),
+    "earnings_yield": StrategyMetadata(
+        id="earnings_yield",
+        title="Earnings yield (E/P value)",
+        description=(
+            "Long highest trailing-twelve-month earnings yield (net income / "
+            "market cap), short lowest. Point-in-time: earnings become visible "
+            "only after the SEC filing acceptance date."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Cheap stocks (high E/P) earn a premium as compensation for distress "
+            "risk and as a correction of investor over-extrapolation of growth. "
+            "Earnings yield is the income-statement twin of book-to-market."
+        ),
+        reference=(
+            "Basu (1977) 'Investment Performance of Common Stocks in Relation to "
+            "Their Price-Earnings Ratios', Journal of Finance 32(3); Fama & French "
+            "(1992) for the value premium in the cross-section."
+        ),
+        expected_sharpe_range=(-0.2, 0.5),
+        known_limitations=(
+            "US large-cap value premium has been weak to flat since ~2007; expect "
+            "near-zero Sharpe in S&P 500 samples after 2005.",
+            "Negative earners sort into the short leg; that is intentional but "
+            "concentrates the short book in loss-making names.",
+            "Pre-2015 S&P coverage is incomplete for delisted members (FMP gap); "
+            "prefer 2015+ windows or treat earlier results as biased toward survivors.",
+        ),
+    ),
+    "book_to_market": StrategyMetadata(
+        id="book_to_market",
+        title="Book-to-market (HML value)",
+        description=(
+            "Long highest book-equity / market-cap, short lowest. Classic "
+            "Fama-French HML construction on a point-in-time fundamentals panel."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "High book-to-market stocks are underpriced relative to accounting "
+            "value, either as compensation for financial distress risk (rational) "
+            "or because investors overpay for growth glamour (behavioral)."
+        ),
+        reference=(
+            "Fama & French (1993) 'Common risk factors in the returns on stocks "
+            "and bonds', JFE 33(1); Rosenberg, Reid & Lanstein (1985) for the "
+            "original book-to-market evidence."
+        ),
+        expected_sharpe_range=(-0.2, 0.5),
+        known_limitations=(
+            "Same post-2007 value decay as earnings yield in US large caps.",
+            "Negative book equity is excluded (NaN), which drops some financials "
+            "and distressed names from the ranking.",
+            "Intangible-heavy businesses make book equity a poorer measure of "
+            "economic capital than it was in the 1960-1990 sample.",
+            "Pre-2015 S&P coverage gap applies (see earnings_yield limitations).",
+        ),
+    ),
+    "roe_quality": StrategyMetadata(
+        id="roe_quality",
+        title="ROE quality (profitability)",
+        description=(
+            "Long highest trailing-twelve-month ROE (net income / book equity), "
+            "short lowest. Closest single-ratio proxy for Fama-French RMW."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Highly profitable firms earn a premium because the market under-reacts "
+            "to the persistence of profitability, and because low-ROE firms carry "
+            "uncompensated distress risk that is not fully priced."
+        ),
+        reference=(
+            "Novy-Marx (2013) 'The other side of value: The gross profitability "
+            "premium', JFE 108(1); Fama & French (2015) for RMW in the 5-factor model."
+        ),
+        expected_sharpe_range=(0.0, 0.6),
+        known_limitations=(
+            "ROE uses book equity in the denominator — same negative-book exclusion "
+            "as book_to_market, and sensitive to buybacks that shrink the book.",
+            "Gross profitability (Novy-Marx) is usually preferred to ROE; ROE can "
+            "be mechanically high for levered firms.",
+            "Quality and value often hedge each other; a combined portfolio is "
+            "more informative than either leg alone.",
+        ),
+    ),
+    "low_asset_growth": StrategyMetadata(
+        id="low_asset_growth",
+        title="Low asset growth (investment)",
+        description=(
+            "Long lowest year-over-year total-asset growth, short highest. Ranked "
+            "on ``neg_asset_growth`` so the shared descending ranker longs the "
+            "low-investment side (Fama-French CMA)."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Firms that grow assets aggressively earn lower subsequent returns — "
+            "empire-building, overinvestment, and the market's under-reaction to "
+            "the diminishing returns of expansion. Low-investment firms are the "
+            "premium side."
+        ),
+        reference=(
+            "Cooper, Gulen & Schill (2008) 'Asset Growth and the Cross-Section of "
+            "Stock Returns', Journal of Finance 63(4); Fama & French (2015) CMA."
+        ),
+        expected_sharpe_range=(-0.1, 0.5),
+        known_limitations=(
+            "M&A and large capex programs dominate the high-growth short leg; "
+            "those events are public and may be partially priced already.",
+            "Asset growth is noisy for financials (balance-sheet composition "
+            "differs); consider excluding banks in a follow-up.",
+            "Post-2005 US large-cap realization has been weak, similar to value.",
         ),
     ),
     "ml_commodity_direction": StrategyMetadata(
