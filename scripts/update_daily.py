@@ -331,6 +331,43 @@ def refresh_vix_if_due(max_age_days: int = 1) -> bool:
     return True
 
 
+def refresh_lifecycle_if_due(prices_updated: bool, max_age_days: int = 30) -> bool:
+    """
+    Monthly rebuild of symbol lifecycle windows; re-apply after price updates.
+
+    Price updates can reintroduce bars outside a ticker's valid life (FMP
+    restatements / recycled symbols). Re-applying the existing windows is cheap;
+    refetching FMP delisted/symbol-change registries is monthly.
+    """
+    import subprocess
+
+    lifecycle_path = ROOT / "data" / "quality" / "symbol_lifecycle.parquet"
+    age = _file_age_days(lifecycle_path)
+    windows_stale = age is None or age >= max_age_days
+
+    if not windows_stale and not prices_updated:
+        print(
+            f"⏳ Lifecycle windows are {age}d old — skipping "
+            f"(rebuild every {max_age_days}d; re-apply when prices update)"
+        )
+        return False
+
+    script = str(ROOT / "scripts" / "build_symbol_lifecycle.py")
+    if windows_stale:
+        print("⏳ Refreshing symbol lifecycle windows from FMP (monthly) + applying...")
+        cmd = ["/opt/anaconda3/envs/quant/bin/python", script, "--apply"]
+    else:
+        print("⏳ Re-applying existing lifecycle windows after price update...")
+        cmd = ["/opt/anaconda3/envs/quant/bin/python", script, "--apply-only"]
+
+    result = subprocess.run(cmd, cwd=str(ROOT), check=False)
+    if result.returncode != 0:
+        print(f"   ⚠️  Lifecycle refresh exited {result.returncode}")
+        return False
+    print("   ✅ Lifecycle applied (rebuild factors if prices changed)")
+    return True
+
+
 def update_sectors_if_needed(out_root: Path) -> bool:
     """
     Check if sector classifications need quarterly refresh.
@@ -428,14 +465,17 @@ def main(out_root: str = "data/factors", db_path: str = "data/factors/factors.du
         print(f"   Warning: FF5 update failed ({exc}); continuing.")
     print()
 
-    # Step 4: Rebuild factors if prices changed
-    rebuild_factors(out_root_p, prices_updated)
+    # Step 4: Lifecycle before factor rebuild so truncated NaNs feed factors
+    lifecycle_updated = refresh_lifecycle_if_due(prices_updated)
     print()
 
-    # Step 4b: Rescan data quality on the refreshed panel
-    rescan_data_quality(out_root_p, prices_updated)
+    # Step 4b: Rebuild price factors when the panel changed
+    rebuild_factors(out_root_p, prices_updated or lifecycle_updated)
     print()
 
+    # Step 4c: Rescan data quality on the refreshed panel
+    rescan_data_quality(out_root_p, prices_updated or lifecycle_updated)
+    print()
     # Step 4c: Weekly fundamentals refresh (statements change slowly)
     fundamentals_updated = refresh_fundamentals_if_due()
     print()
@@ -470,6 +510,7 @@ def main(out_root: str = "data/factors", db_path: str = "data/factors/factors.du
             market_caps_updated,
             sp500_updated,
             vix_updated,
+            lifecycle_updated,
         ]
     ):
         print("✅ Incremental update completed successfully!")
@@ -477,6 +518,8 @@ def main(out_root: str = "data/factors", db_path: str = "data/factors/factors.du
             print("   📊 Sector classifications refreshed (quarterly update)")
         if fundamentals_updated:
             print("   📑 Fundamentals panel refreshed (weekly update)")
+        if lifecycle_updated:
+            print("   ⏳ Symbol lifecycle windows refreshed / re-applied")
         if market_caps_updated:
             print("   💰 Market-cap panel refreshed (weekly update)")
         if sp500_updated:

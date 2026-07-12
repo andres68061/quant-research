@@ -86,7 +86,7 @@ These files exist on disk and are produced by standalone scripts. They are **not
 | `data/commodities/prices.parquet` | ~5,300 dates × 14 columns (GLD, SLV, WTI, BRENT, etc.) | [`scripts/update_commodities.py`](../scripts/update_commodities.py) / [`scripts/fetch_commodities.py`](../scripts/fetch_commodities.py) | Used by commodity API routes; not merged into the equity factor table. |
 | `data/cetes28_daily.parquet` | Mexican CETES 28-day rates (Banxico) | Banxico API route / script | MX risk-free rate proxy. |
 | `data/ml/stock_ml_dataset.csv` | ML training dataset (~916 KB) | Legacy (Aug 2025) | Pre-built feature set; may be stale. |
-| `data/S&P 500 Historical Components & Changes*.csv` | Historical S&P 500 membership changes (newest matching file in `data/` by mtime) | fja05680/sp500 dataset, copied in by local updater | Used by [`core/data/sp500_constituents.py`](../core/data/sp500_constituents.py) (`resolve_sp500_historical_csv`) for survivorship-bias-free universe construction. |
+| `data/S&P 500 Historical Components & Changes*.csv` | Historical S&P 500 membership (newest file by mtime; usually `(Updated).csv` from fja05680/sp500) | Manual copy from upstream sp500 repo after `sp500_historical.ipynb` | **Canonical PIT universe.** Procedure: [`docs/SP500_MEMBERSHIP.md`](SP500_MEMBERSHIP.md). Loaded by [`core/data/sp500_constituents.py`](../core/data/sp500_constituents.py). |
 | `data/sp500_failed_symbols.json` | Symbols that failed yfinance fetch | Backfill scripts | Diagnostic; excluded from price panel. |
 
 ### Survivorship-bias-free universe

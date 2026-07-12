@@ -80,6 +80,16 @@ def main() -> None:
         )
 
     fundamental_factors = compute_fundamental_factors(pit_panel, market_cap)
+
+    sectors_path = ROOT / "data" / "sectors" / "sector_classifications.parquet"
+    if sectors_path.exists():
+        from core.signals.sector_neutral import attach_value_quality_columns
+
+        symbol_to_sector = pd.read_parquet(sectors_path).set_index("symbol")["sector"]
+        fundamental_factors = attach_value_quality_columns(fundamental_factors, symbol_to_sector)
+    else:
+        logger.warning("No sector file at %s; skipping value_quality_sn", sectors_path)
+
     fundamental_factors.to_parquet(FACTORS_OUT)
     coverage = fundamental_factors.notna().mean()
     logger.info(

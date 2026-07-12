@@ -55,9 +55,18 @@ class TestRegistry:
         assert "book_to_market" in ids
         assert "roe_quality" in ids
         assert "low_asset_growth" in ids
+        assert "value_quality" in ids
+        assert "value_quality_sn" in ids
 
     def test_fundamental_strategies_share_backtest_endpoint(self) -> None:
-        for strategy_id in ("earnings_yield", "book_to_market", "roe_quality", "low_asset_growth"):
+        for strategy_id in (
+            "earnings_yield",
+            "book_to_market",
+            "roe_quality",
+            "low_asset_growth",
+            "value_quality",
+            "value_quality_sn",
+        ):
             meta = get_strategy(strategy_id)
             assert meta.post_path == "/run-backtest"
             assert meta.kind.value == "factor_cross_section"

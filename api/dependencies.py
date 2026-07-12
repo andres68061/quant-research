@@ -42,6 +42,22 @@ def load_data() -> None:
         fundamentals_path = data_dir / "factors" / "factors_fundamental.parquet"
         if fundamentals_path.exists():
             fundamental_factors = pd.read_parquet(fundamentals_path)
+            sectors_path = data_dir / "sectors" / "sector_classifications.parquet"
+            if (
+                "earnings_yield" in fundamental_factors.columns
+                and "roe" in fundamental_factors.columns
+                and (
+                    "value_quality_sn" not in fundamental_factors.columns
+                    or "value_quality" not in fundamental_factors.columns
+                )
+                and sectors_path.exists()
+            ):
+                from core.signals.sector_neutral import attach_value_quality_columns
+
+                symbol_to_sector = pd.read_parquet(sectors_path).set_index("symbol")["sector"]
+                fundamental_factors = attach_value_quality_columns(
+                    fundamental_factors, symbol_to_sector
+                )
             overlap = [c for c in fundamental_factors.columns if c in _factors.columns]
             _factors = _factors.drop(columns=overlap, errors="ignore").join(
                 fundamental_factors, how="left"

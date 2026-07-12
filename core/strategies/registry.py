@@ -283,6 +283,59 @@ STRATEGIES: dict[str, StrategyMetadata] = {
             "Post-2005 US large-cap realization has been weak, similar to value.",
         ),
     ),
+    "value_quality": StrategyMetadata(
+        id="value_quality",
+        title="Value + quality composite",
+        description=(
+            "Equal-weight composite of cross-sectional z(earnings yield) and "
+            "z(ROE). Long high composite, short low. Factor column "
+            "``value_quality``."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Cheap stocks that are also profitable should outperform cheap "
+            "distressed names and expensive quality names. Combining value and "
+            "quality hedges each leg's industry and distress tilts."
+        ),
+        reference=(
+            "Asness, Frazzini & Pedersen (2019) 'Quality minus junk', Review of "
+            "Accounting Studies; Fama & French (2015) for RMW alongside HML."
+        ),
+        expected_sharpe_range=(-0.1, 0.6),
+        known_limitations=(
+            "Composite is equal-weight z-scores, not an optimized blend.",
+            "Still loads on sector bets when not sector-neutralized.",
+            "Uses today's FMP sector only if you switch to value_quality_sn.",
+            "Pre-2015 S&P coverage gap applies.",
+        ),
+    ),
+    "value_quality_sn": StrategyMetadata(
+        id="value_quality_sn",
+        title="Value + quality (sector-neutral)",
+        description=(
+            "Same EY+ROE composite after demeaning each leg within sector on "
+            "each date, then z-scoring. Factor column ``value_quality_sn``."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Relative cheapness and profitability *inside* an industry are more "
+            "informative than raw levels that mostly pick sectors (e.g. banks vs "
+            "tech). Sector demeaning isolates the stock-selection premium."
+        ),
+        reference=(
+            "Asness, Frazzini & Pedersen (2019); industry-relative value is a "
+            "common practitioner variant of HML / E/P."
+        ),
+        expected_sharpe_range=(-0.1, 0.7),
+        known_limitations=(
+            "Sector labels are today's FMP profile applied to all history "
+            "(mild lookahead) — see docs/SP500_MEMBERSHIP.md and sector module.",
+            "Thin sectors (<2 names) drop out of the demean step that day.",
+            "Pre-2015 S&P coverage gap applies.",
+        ),
+    ),
     "ml_commodity_direction": StrategyMetadata(
         id="ml_commodity_direction",
         title="ML commodity direction (walk-forward)",

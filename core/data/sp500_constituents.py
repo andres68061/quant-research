@@ -1,8 +1,11 @@
 """
 S&P 500 Historical Constituents Management
 
-This module provides point-in-time S&P 500 constituent data to eliminate
-survivorship bias in backtesting.
+Point-in-time S&P 500 membership for survivorship-bias-free backtests.
+
+Canonical source and update procedure: ``docs/SP500_MEMBERSHIP.md``.
+Live file: newest ``data/S&P 500 Historical Components & Changes*.csv``
+(usually the upstream fja05680 ``(Updated).csv``).
 """
 
 import logging

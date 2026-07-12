@@ -47,16 +47,33 @@ def main() -> None:
         action="store_true",
         help="NaN prices outside windows in the derived panel and note factor rebuild",
     )
+    parser.add_argument(
+        "--apply-only",
+        action="store_true",
+        help="Re-apply existing lifecycle parquet to the price panel (no FMP refetch)",
+    )
     args = parser.parse_args()
 
     prices = pd.read_parquet(PRICES_PATH)
+    lifecycle_path = ROOT / LIFECYCLE_PATH
+
+    if args.apply_only:
+        if not lifecycle_path.exists():
+            logger.error("No lifecycle file at %s; run without --apply-only first", lifecycle_path)
+            sys.exit(1)
+        windows = pd.read_parquet(lifecycle_path)
+        truncated, n_cleared = apply_lifecycle_to_panel(prices, windows)
+        truncated.to_parquet(PRICES_PATH)
+        logger.info("Re-applied lifecycle: cleared %d price cells", n_cleared)
+        return
+
     logger.info("Fetching FMP symbol-change + delisted registries...")
     changes = fetch_all_symbol_changes()
     delisted = fetch_all_delisted()
     logger.info("symbol-change rows=%d delisted rows=%d", len(changes), len(delisted))
 
     windows = build_lifecycle_windows(prices, changes, delisted)
-    write_lifecycle_windows(windows, ROOT / LIFECYCLE_PATH)
+    write_lifecycle_windows(windows, lifecycle_path)
 
     truncated_notes = windows[windows["source_notes"].str.contains("price_gap|symbol_change|delistedDate")]
     logger.info(

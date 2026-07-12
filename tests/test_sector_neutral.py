@@ -7,6 +7,7 @@ import pandas as pd
 
 from core.data.commodities import COMMODITIES_CONFIG
 from core.signals.sector_neutral import (
+    attach_value_quality_columns,
     combine_value_quality,
     demean_factor_within_sector,
     zscore_cross_section,
@@ -39,6 +40,22 @@ class TestSectorNeutral:
         z = zscore_cross_section(values)
         assert abs(float(z.mean())) < 1e-9
         assert abs(float(z.std(ddof=0)) - 1.0) < 1e-9
+
+    def test_attach_value_quality_columns(self) -> None:
+        date = pd.Timestamp("2020-01-02")
+        symbols = [f"S{i}" for i in range(8)]
+        idx = pd.MultiIndex.from_product([[date], symbols], names=["date", "symbol"])
+        factors = pd.DataFrame(
+            {
+                "earnings_yield": np.linspace(0.02, 0.10, 8),
+                "roe": np.linspace(0.05, 0.20, 8),
+            },
+            index=idx,
+        )
+        sectors = pd.Series({s: ("Tech" if i < 4 else "Health") for i, s in enumerate(symbols)})
+        out = attach_value_quality_columns(factors, sectors)
+        assert "value_quality" in out.columns and "value_quality_sn" in out.columns
+        assert out["value_quality_sn"].notna().sum() == 8
 
     def test_value_quality_composite_shape(self) -> None:
         date = pd.Timestamp("2020-01-02")

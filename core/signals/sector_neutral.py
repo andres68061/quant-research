@@ -87,3 +87,28 @@ def combine_value_quality(
     composite = (zscore_cross_section(ey) + zscore_cross_section(quality)) / 2.0
     composite.name = "value_quality"
     return composite
+
+
+def attach_value_quality_columns(
+    factors: pd.DataFrame,
+    symbol_to_sector: Optional[pd.Series] = None,
+) -> pd.DataFrame:
+    """
+    Add ``value_quality`` and (if sectors given) ``value_quality_sn`` columns.
+
+    Requires ``earnings_yield`` and ``roe`` on ``factors``. Missing legs → NaN
+    composites; existing composite columns are overwritten.
+    """
+    if "earnings_yield" not in factors.columns or "roe" not in factors.columns:
+        return factors
+
+    out = factors.copy()
+    out["value_quality"] = combine_value_quality(out["earnings_yield"], out["roe"])
+    if symbol_to_sector is not None:
+        out["value_quality_sn"] = combine_value_quality(
+            out["earnings_yield"],
+            out["roe"],
+            symbol_to_sector=symbol_to_sector,
+            sector_neutral=True,
+        )
+    return out
