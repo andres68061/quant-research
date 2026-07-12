@@ -4,22 +4,23 @@ Working log for the platform build-out. Each entry has enough context to
 resume cold ("continue with the roadmap" should be sufficient instruction).
 Update this file whenever an item ships or a decision changes.
 
-_Last updated: 2026-07-12 (lifecycle in update_daily; value_quality strategies)._
+_Last updated: 2026-07-12 (low-priority cleanup: coverage age, notation, vintages, roe_sn)._
 
 ## Recently shipped
 
 - FMP stack, quarantine, ADV costs, commodities→FMP, Finnhub dropped, BNY,
-  STI quarantined (prior commits).
-- **S&P Updated CSV trusted** — procedure in [`docs/SP500_MEMBERSHIP.md`](SP500_MEMBERSHIP.md).
-  FMP membership = cross-check only.
-- **Monthly lifecycle in `update_daily.py`**: rebuild windows every ~30d
-  (`build_symbol_lifecycle.py --apply`); re-apply existing windows after any
-  price update (`--apply-only`) so FMP refreshes cannot resurrect truncated
-  cells. Factors rebuild after lifecycle.
-- **`value_quality` / `value_quality_sn` registered** + columns on
-  `factors_fundamental.parquet`. Holdout 2018–2025 (ADV costs, S&P filter):
-  EY −0.23, ROE +0.33, VQ +0.20, VQ_SN +0.17 — SN does not dominate in this
-  window; kept as research strategies with sector-lookahead disclosed.
+  STI quarantined, lifecycle in `update_daily`, `value_quality` / `_sn`
+  (prior commits).
+- **S&P CSV age on Data Coverage** — `sp500_csv` on `/data-coverage` + KPI /
+  coverage-tab banner (file mtime age + last membership row).
+- **Ticker notation normalizer** — `normalize_equity_ticker` (`.`→`-`) in
+  FMP↔CSV Jaccard; promote still gated / CSV remains canonical.
+- **Macro vintages (MVP)** — documented: fixed pub lags only; true ALFRED
+  deferred. See [`docs/MACRO_VINTAGES.md`](MACRO_VINTAGES.md);
+  `MACRO_USES_TRUE_VINTAGES = False`.
+- **`roe_quality_sn` registered** after second holdout 2018–2025 (ADV costs,
+  S&P filter): ROE +0.33, **ROE_SN +0.52**, VQ +0.20, VQ_SN +0.17, EY −0.23.
+  Sector-neutral ROE dominates raw ROE here; VQ_SN still does not beat VQ.
 
 ## 0. Survivorship gap — leave disclosed
 
@@ -27,7 +28,6 @@ Prefer 2015+ windows. Needs Norgate/CRSP/Tiingo to close.
 
 ## Open / optional
 
-1. Macro vintages (low priority)
-2. Show S&P CSV age on Data Coverage page
-3. Ticker-notation normalizer if/when promoting FMP membership
-4. Revisit `value_quality_sn` after a second holdout / sector-neutral ROE alone
+1. True ALFRED macro vintages (ingest) when a nowcast / revision strategy needs them
+2. FMP membership `--promote` only after rename/recycle review (notation already fixed)
+3. PIT sector source (replace today's FMP sector labels used in `*_sn` factors)

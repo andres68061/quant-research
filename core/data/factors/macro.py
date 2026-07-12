@@ -10,6 +10,11 @@ Two layers:
    with publication lag applied. Built from the raw layer via
    :func:`derive_macro_panel_from_raw`.
 
+**Vintages:** this module uses *fixed* calendar-day publication lags
+(``MACRO_PUBLICATION_LAGS_DAYS``), not ALFRED real-time revision histories.
+See ``docs/MACRO_VINTAGES.md``. ``MACRO_USES_TRUE_VINTAGES`` is False until
+an ALFRED (or equivalent) vintage store lands.
+
 The notebook research flow loads from the raw layer and applies pub-lag /
 ffill / z-score visibly inline.
 """
@@ -21,6 +26,9 @@ import pandas as pd
 from fredapi import Fred
 
 from config.settings import FRED_API_KEY, PROJECT_ROOT
+
+# Fixed lags approximate first-release availability. Not ALFRED vintages.
+MACRO_USES_TRUE_VINTAGES: bool = False
 
 MACRO_PUBLICATION_LAGS_DAYS: Dict[str, int] = {
     "cpi_yoy": 30,

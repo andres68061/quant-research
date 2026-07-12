@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -14,11 +15,14 @@ from api.schemas.data_coverage import (
     DataCoverageResponse,
     DatasetInfo,
     QuarantineEntry,
+    SP500CsvInfo,
     YearCoverage,
 )
 from config.settings import PROJECT_ROOT
 from core.backtest.portfolio import sp500_universe_filter
 from core.data.quality import QUARANTINE_PATH, load_quarantine_list
+from core.data.sp500_constituents import resolve_sp500_historical_csv
+from core.exceptions import ConfigError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/data-coverage", tags=["data-coverage"])
@@ -69,15 +73,15 @@ _DATASET_CATALOG: dict[str, tuple[str, str, str, str]] = {
     ),
     "macro_raw": (
         "data/raw/macro_fred.parquet",
-        "FRED",
+        "FRED (latest values; not ALFRED vintages)",
         "raw",
         "Long-format raw macro series, native frequency, no lag applied",
     ),
     "macro": (
         "data/factors/macro.parquet",
-        "derived from FRED raw",
+        "derived from FRED raw (fixed pub lags, not true vintages)",
         "derived",
-        "Business-day macro panel with publication lag applied",
+        "Business-day macro panel with fixed publication lag applied",
     ),
     "fama_french_5": (
         "data/factors/fama_french_5.parquet",
@@ -96,12 +100,6 @@ _DATASET_CATALOG: dict[str, tuple[str, str, str, str]] = {
         "FMP (/profile) — today's sector/industry (not point-in-time)",
         "raw",
         "Sector and industry classifications",
-    ),
-    "sp500_constituents": (
-        "data/S&P 500 Historical Components & Changes(01-17-2026).csv",
-        "hanshof CSV (+ FMP historical-sp500-constituent for refresh)",
-        "raw",
-        "Point-in-time S&P 500 membership for survivorship-free universes",
     ),
     "vix": (
         "data/factors/vix.parquet",
@@ -132,7 +130,39 @@ def _describe_parquet(path: Path) -> tuple[int, int, Optional[str], Optional[str
     return len(frame), frame.shape[1], first_date, last_date
 
 
-def _dataset_infos() -> list[DatasetInfo]:
+def _sp500_csv_info() -> Optional[SP500CsvInfo]:
+    """Resolve the live membership CSV and report file age + last snapshot date."""
+    try:
+        path = resolve_sp500_historical_csv()
+    except ConfigError as exc:
+        logger.warning("S&P CSV not found for coverage: %s", exc)
+        return None
+
+    mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+    age_days = (datetime.now(timezone.utc) - mtime).total_seconds() / 86400.0
+    last_membership_date: Optional[str] = None
+    n_snapshots: Optional[int] = None
+    try:
+        frame = pd.read_csv(path, usecols=["date"])
+        dates = pd.to_datetime(frame["date"], errors="coerce").dropna()
+        if len(dates) > 0:
+            last_membership_date = str(dates.max().date())
+            n_snapshots = int(len(dates))
+    except Exception as exc:  # noqa: BLE001 — best-effort metadata only
+        logger.warning("Could not peek S&P CSV dates: %s", exc)
+
+    rel = str(path.relative_to(PROJECT_ROOT)) if path.is_relative_to(PROJECT_ROOT) else str(path)
+    return SP500CsvInfo(
+        filename=path.name,
+        path=rel,
+        file_mtime_utc=mtime.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        age_days=round(age_days, 1),
+        last_membership_date=last_membership_date,
+        n_snapshots=n_snapshots,
+    )
+
+
+def _dataset_infos(sp500: Optional[SP500CsvInfo] = None) -> list[DatasetInfo]:
     infos: list[DatasetInfo] = []
     for name, (rel_path, source, layer, description) in _DATASET_CATALOG.items():
         path = PROJECT_ROOT / rel_path
@@ -173,6 +203,25 @@ def _dataset_infos() -> list[DatasetInfo]:
                 description=description,
             )
         )
+
+    if sp500 is not None:
+        infos.append(
+            DatasetInfo(
+                name="sp500_constituents",
+                source="fja05680/sp500 Updated CSV (FMP = cross-check only)",
+                path=sp500.path,
+                layer="raw",
+                rows=sp500.n_snapshots or 0,
+                columns=2,
+                first_date=None,
+                last_date=sp500.last_membership_date,
+                size_mb=round((PROJECT_ROOT / sp500.path).stat().st_size / 1e6, 1),
+                description=(
+                    f"Point-in-time S&P 500 membership; file age {sp500.age_days:.0f}d "
+                    f"(mtime {sp500.file_mtime_utc[:10]})"
+                ),
+            )
+        )
     return infos
 
 
@@ -204,6 +253,7 @@ def data_coverage() -> DataCoverageResponse:
     """Full inventory: datasets, per-year S&P coverage, and the quarantine list."""
     prices = get_prices()
     coverage = _coverage_by_year(prices) if prices is not None else []
+    sp500 = _sp500_csv_info()
 
     quarantine = load_quarantine_list(PROJECT_ROOT / QUARANTINE_PATH)
     if "review_note" not in quarantine.columns:
@@ -225,23 +275,30 @@ def data_coverage() -> DataCoverageResponse:
         else set()
     )
 
+    age_note = ""
+    if sp500 is not None:
+        age_note = (
+            f" Live CSV: {sp500.filename} (mtime age {sp500.age_days:.0f}d, "
+            f"last membership row {sp500.last_membership_date})."
+        )
+
     return DataCoverageResponse(
-        datasets=_dataset_infos(),
+        datasets=_dataset_infos(sp500),
         coverage_by_year=coverage,
         quarantine=entries,
         quarantined_symbol_count=len(get_quarantined_symbols()),
         flagged_symbol_count=len(flagged),
         total_symbols_loaded=prices.shape[1] if prices is not None else 0,
+        sp500_csv=sp500,
         survivorship_note=(
             "FMP has no EOD history for many pre-~2015 delisted S&P members "
             "(~67% coverage in 2005 → ~98% in 2025). Missing names are dropped "
             "from the cross-section. Prefer 2015+ windows; earlier results are "
-            "survivor-tilted. FMP's legacy 'survivorship-bias-free' price "
-            "endpoint returns 403 — closing the gap needs a second vendor "
-            "(Norgate/CRSP/Tiingo), not another FMP call. "
-            "S&P membership: live filter still uses the hanshof CSV; FMP "
-            "refresh writes data/raw/fmp/constituents/ + a reconciliation "
-            "report (mean Jaccard ~0.85 vs CSV, mostly ticker notation). "
-            "See docs/ROADMAP.md §0 and §4."
+            "survivor-tilted. Closing the gap needs Norgate/CRSP/Tiingo. "
+            "S&P membership: trust the Updated CSV (docs/SP500_MEMBERSHIP.md); "
+            "FMP is cross-check only (notation-normalized Jaccard). "
+            "Macro uses fixed pub lags, not ALFRED vintages "
+            "(docs/MACRO_VINTAGES.md)."
+            + age_note
         ),
     )

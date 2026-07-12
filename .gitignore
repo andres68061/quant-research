@@ -16,7 +16,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Packaging layout at repo root (do not ignore frontend/src/lib)
+/lib/
 lib64/
 parts/
 sdist/

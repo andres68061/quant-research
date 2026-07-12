@@ -42,6 +42,17 @@ class QuarantineEntry(BaseModel):
     review_note: str = ""
 
 
+class SP500CsvInfo(BaseModel):
+    """Freshness of the canonical point-in-time S&P 500 membership CSV."""
+
+    filename: str
+    path: str
+    file_mtime_utc: str
+    age_days: float
+    last_membership_date: Optional[str] = None
+    n_snapshots: Optional[int] = None
+
+
 class DataCoverageResponse(BaseModel):
     """Full data inventory: datasets, per-year universe coverage, quality findings."""
 
@@ -52,3 +63,4 @@ class DataCoverageResponse(BaseModel):
     flagged_symbol_count: int
     total_symbols_loaded: int
     survivorship_note: str = ""
+    sp500_csv: Optional[SP500CsvInfo] = None

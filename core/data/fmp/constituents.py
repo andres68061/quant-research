@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 import pandas as pd
 
@@ -20,6 +20,22 @@ from core.data.fmp.client import fmp_get
 from core.exceptions import DataSchemaError
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_equity_ticker(symbol: str) -> str:
+    """
+    Canonical equity ticker for membership set compares.
+
+    FMP often uses ``BRK-B`` / ``BF-B`` while the historical CSV uses ``BRK.B`` /
+    ``BF.B``. Uppercase and map ``.`` → ``-`` so Jaccard is not dominated by
+    share-class punctuation. Does not invent rename chains (``FB``≠``META``).
+    """
+    return str(symbol).strip().upper().replace(".", "-")
+
+
+def normalize_ticker_set(tickers: Iterable[str]) -> set[str]:
+    """Apply :func:`normalize_equity_ticker` to every non-empty symbol."""
+    return {normalize_equity_ticker(t) for t in tickers if t}
 
 
 @dataclass
@@ -34,12 +50,14 @@ class MembershipReconciliation:
     worst_date: Optional[str] = None
     sample_only_in_fmp: list[str] = field(default_factory=list)
     sample_only_in_csv: list[str] = field(default_factory=list)
+    notation_normalized: bool = True
 
     def summary(self) -> str:
+        notation = "notation-normalized" if self.notation_normalized else "raw-tickers"
         return (
             f"dates fmp={self.n_fmp_dates} csv={self.n_csv_dates} shared={self.shared_dates}; "
             f"jaccard mean={self.mean_jaccard:.3f} min={self.min_jaccard:.3f} "
-            f"worst={self.worst_date}; "
+            f"worst={self.worst_date} ({notation}); "
             f"only_fmp≈{self.sample_only_in_fmp[:5]} only_csv≈{self.sample_only_in_csv[:5]}"
         )
 
@@ -123,17 +141,19 @@ def reconcile_membership(
     fmp_snapshots: pd.DataFrame,
     csv_snapshots: pd.DataFrame,
     sample_dates: int = 40,
+    *,
+    normalize_notation: bool = True,
 ) -> MembershipReconciliation:
     """
     Compare FMP-derived membership to a reference CSV on overlapping dates.
 
     Jaccard similarity is computed on up to ``sample_dates`` evenly spaced
-    shared calendar dates (exact index matches plus nearest CSV row within
-    7 days when an exact match is missing).
+    FMP dates, each matched to the last CSV snapshot on or before that date.
+    When ``normalize_notation`` is True (default), tickers are canonicalized
+    with :func:`normalize_equity_ticker` before set ops.
     """
     fmp_dates = fmp_snapshots.index.sort_values()
     csv_dates = csv_snapshots.index.sort_values()
-    # Align: for each FMP date, take last CSV row on or before that date.
     jaccards: list[float] = []
     worst_date = None
     worst_j = 2.0
@@ -148,8 +168,14 @@ def reconcile_membership(
         if csv_eligible.empty:
             continue
         shared += 1
-        fmp_set = set(fmp_snapshots.loc[date, "tickers"])
-        csv_set = set(csv_snapshots.loc[csv_eligible[-1], "tickers"])
+        raw_fmp = set(fmp_snapshots.loc[date, "tickers"])
+        raw_csv = set(csv_snapshots.loc[csv_eligible[-1], "tickers"])
+        if normalize_notation:
+            fmp_set = normalize_ticker_set(raw_fmp)
+            csv_set = normalize_ticker_set(raw_csv)
+        else:
+            fmp_set = raw_fmp
+            csv_set = raw_csv
         union = fmp_set | csv_set
         jaccard = len(fmp_set & csv_set) / len(union) if union else 1.0
         jaccards.append(jaccard)
@@ -168,4 +194,5 @@ def reconcile_membership(
         worst_date=worst_date,
         sample_only_in_fmp=only_fmp_sample,
         sample_only_in_csv=only_csv_sample,
+        notation_normalized=normalize_notation,
     )

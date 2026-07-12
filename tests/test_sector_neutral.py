@@ -10,6 +10,7 @@ from core.signals.sector_neutral import (
     attach_value_quality_columns,
     combine_value_quality,
     demean_factor_within_sector,
+    sector_neutral_zscore,
     zscore_cross_section,
 )
 
@@ -55,7 +56,11 @@ class TestSectorNeutral:
         sectors = pd.Series({s: ("Tech" if i < 4 else "Health") for i, s in enumerate(symbols)})
         out = attach_value_quality_columns(factors, sectors)
         assert "value_quality" in out.columns and "value_quality_sn" in out.columns
+        assert "roe_sn" in out.columns
         assert out["value_quality_sn"].notna().sum() == 8
+        assert out["roe_sn"].notna().sum() == 8
+        sn = sector_neutral_zscore(factors["roe"], sectors)
+        assert sn.name == "roe_sn"
 
     def test_value_quality_composite_shape(self) -> None:
         date = pd.Timestamp("2020-01-02")

@@ -25,8 +25,10 @@ Wired into `sp500_universe_filter()` → factor backtests /
 `survivorship_free=True` API runs.
 
 **FMP** (`data/raw/fmp/constituents/sp500_membership.parquet`) is a
-**cross-check only**. Do not `--promote` FMP over the CSV until ticker
-notation is normalized (dots vs dashes, recycled tickers). See
+**cross-check only**. Reconciliation uses
+`normalize_equity_ticker()` (`.` → `-`, uppercase) so `BRK.B` / `BRK-B`
+do not inflate Jaccard gaps. Still do not `--promote` FMP over the CSV
+until rename/recycle diffs are reviewed. See
 `data/quality/sp500_reconciliation.txt`.
 
 | Window | FMP vs Updated CSV (Jaccard) | Takeaway |

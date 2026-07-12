@@ -54,6 +54,7 @@ class TestRegistry:
         assert "earnings_yield" in ids
         assert "book_to_market" in ids
         assert "roe_quality" in ids
+        assert "roe_quality_sn" in ids
         assert "low_asset_growth" in ids
         assert "value_quality" in ids
         assert "value_quality_sn" in ids
@@ -63,6 +64,7 @@ class TestRegistry:
             "earnings_yield",
             "book_to_market",
             "roe_quality",
+            "roe_quality_sn",
             "low_asset_growth",
             "value_quality",
             "value_quality_sn",

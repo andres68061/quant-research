@@ -89,12 +89,28 @@ def combine_value_quality(
     return composite
 
 
+def sector_neutral_zscore(
+    factor: pd.Series,
+    symbol_to_sector: pd.Series,
+) -> pd.Series:
+    """
+    Sector-demean then cross-sectionally z-score ``factor``.
+
+    Returns a Series named ``{factor.name}_sn`` when ``factor.name`` is set.
+    """
+    demeaned = demean_factor_within_sector(factor, symbol_to_sector)
+    scored = zscore_cross_section(demeaned)
+    if factor.name:
+        scored.name = f"{factor.name}_sn"
+    return scored
+
+
 def attach_value_quality_columns(
     factors: pd.DataFrame,
     symbol_to_sector: Optional[pd.Series] = None,
 ) -> pd.DataFrame:
     """
-    Add ``value_quality`` and (if sectors given) ``value_quality_sn`` columns.
+    Add ``value_quality`` and (if sectors given) ``value_quality_sn`` / ``roe_sn``.
 
     Requires ``earnings_yield`` and ``roe`` on ``factors``. Missing legs → NaN
     composites; existing composite columns are overwritten.
@@ -111,4 +127,5 @@ def attach_value_quality_columns(
             symbol_to_sector=symbol_to_sector,
             sector_neutral=True,
         )
+        out["roe_sn"] = sector_neutral_zscore(out["roe"], symbol_to_sector)
     return out

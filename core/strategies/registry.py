@@ -254,6 +254,31 @@ STRATEGIES: dict[str, StrategyMetadata] = {
             "more informative than either leg alone.",
         ),
     ),
+    "roe_quality_sn": StrategyMetadata(
+        id="roe_quality_sn",
+        title="ROE quality (sector-neutral)",
+        description=(
+            "Sector-demeaned then cross-sectionally z-scored TTM ROE. Long high "
+            "``roe_sn``, short low. Isolates within-industry profitability."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Raw ROE mostly picks sectors (banks vs tech). Relative profitability "
+            "inside an industry is a cleaner RMW-style stock-selection signal."
+        ),
+        reference=(
+            "Novy-Marx (2013); industry-relative profitability is a common "
+            "practitioner variant of RMW / quality."
+        ),
+        expected_sharpe_range=(0.0, 0.7),
+        known_limitations=(
+            "Sector labels are today's FMP profile applied to all history "
+            "(mild lookahead).",
+            "Same book-equity and leverage caveats as roe_quality.",
+            "Pre-2015 S&P coverage gap applies.",
+        ),
+    ),
     "low_asset_growth": StrategyMetadata(
         id="low_asset_growth",
         title="Low asset growth (investment)",

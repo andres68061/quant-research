@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pandas as pd
 
-from core.data.fmp.constituents import build_membership_snapshots, reconcile_membership
+from core.data.fmp.constituents import (
+    build_membership_snapshots,
+    normalize_equity_ticker,
+    reconcile_membership,
+)
 from core.data.fmp.market_caps import parse_market_cap_rows
 
 
@@ -49,3 +53,17 @@ class TestBuildMembershipSnapshots:
         report = reconcile_membership(snaps, snaps)
         assert report.mean_jaccard == 1.0
         assert report.min_jaccard == 1.0
+
+    def test_normalize_equity_ticker_share_class(self) -> None:
+        assert normalize_equity_ticker("brk.b") == "BRK-B"
+        assert normalize_equity_ticker("BF-B") == "BF-B"
+
+    def test_reconcile_notation_difference(self) -> None:
+        dates = pd.to_datetime(["2020-01-15"])
+        fmp = pd.DataFrame({"tickers": [["AAPL", "BRK-B", "BF-B"]]}, index=dates)
+        csv = pd.DataFrame({"tickers": [["AAPL", "BRK.B", "BF.B"]]}, index=dates)
+        raw = reconcile_membership(fmp, csv, normalize_notation=False)
+        norm = reconcile_membership(fmp, csv, normalize_notation=True)
+        assert raw.mean_jaccard < 1.0
+        assert norm.mean_jaccard == 1.0
+        assert norm.notation_normalized is True

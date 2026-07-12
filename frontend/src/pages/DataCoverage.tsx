@@ -5,7 +5,7 @@ import KPICard from "@/components/cards/KPICard.tsx";
 import AppLayout from "@/components/layout/AppLayout.tsx";
 import LeftSidebar from "@/components/layout/LeftSidebar.tsx";
 import { api } from "@/lib/api.ts";
-import type { DatasetInfo, QuarantineEntry, YearCoverage } from "@/lib/types.ts";
+import type { DatasetInfo, QuarantineEntry, SP500CsvInfo, YearCoverage } from "@/lib/types.ts";
 import { cn } from "@/lib/utils.ts";
 
 type Tab = "datasets" | "coverage" | "quarantine";
@@ -16,6 +16,12 @@ const STATUS_STYLES: Record<QuarantineEntry["status"], string> = {
   cleared: "text-emerald-400 bg-emerald-950/30",
 };
 
+function formatCsvAge(csv: SP500CsvInfo): string {
+  if (csv.age_days < 1) return "<1d";
+  if (csv.age_days < 45) return `${Math.round(csv.age_days)}d`;
+  return `${(csv.age_days / 30).toFixed(1)}mo`;
+}
+
 export default function DataCoverage() {
   const [activeTab, setActiveTab] = useState<Tab>("datasets");
   const { data, isLoading, error } = useQuery({
@@ -23,6 +29,9 @@ export default function DataCoverage() {
     queryFn: api.getDataCoverage,
     staleTime: 5 * 60 * 1000,
   });
+
+  const csv = data?.sp500_csv ?? null;
+  const csvStale = csv != null && csv.age_days >= 90;
 
   return (
     <AppLayout
@@ -56,6 +65,17 @@ export default function DataCoverage() {
               loaded data. <span className="text-amber-400">Flagged</span> symbols stay in but
               await review.
             </p>
+            {csv && (
+              <p>
+                S&amp;P CSV:{" "}
+                <span className="text-zinc-300 font-mono">{csv.filename}</span>
+                <br />
+                Age {formatCsvAge(csv)}
+                {csv.last_membership_date
+                  ? ` · last row ${csv.last_membership_date}`
+                  : null}
+              </p>
+            )}
           </div>
         </LeftSidebar>
       }
@@ -70,7 +90,7 @@ export default function DataCoverage() {
 
         {data && (
           <>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-5 gap-3">
               <KPICard label="Symbols Loaded" value={String(data.total_symbols_loaded)} />
               <KPICard label="Datasets" value={String(data.datasets.length)} />
               <KPICard
@@ -79,6 +99,11 @@ export default function DataCoverage() {
                 accent={data.quarantined_symbol_count > 0 ? "negative" : "positive"}
               />
               <KPICard label="Flagged for Review" value={String(data.flagged_symbol_count)} />
+              <KPICard
+                label="S&P CSV Age"
+                value={csv ? formatCsvAge(csv) : "—"}
+                accent={csvStale ? "negative" : "positive"}
+              />
             </div>
 
             {activeTab === "datasets" && <DatasetsTable datasets={data.datasets} />}
@@ -86,6 +111,7 @@ export default function DataCoverage() {
               <CoverageTable
                 coverage={data.coverage_by_year}
                 note={data.survivorship_note}
+                sp500Csv={csv}
               />
             )}
             {activeTab === "quarantine" && <QuarantineTable entries={data.quarantine} />}
@@ -149,13 +175,32 @@ function DatasetsTable({ datasets }: { datasets: DatasetInfo[] }) {
 function CoverageTable({
   coverage,
   note,
+  sp500Csv,
 }: {
   coverage: YearCoverage[];
   note?: string;
+  sp500Csv: SP500CsvInfo | null;
 }) {
   const recentFirst = [...coverage].sort((a, b) => b.year - a.year);
   return (
     <div className="space-y-3">
+      {sp500Csv && (
+        <p
+          className={cn(
+            "text-xs px-3 py-2 leading-relaxed border font-mono",
+            sp500Csv.age_days >= 90
+              ? "text-amber-400/90 bg-amber-950/20 border-amber-900/40"
+              : "text-zinc-400 bg-zinc-900 border-zinc-800",
+          )}
+        >
+          Membership CSV: {sp500Csv.filename} · file age {formatCsvAge(sp500Csv)} (mtime{" "}
+          {sp500Csv.file_mtime_utc.slice(0, 10)})
+          {sp500Csv.last_membership_date
+            ? ` · last snapshot ${sp500Csv.last_membership_date}`
+            : ""}
+          {sp500Csv.n_snapshots != null ? ` · ${sp500Csv.n_snapshots} rows` : ""}
+        </p>
+      )}
       {note && (
         <p className="text-xs text-amber-400/90 bg-amber-950/20 border border-amber-900/40 px-3 py-2 leading-relaxed">
           {note}
