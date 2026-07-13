@@ -50,6 +50,10 @@ class TestRegistry:
         ids = {m.id for m in list_strategies()}
         assert "factor_cross_section" in ids
         assert "ml_commodity_direction" in ids
+        assert "low_volatility" in ids
+        assert "beta_60d" in ids
+        assert "near_52w_high" in ids
+        assert "pairs_cointegration" in ids
         assert "short_term_reversal" in ids
         assert "earnings_yield" in ids
         assert "book_to_market" in ids

@@ -18,7 +18,11 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from core.data.factors.build_factors import momentum_excluding_recent, short_term_reversal
+from core.data.factors.build_factors import (
+    momentum_excluding_recent,
+    proximity_to_52_week_high,
+    short_term_reversal,
+)
 
 
 class TestGeometricMomentum:
@@ -162,3 +166,39 @@ class TestShortTermReversal:
         close = pd.Series(np.linspace(100.0, 110.0, 60))
         rev = short_term_reversal(close, window=21)
         assert rev.first_valid_index() == 21
+
+
+class TestNear52WeekHigh:
+    def test_matches_price_over_rolling_max(self) -> None:
+        """`near_52w_high` must equal P(t) / max(P over window) up to float noise."""
+        rng = np.random.default_rng(7)
+        n = 400
+        close = pd.Series(100 * np.exp(np.cumsum(rng.normal(0.0005, 0.02, n))))
+        window = 252
+        near = proximity_to_52_week_high(close, window=window)
+        t = n - 1
+        expected = close.iloc[t] / close.iloc[t - window + 1 : t + 1].max()
+        assert np.isclose(near.iloc[t], expected, atol=1e-12)
+
+    def test_at_high_equals_one(self) -> None:
+        """A new high must produce near=1.0."""
+        close = pd.Series(np.linspace(80.0, 120.0, 252))
+        near = proximity_to_52_week_high(close, window=252)
+        assert np.isclose(near.iloc[-1], 1.0, atol=1e-12)
+
+    def test_drawdown_from_high_is_fraction(self) -> None:
+        """Price at 90% of the window high must produce near=0.9."""
+        close = pd.Series([100.0] * 251 + [90.0])
+        near = proximity_to_52_week_high(close, window=252)
+        assert np.isclose(near.iloc[-1], 0.9, atol=1e-12)
+
+    def test_short_history_returns_nan(self) -> None:
+        close = pd.Series([100.0, 101.0, 102.0])
+        near = proximity_to_52_week_high(close, window=252)
+        assert near.isna().all()
+
+    def test_first_valid_index_is_window_minus_one(self) -> None:
+        """With min_periods=window, first valid index is window-1 (0-based)."""
+        close = pd.Series(np.linspace(100.0, 110.0, 300))
+        near = proximity_to_52_week_high(close, window=252)
+        assert near.first_valid_index() == 251

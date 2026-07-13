@@ -71,6 +71,33 @@ def short_term_reversal(close: pd.Series, window: int = 21) -> pd.Series:
     return -(close / close.shift(window) - 1.0)
 
 
+def proximity_to_52_week_high(close: pd.Series, window: int = 252) -> pd.Series:
+    """
+    George–Hwang proximity to the trailing high.
+
+        near = P(t) / max_{s ∈ [t-window+1, t]} P(s)
+
+    Sign convention: HIGH values mean the stock trades near its ``window``-day
+    high, so ranking descending longs near-high names and shorts far-from-high
+    names (George & Hwang 2004).
+
+    Notes
+    -----
+    - Units: unitless ratio in ``(0, 1]`` when prices are positive (equals 1.0
+      on days the close sets the rolling high).
+    - Returns NaN until ``window`` observations exist (no fill for IPOs).
+    - Guard: if the rolling max is non-positive, result is NaN (``eps`` floor).
+
+    Example
+    -------
+    >>> close = pd.Series([100.0] * 251 + [90.0])
+    >>> float(proximity_to_52_week_high(close, window=252).iloc[-1])
+    0.9
+    """
+    roll_high = close.rolling(window=window, min_periods=window).max()
+    return close / np.maximum(roll_high, _EPS)
+
+
 def rolling_volatility(ret: pd.Series, window: int) -> pd.Series:
     return ret.rolling(window).std() * np.sqrt(252)
 
@@ -94,6 +121,7 @@ def build_price_factors(close_panel: pd.DataFrame, market_symbol: str = "SPY") -
         factors[(sym, "mom_6_1")] = momentum_excluding_recent(s_close, 6)
         factors[(sym, "mom_3_1")] = momentum_excluding_recent(s_close, 3)
         factors[(sym, "rev_21d")] = short_term_reversal(s_close, 21)
+        factors[(sym, "near_52w_high")] = proximity_to_52_week_high(s_close, 252)
         factors[(sym, "vol_60d")] = rolling_volatility(s_ret, 60)
         if market_ret is not None:
             factors[(sym, "beta_60d")] = rolling_beta(s_ret, market_ret, 60)

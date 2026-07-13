@@ -182,6 +182,45 @@ class XGBoostDirectionModel:
         return self.feature_importance_
 
 
+def compute_mean_abs_shap(
+    model: object,
+    X: pd.DataFrame,
+) -> dict[str, float]:
+    """
+    Mean absolute SHAP values per feature for a fitted tree model.
+
+    Uses ``shap.TreeExplainer``. Returns an empty dict if SHAP is unavailable
+    or explanation fails.
+    """
+    if X is None or X.empty:
+        return {}
+    try:
+        import shap
+    except ImportError:
+        logger.warning("shap not installed; skipping SHAP importance")
+        return {}
+
+    try:
+        booster = getattr(model, "model", model)
+        explainer = shap.TreeExplainer(booster)
+        raw = explainer.shap_values(X)
+        # Binary classifiers may return a list [class0, class1]; use positive class.
+        if isinstance(raw, list):
+            values = np.asarray(raw[1] if len(raw) > 1 else raw[0])
+        else:
+            values = np.asarray(raw)
+        if values.ndim == 3:
+            values = values[:, :, 1]
+        mean_abs = np.abs(values).mean(axis=0)
+        return {
+            str(col): float(score)
+            for col, score in zip(list(X.columns), mean_abs)
+        }
+    except Exception as exc:  # noqa: BLE001 — SHAP is best-effort diagnostics
+        logger.warning("SHAP explanation failed: %s", exc)
+        return {}
+
+
 class LSTMDirectionModel:
     """
     LSTM model for predicting commodity price direction.
@@ -467,6 +506,8 @@ def run_walk_forward_validation(
     all_true = []
     all_probabilities = []
     split_metrics = []
+    last_X_test: Optional[pd.DataFrame] = None
+    model = None
     
     # Run walk-forward
     for i, (train_idx, test_idx) in enumerate(splits):
@@ -566,6 +607,9 @@ def run_walk_forward_validation(
         if len(y_proba) > 0:
             all_probabilities.extend(y_proba[:, 1])  # Probability of class 1
         
+        # Keep last fold's test matrix for SHAP (tree models only)
+        last_X_test = X_test
+        
         # Calculate split metrics
         split_acc = accuracy_score(y_test, y_pred)
         split_metrics.append({
@@ -590,17 +634,23 @@ def run_walk_forward_validation(
         all_probabilities.reshape(-1, 1) if all_probabilities is not None else None
     )
     
-    # Feature importance (last model)
+    # Feature importance (last model) + SHAP for tree boosters
     feature_importance = None
+    shap_importance = None
     if model_type == "xgboost":
-        feature_importance = model.get_feature_importance()
+        fi_series = model.get_feature_importance()
+        feature_importance = (
+            fi_series.to_dict() if isinstance(fi_series, pd.Series) else fi_series
+        )
+        shap_importance = compute_mean_abs_shap(model, last_X_test)
     elif model_type == "random_forest":
         feature_importance = dict(
-            zip(feature_cols, model.feature_importances_.tolist())
+            zip(feature_cols, model.feature_importances_.tolist(), strict=False)
         )
+        shap_importance = compute_mean_abs_shap(model, last_X_test)
     elif model_type == "logistic":
         feature_importance = dict(
-            zip(feature_cols, np.abs(model.coef_[0]).tolist())
+            zip(feature_cols, np.abs(model.coef_[0]).tolist(), strict=False)
         )
     
     results = {
@@ -612,6 +662,7 @@ def run_walk_forward_validation(
         'overall_metrics': overall_metrics,
         'split_metrics': split_metrics,
         'feature_importance': feature_importance,
+        'shap_importance': shap_importance,
         'model_params': model_params,
         'validation_params': {
             'initial_train_days': initial_train_days,

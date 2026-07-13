@@ -53,6 +53,24 @@ class SP500CsvInfo(BaseModel):
     n_snapshots: Optional[int] = None
 
 
+class QuarantineReviewRequest(BaseModel):
+    """Manual override for one quarantine finding."""
+
+    symbol: str
+    check: str
+    status: str  # cleared | quarantined | flagged
+    note: str = ""
+
+
+class QuarantineReviewResponse(BaseModel):
+    """Updated finding after a review decision."""
+
+    symbol: str
+    check: str
+    status: str
+    review_note: str = ""
+
+
 class DataCoverageResponse(BaseModel):
     """Full data inventory: datasets, per-year universe coverage, quality findings."""
 
@@ -64,3 +82,4 @@ class DataCoverageResponse(BaseModel):
     total_symbols_loaded: int
     survivorship_note: str = ""
     sp500_csv: Optional[SP500CsvInfo] = None
+    edgar_note: str = ""

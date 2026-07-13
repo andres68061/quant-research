@@ -8,19 +8,21 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from api.dependencies import get_prices, get_quarantined_symbols
 from api.schemas.data_coverage import (
     DataCoverageResponse,
     DatasetInfo,
     QuarantineEntry,
+    QuarantineReviewRequest,
+    QuarantineReviewResponse,
     SP500CsvInfo,
     YearCoverage,
 )
 from config.settings import PROJECT_ROOT
 from core.backtest.portfolio import sp500_universe_filter
-from core.data.quality import QUARANTINE_PATH, load_quarantine_list
+from core.data.quality import QUARANTINE_PATH, load_quarantine_list, set_review_status
 from core.data.sp500_constituents import resolve_sp500_historical_csv
 from core.exceptions import ConfigError
 
@@ -112,6 +114,12 @@ _DATASET_CATALOG: dict[str, tuple[str, str, str, str]] = {
         "FMP (ETFs + futures)",
         "raw",
         "Commodity futures price history",
+    ),
+    "sec_edgar_sample": (
+        "data/raw/sec/filings_sample.parquet",
+        "SEC EDGAR (data.sec.gov submissions)",
+        "raw",
+        "Sample 10-K/10-Q accepted dates for FMP filing-date cross-check",
     ),
 }
 
@@ -282,6 +290,18 @@ def data_coverage() -> DataCoverageResponse:
             f"last membership row {sp500.last_membership_date})."
         )
 
+    edgar_path = PROJECT_ROOT / "data" / "raw" / "sec" / "filings_sample.parquet"
+    if edgar_path.exists():
+        edgar_note = (
+            f"SEC EDGAR sample present ({edgar_path.name}): filing accepted dates "
+            "from data.sec.gov for cross-check vs FMP fundamentals."
+        )
+    else:
+        edgar_note = (
+            "SEC EDGAR sample not built yet — run scripts/fetch_sec_filings_sample.py "
+            "to pull accepted dates from data.sec.gov."
+        )
+
     return DataCoverageResponse(
         datasets=_dataset_infos(sp500),
         coverage_by_year=coverage,
@@ -290,6 +310,7 @@ def data_coverage() -> DataCoverageResponse:
         flagged_symbol_count=len(flagged),
         total_symbols_loaded=prices.shape[1] if prices is not None else 0,
         sp500_csv=sp500,
+        edgar_note=edgar_note,
         survivorship_note=(
             "FMP has no EOD history for many pre-~2015 delisted S&P members "
             "(~67% coverage in 2005 → ~98% in 2025). Missing names are dropped "
@@ -301,4 +322,35 @@ def data_coverage() -> DataCoverageResponse:
             "(docs/MACRO_VINTAGES.md)."
             + age_note
         ),
+    )
+
+
+@router.post("/quarantine/review", response_model=QuarantineReviewResponse)
+def review_quarantine_finding(req: QuarantineReviewRequest) -> QuarantineReviewResponse:
+    """
+    Apply a manual quarantine override (cleared / quarantined / flagged).
+
+    Persists to the quarantine parquet. Restart the API for quarantine
+    exclusions to take effect on in-memory price/factor panels.
+    """
+    try:
+        updated = set_review_status(
+            symbol=req.symbol.strip().upper(),
+            check=req.check.strip(),
+            status=req.status.strip().lower(),
+            note=req.note.strip(),
+            path=PROJECT_ROOT / QUARANTINE_PATH,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    mask = (updated["symbol"] == req.symbol.strip().upper()) & (
+        updated["check"] == req.check.strip()
+    )
+    row = updated.loc[mask].iloc[0]
+    return QuarantineReviewResponse(
+        symbol=str(row["symbol"]),
+        check=str(row["check"]),
+        status=str(row["status"]),
+        review_note=str(row.get("review_note") or ""),
     )

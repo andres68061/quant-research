@@ -14,6 +14,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/", label: "Factor Backtest" },
       { to: "/ml-alpha", label: "ML Direction" },
+      { to: "/pairs", label: "Pairs" },
       { to: "/momentum", label: "Momentum Grid" },
       { to: "/portfolio", label: "Portfolio" },
     ],
@@ -21,7 +22,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Analytics",
     items: [
-      { to: "/metals", label: "Metals" },
+      { to: "/metals", label: "Commodities" },
       { to: "/economic", label: "Economic" },
       { to: "/sectors", label: "Sectors" },
       { to: "/excluded-stocks", label: "Excluded" },

@@ -10,6 +10,7 @@ import LinearAlgebra from "./pages/LinearAlgebra.tsx";
 import MetalsAnalytics from "./pages/MetalsAnalytics.tsx";
 import Methodology from "./pages/Methodology.tsx";
 import MLAlphaReplay from "./pages/MLAlphaReplay.tsx";
+import PairsTrading from "./pages/PairsTrading.tsx";
 import PortfolioSimulator from "./pages/PortfolioSimulator.tsx";
 import SectorBreakdown from "./pages/SectorBreakdown.tsx";
 import SharpeRatioLimitations from "./pages/SharpeRatioLimitations.tsx";
@@ -43,6 +44,7 @@ export default function App() {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<AnimatedPage><PortfolioSimulator /></AnimatedPage>} />
         <Route path="/ml-alpha" element={<AnimatedPage><MLAlphaReplay /></AnimatedPage>} />
+        <Route path="/pairs" element={<AnimatedPage><PairsTrading /></AnimatedPage>} />
         <Route path="/momentum" element={<AnimatedPage><SortinoMomentum /></AnimatedPage>} />
         <Route path="/portfolio" element={<AnimatedPage><Portfolio /></AnimatedPage>} />
         <Route path="/etf-optimizer" element={<Navigate to="/portfolio" replace />} />

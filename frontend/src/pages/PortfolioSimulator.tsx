@@ -13,11 +13,11 @@ import BottomPanel from "@/components/layout/BottomPanel.tsx";
 import LeftSidebar from "@/components/layout/LeftSidebar.tsx";
 import RightSidebar from "@/components/layout/RightSidebar.tsx";
 import { api } from "@/lib/api.ts";
-import type { AllVarResult, BacktestResponse, ReplayFrame } from "@/lib/types.ts";
+import type { AllVarResult, BacktestDiagnostics, BacktestResponse, ReplayFrame } from "@/lib/types.ts";
 import { cn, fmtInt, fmtPct, fmtRatio } from "@/lib/utils.ts";
 import { useReplayStore } from "@/stores/replayStore.ts";
 
-type ViewMode = "summary" | "replay";
+type ViewMode = "summary" | "risk" | "replay";
 
 const PLOTLY_LAYOUT: Partial<Plotly.Layout> = {
   paper_bgcolor: "transparent",
@@ -35,6 +35,7 @@ export default function PortfolioSimulator() {
   const [tcost, setTcost] = useState(10);
   const [topPct, setTopPct] = useState(20);
   const [longOnly, setLongOnly] = useState(false);
+  const [survivorshipFree, setSurvivorshipFree] = useState(true);
 
   const fiveYearsAgo = new Date(Date.now() - 5 * 365.25 * 86_400_000).toISOString().slice(0, 10);
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -101,6 +102,7 @@ export default function PortfolioSimulator() {
       long_only: longOnly,
       start_date: startDate,
       end_date: endDate,
+      survivorship_free: survivorshipFree,
     });
   };
 
@@ -181,6 +183,21 @@ export default function PortfolioSimulator() {
             Long only
           </label>
 
+          <label className="flex items-start gap-2 text-xs text-zinc-400 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={survivorshipFree}
+              onChange={(e) => setSurvivorshipFree(e.target.checked)}
+              className="accent-blue-500 mt-0.5"
+            />
+            <span>
+              Point-in-time S&amp;P filter
+              <span className="block text-[10px] text-zinc-600 mt-0.5">
+                Prefer 2015+ windows; see Data Coverage for gaps.
+              </span>
+            </span>
+          </label>
+
           <Field label="Start Date">
             <input
               type="date"
@@ -215,28 +232,20 @@ export default function PortfolioSimulator() {
           {/* View mode toggle (visible once any data is loaded) */}
           {(hasResult || hasReplay) && (
             <div className="flex rounded border border-zinc-800 overflow-hidden mt-1">
-              <button
-                onClick={() => setViewMode("summary")}
-                className={cn(
-                  "flex-1 text-[10px] py-1.5 font-semibold uppercase tracking-wider transition-colors cursor-pointer",
-                  viewMode === "summary"
-                    ? "bg-zinc-800 text-zinc-200"
-                    : "bg-zinc-900 text-zinc-600 hover:text-zinc-400",
-                )}
-              >
-                Summary
-              </button>
-              <button
-                onClick={() => setViewMode("replay")}
-                className={cn(
-                  "flex-1 text-[10px] py-1.5 font-semibold uppercase tracking-wider transition-colors cursor-pointer",
-                  viewMode === "replay"
-                    ? "bg-zinc-800 text-zinc-200"
-                    : "bg-zinc-900 text-zinc-600 hover:text-zinc-400",
-                )}
-              >
-                Replay
-              </button>
+              {(["summary", "risk", "replay"] as ViewMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={cn(
+                    "flex-1 text-[10px] py-1.5 font-semibold uppercase tracking-wider transition-colors cursor-pointer",
+                    viewMode === mode
+                      ? "bg-zinc-800 text-zinc-200"
+                      : "bg-zinc-900 text-zinc-600 hover:text-zinc-400",
+                  )}
+                >
+                  {mode}
+                </button>
+              ))}
             </div>
           )}
 
@@ -323,6 +332,8 @@ export default function PortfolioSimulator() {
           <PnLChart frames={visibleFrames} allFrames={frames} currentIndex={frameIndex} />
           <DrawdownChart frames={visibleFrames} />
         </div>
+      ) : viewMode === "risk" && result?.diagnostics ? (
+        <RiskDiagnosticsPanel diagnostics={result.diagnostics} />
       ) : result ? (
         <EquityCurve data={result.equity_curve} title="Cumulative Returns" height={420} />
       ) : (
@@ -333,6 +344,148 @@ export default function PortfolioSimulator() {
 }
 
 /* ── Shared sub-components ────────────────────────────────── */
+
+function RiskDiagnosticsPanel({ diagnostics }: { diagnostics: BacktestDiagnostics }) {
+  const rolling = diagnostics.rolling;
+  const dates = rolling.map((p) => p.date);
+  const midEdges = diagnostics.histogram.bin_edges.slice(0, -1).map((lo, i) => {
+    const hi = diagnostics.histogram.bin_edges[i + 1] ?? lo;
+    return (lo + hi) / 2;
+  });
+
+  return (
+    <div className="flex flex-col gap-4 h-full overflow-y-auto p-1">
+      <div className="grid grid-cols-3 gap-2">
+        {(["historical", "parametric", "monte_carlo"] as const).map((method) => {
+          const block = diagnostics.var[method];
+          return (
+            <div key={method} className="bg-zinc-900 border border-zinc-800 rounded p-2">
+              <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">
+                {method.replace("_", " ")} VaR {diagnostics.var_confidence}%
+              </div>
+              <div className="text-sm font-mono tabular-nums text-red-400">
+                VaR {block.var.toFixed(2)}%
+              </div>
+              <div className="text-xs font-mono tabular-nums text-red-400/80">
+                CVaR {block.cvar.toFixed(2)}%
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <Plot
+        data={[
+          {
+            x: dates,
+            y: rolling.map((p) => p.sharpe),
+            name: "Rolling Sharpe",
+            type: "scatter",
+            mode: "lines",
+            line: { color: "#3b82f6", width: 1.5 },
+          },
+          {
+            x: dates,
+            y: rolling.map((p) => p.sortino),
+            name: "Rolling Sortino",
+            type: "scatter",
+            mode: "lines",
+            line: { color: "#34d399", width: 1.5 },
+          },
+          {
+            x: dates,
+            y: rolling.map((p) => p.volatility),
+            name: "Rolling Vol",
+            type: "scatter",
+            mode: "lines",
+            yaxis: "y2",
+            line: { color: "#a1a1aa", width: 1.2, dash: "dot" },
+          },
+        ]}
+        layout={{
+          ...PLOTLY_LAYOUT,
+          title: {
+            text: `Rolling metrics (${diagnostics.rolling_window}d)`,
+            font: { size: 12, color: "#71717a" },
+            x: 0,
+          } as Partial<Plotly.Layout["title"]>,
+          yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Ratio" },
+          yaxis2: {
+            overlaying: "y",
+            side: "right",
+            gridcolor: "#27272a",
+            title: "Vol (ann.)",
+            tickformat: ".0%",
+          },
+          height: 280,
+          showlegend: true,
+        }}
+        config={{ displayModeBar: false, responsive: true }}
+        className="w-full"
+        useResizeHandler
+        style={{ width: "100%" }}
+      />
+
+      <div className="grid grid-cols-2 gap-3">
+        <Plot
+          data={[
+            {
+              x: diagnostics.drawdown.map((p) => p.date),
+              y: diagnostics.drawdown.map((p) => p.drawdown),
+              type: "scatter",
+              mode: "lines",
+              fill: "tozeroy",
+              line: { color: "#f87171", width: 1 },
+              fillcolor: "rgba(248,113,113,0.15)",
+              name: "Drawdown",
+            },
+          ]}
+          layout={{
+            ...PLOTLY_LAYOUT,
+            title: {
+              text: "Drawdown",
+              font: { size: 12, color: "#71717a" },
+              x: 0,
+            } as Partial<Plotly.Layout["title"]>,
+            yaxis: { ...PLOTLY_LAYOUT.yaxis, tickformat: ".0%" },
+            height: 240,
+            showlegend: false,
+          }}
+          config={{ displayModeBar: false, responsive: true }}
+          className="w-full"
+          useResizeHandler
+          style={{ width: "100%" }}
+        />
+        <Plot
+          data={[
+            {
+              x: midEdges,
+              y: diagnostics.histogram.counts,
+              type: "bar",
+              marker: { color: "#3b82f6" },
+              name: "Daily returns",
+            },
+          ]}
+          layout={{
+            ...PLOTLY_LAYOUT,
+            title: {
+              text: "Return distribution",
+              font: { size: 12, color: "#71717a" },
+              x: 0,
+            } as Partial<Plotly.Layout["title"]>,
+            xaxis: { ...PLOTLY_LAYOUT.xaxis, tickformat: ".1%" },
+            height: 240,
+            showlegend: false,
+          }}
+          config={{ displayModeBar: false, responsive: true }}
+          className="w-full"
+          useResizeHandler
+          style={{ width: "100%" }}
+        />
+      </div>
+    </div>
+  );
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

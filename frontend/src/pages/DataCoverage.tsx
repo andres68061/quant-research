@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import KPICard from "@/components/cards/KPICard.tsx";
@@ -24,10 +24,18 @@ function formatCsvAge(csv: SP500CsvInfo): string {
 
 export default function DataCoverage() {
   const [activeTab, setActiveTab] = useState<Tab>("datasets");
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ["data-coverage"],
     queryFn: api.getDataCoverage,
     staleTime: 5 * 60 * 1000,
+  });
+
+  const reviewMut = useMutation({
+    mutationFn: api.reviewQuarantine,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["data-coverage"] });
+    },
   });
 
   const csv = data?.sp500_csv ?? null;
@@ -63,7 +71,7 @@ export default function DataCoverage() {
             <p>
               <span className="text-red-400">Quarantined</span> symbols are excluded from all
               loaded data. <span className="text-amber-400">Flagged</span> symbols stay in but
-              await review.
+              await review. Overrides persist to parquet; restart the API for exclusions to reload.
             </p>
             {csv && (
               <p>
@@ -76,6 +84,7 @@ export default function DataCoverage() {
                   : null}
               </p>
             )}
+            {data?.edgar_note && <p>{data.edgar_note}</p>}
           </div>
         </LeftSidebar>
       }
@@ -114,7 +123,14 @@ export default function DataCoverage() {
                 sp500Csv={csv}
               />
             )}
-            {activeTab === "quarantine" && <QuarantineTable entries={data.quarantine} />}
+            {activeTab === "quarantine" && (
+              <QuarantineTable
+                entries={data.quarantine}
+                onReview={(payload) => reviewMut.mutate(payload)}
+                reviewing={reviewMut.isPending}
+                error={reviewMut.isError ? (reviewMut.error as Error).message : null}
+              />
+            )}
           </>
         )}
       </div>
@@ -263,45 +279,126 @@ function CoverageTable({
   );
 }
 
-function QuarantineTable({ entries }: { entries: QuarantineEntry[] }) {
+function QuarantineTable({
+  entries,
+  onReview,
+  reviewing,
+  error,
+}: {
+  entries: QuarantineEntry[];
+  onReview: (payload: {
+    symbol: string;
+    check: string;
+    status: "cleared" | "quarantined" | "flagged";
+    note: string;
+  }) => void;
+  reviewing: boolean;
+  error: string | null;
+}) {
   const ordered = [...entries].sort((a, b) =>
     a.status === b.status ? a.symbol.localeCompare(b.symbol) : a.status.localeCompare(b.status),
   );
+  const [drafts, setDrafts] = useState<Record<string, { status: QuarantineEntry["status"]; note: string }>>(
+    {},
+  );
+
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="text-zinc-500 border-b border-zinc-800">
-            <Th>Symbol</Th>
-            <Th>Status</Th>
-            <Th>Check</Th>
-            <Th className="text-right">Value</Th>
-            <Th>Detail</Th>
-            <Th>Review Note</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {ordered.map((q, i) => (
-            <tr
-              key={`${q.symbol}-${q.check}-${i}`}
-              className="border-b border-zinc-800/50 hover:bg-zinc-800/30"
-            >
-              <Td className="font-mono text-zinc-200">{q.symbol}</Td>
-              <Td>
-                <span
-                  className={cn("px-1.5 py-0.5 rounded text-[10px] font-mono", STATUS_STYLES[q.status])}
-                >
-                  {q.status}
-                </span>
-              </Td>
-              <Td className="font-mono text-zinc-400">{q.check}</Td>
-              <Td className="text-right font-mono tabular-nums text-zinc-300">{q.value}</Td>
-              <Td className="text-zinc-500">{q.detail}</Td>
-              <Td className="text-zinc-500 italic">{q.review_note || "—"}</Td>
+    <div className="space-y-2">
+      {error && <p className="text-xs text-red-400">{error}</p>}
+      <p className="text-[11px] text-zinc-500">
+        Manual override: set status + note, then Save. Quarantined symbols drop from loaded panels
+        after an API restart.
+      </p>
+      <div className="bg-zinc-900 border border-zinc-800 rounded overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-zinc-500 border-b border-zinc-800">
+              <Th>Symbol</Th>
+              <Th>Status</Th>
+              <Th>Check</Th>
+              <Th className="text-right">Value</Th>
+              <Th>Detail</Th>
+              <Th>Review Note</Th>
+              <Th>Override</Th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {ordered.map((q, i) => {
+              const key = `${q.symbol}::${q.check}`;
+              const draft = drafts[key] ?? { status: q.status, note: q.review_note || "" };
+              return (
+                <tr
+                  key={`${q.symbol}-${q.check}-${i}`}
+                  className="border-b border-zinc-800/50 hover:bg-zinc-800/30"
+                >
+                  <Td className="font-mono text-zinc-200">{q.symbol}</Td>
+                  <Td>
+                    <span
+                      className={cn(
+                        "px-1.5 py-0.5 rounded text-[10px] font-mono",
+                        STATUS_STYLES[q.status],
+                      )}
+                    >
+                      {q.status}
+                    </span>
+                  </Td>
+                  <Td className="font-mono text-zinc-400">{q.check}</Td>
+                  <Td className="text-right font-mono tabular-nums text-zinc-300">{q.value}</Td>
+                  <Td className="text-zinc-500">{q.detail}</Td>
+                  <Td className="text-zinc-500 italic">{q.review_note || "—"}</Td>
+                  <Td>
+                    <div className="flex flex-col gap-1 min-w-[160px]">
+                      <select
+                        value={draft.status}
+                        onChange={(e) =>
+                          setDrafts((prev) => ({
+                            ...prev,
+                            [key]: {
+                              ...draft,
+                              status: e.target.value as QuarantineEntry["status"],
+                            },
+                          }))
+                        }
+                        className="bg-zinc-950 border border-zinc-800 rounded px-1.5 py-1 text-[10px] font-mono text-zinc-300"
+                      >
+                        <option value="flagged">flagged</option>
+                        <option value="cleared">cleared</option>
+                        <option value="quarantined">quarantined</option>
+                      </select>
+                      <input
+                        value={draft.note}
+                        onChange={(e) =>
+                          setDrafts((prev) => ({
+                            ...prev,
+                            [key]: { ...draft, note: e.target.value },
+                          }))
+                        }
+                        placeholder="note"
+                        className="bg-zinc-950 border border-zinc-800 rounded px-1.5 py-1 text-[10px] text-zinc-300"
+                      />
+                      <button
+                        type="button"
+                        disabled={reviewing}
+                        onClick={() =>
+                          onReview({
+                            symbol: q.symbol,
+                            check: q.check,
+                            status: draft.status,
+                            note: draft.note,
+                          })
+                        }
+                        className="text-[10px] uppercase tracking-wider py-1 rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 disabled:opacity-50"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </Td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

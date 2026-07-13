@@ -79,16 +79,16 @@ STRATEGIES: dict[str, StrategyMetadata] = {
     ),
     "low_volatility": StrategyMetadata(
         id="low_volatility",
-        title="Low volatility (beta anomaly)",
+        title="Low volatility (vol anomaly)",
         description=(
-            "Long lowest-volatility names, short highest. Equivalent to the "
-            "'betting-against-beta' / 'betting-against-vol' trade."
+            "Long lowest trailing realized volatility (``vol_60d``), short highest. "
+            "The classic low-vol / betting-against-vol trade."
         ),
         kind=StrategyKind.FACTOR_CROSS_SECTION,
         post_path="/run-backtest",
         hypothesis=(
-            "Leverage-constrained investors overbid high-beta stocks, causing "
-            "low-beta names to deliver higher risk-adjusted returns. The CAPM "
+            "Leverage-constrained investors overbid high-vol stocks, causing "
+            "low-vol names to deliver higher risk-adjusted returns. The CAPM "
             "security market line is flatter than theory predicts."
         ),
         reference=(
@@ -102,6 +102,27 @@ STRATEGIES: dict[str, StrategyMetadata] = {
             "Crowded trade since ~2012; factor ETF flows may have compressed the premium.",
             "Returns are positively correlated with bond yields falling — may "
             "underperform in rate-rising regimes.",
+        ),
+    ),
+    "beta_60d": StrategyMetadata(
+        id="beta_60d",
+        title="Low beta (beta anomaly)",
+        description=(
+            "Long lowest trailing market beta (``beta_60d`` vs SPY), short highest. "
+            "Betting-against-beta using estimated CAPM beta."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "High-beta stocks are overbid by leverage-constrained investors; "
+            "low-beta names earn higher risk-adjusted returns than CAPM predicts."
+        ),
+        reference=("Frazzini & Pedersen (2014) 'Betting Against Beta', JFE 111(1)."),
+        expected_sharpe_range=(0.2, 0.7),
+        known_limitations=(
+            "Beta is estimated vs SPY over 60 trading days — noisy and regime-dependent.",
+            "Same defensive-sector tilt as low volatility; consider sector neutralization.",
+            "Pre-2015 S&P coverage gap applies.",
         ),
     ),
     "size_small_minus_big": StrategyMetadata(
@@ -127,6 +148,33 @@ STRATEGIES: dict[str, StrategyMetadata] = {
             "sparser factor panels — min_stocks filter is critical.",
             "The premium is stronger when combined with other factors (quality, "
             "profitability) than in isolation.",
+        ),
+    ),
+    "near_52w_high": StrategyMetadata(
+        id="near_52w_high",
+        title="52-week high proximity",
+        description=(
+            "Long stocks trading closest to their trailing 252-day high "
+            "(``near_52w_high`` = close / 52-week high), short those farthest below. "
+            "George & Hwang (2004) 52-week-high momentum."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Investors under-react to good news when prices approach a salient "
+            "anchor (the 52-week high), so proximity to that high predicts "
+            "continuation better than raw past return alone."
+        ),
+        reference=(
+            "George & Hwang (2004) 'The 52-Week High and Momentum Investing', "
+            "Journal of Finance 59(5)."
+        ),
+        expected_sharpe_range=(0.1, 0.6),
+        known_limitations=(
+            "Correlated with intermediate momentum; not a fully independent factor.",
+            "Can crash with momentum in sharp mean-reversion recoveries.",
+            "Uses adjusted closes — corporate actions can move the rolling high.",
+            "Pre-2015 S&P coverage gap applies; prefer 2015+ evaluation windows.",
         ),
     ),
     "short_term_reversal": StrategyMetadata(
@@ -273,8 +321,7 @@ STRATEGIES: dict[str, StrategyMetadata] = {
         ),
         expected_sharpe_range=(0.0, 0.7),
         known_limitations=(
-            "Sector labels are today's FMP profile applied to all history "
-            "(mild lookahead).",
+            "Sector labels are today's FMP profile applied to all history " "(mild lookahead).",
             "Same book-equity and leverage caveats as roe_quality.",
             "Pre-2015 S&P coverage gap applies.",
         ),
@@ -387,6 +434,46 @@ STRATEGIES: dict[str, StrategyMetadata] = {
             "Feature importance is unstable across folds; do not interpret a single "
             "fold's ranking as causal.",
             "Overfitting risk is high with few splits; prefer max_splits >= 20.",
+        ),
+    ),
+    "pairs_cointegration": StrategyMetadata(
+        id="pairs_cointegration",
+        title="Pairs trading (Engle–Granger)",
+        description=(
+            "Single-pair mean-reversion on a cointegrated log-price spread: "
+            "rolling OLS hedge ratio, rolling z-score, long/short the spread "
+            "when |z| exceeds entry and flatten near zero."
+        ),
+        kind=StrategyKind.PAIRS_COINTEGRATION,
+        post_path="/run-pairs-backtest",
+        hypothesis=(
+            "Economically related assets share a common stochastic trend. "
+            "Temporary deviations of the spread from equilibrium are mean-reverting, "
+            "so fading large z-score dislocations earns a liquidity / relative-value "
+            "premium if the cointegrating relation is stable."
+        ),
+        reference=(
+            "Engle & Granger (1987) 'Co-integration and error correction', "
+            "Econometrica 55(2); Gatev, Goetzmann & Rouwenhorst (2006) "
+            "'Pairs Trading: Performance of a Relative-Value Arbitrage Rule', RFS."
+        ),
+        expected_sharpe_range=(0.0, 0.8),
+        known_limitations=(
+            "Naive/hand-picked pairs (e.g. KO/PEP) often fail cointegration and lose "
+            "money net of costs — use the walk-forward screener (`POST /screen-pairs`), "
+            "not intuition, to select candidates.",
+            "Cointegration is intermittent, not permanent: rolling sub-period ADF "
+            "tests on a validated pair (XOM/CVX, notebook 17) flip above and below "
+            "the 5% threshold across different 3-year windows.",
+            "Screened candidates decay out-of-sample more often than not; validate "
+            "any screen hit on a truly held-out window before trusting it.",
+            "Backtested Sharpe is sensitive to the hedge/z-score lookback window — "
+            "shortening both from the 252d/60d default can flip a positive edge "
+            "sharply negative. Do not re-tune parameters against the test window.",
+            "Structural breaks (merger, index change) kill cointegration mid-sample.",
+            "Full-sample Engle–Granger p-value is diagnostic only; trading uses "
+            "rolling hedge / z-score to limit lookahead.",
+            "Borrow costs and short availability on the hedge leg are not modeled.",
         ),
     ),
 }

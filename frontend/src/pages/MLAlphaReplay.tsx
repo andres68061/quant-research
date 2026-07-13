@@ -37,6 +37,7 @@ export default function MLAlphaReplay() {
   const result: MLStrategyResponse | undefined = mlStrategy.data;
   const wf = result?.walkforward;
   const fi = result?.feature_importance;
+  const shapFi = result?.shap_importance;
   const cm = wf?.confusion_matrix;
 
   const handleRun = () => {
@@ -180,9 +181,22 @@ export default function MLAlphaReplay() {
           <div className="flex-1 min-h-0 overflow-y-auto">
             {activeTab === "diagnostics" && (
               <div className="grid grid-cols-2 gap-4">
-                {fi && fi.length > 0 && <FeatureImportance data={fi} height={380} />}
+                {shapFi && shapFi.length > 0 && (
+                  <FeatureImportance
+                    data={shapFi}
+                    height={380}
+                    title={`SHAP mean |value| (top ${Math.min(15, shapFi.length)})`}
+                  />
+                )}
+                {fi && fi.length > 0 && (
+                  <FeatureImportance
+                    data={fi}
+                    height={380}
+                    title={`Gain importance (top ${Math.min(15, fi.length)})`}
+                  />
+                )}
                 {cm && <ConfusionMatrix data={cm} height={380} />}
-                {(!fi || fi.length === 0) && !cm && (
+                {(!fi || fi.length === 0) && (!shapFi || shapFi.length === 0) && !cm && (
                   <div className="col-span-2 text-xs text-zinc-600 text-center py-8">
                     No diagnostics available for this model type
                   </div>

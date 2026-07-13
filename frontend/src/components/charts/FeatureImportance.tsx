@@ -6,10 +6,17 @@ interface Props {
   data: FeatureImportanceItem[];
   topN?: number;
   height?: number;
+  title?: string;
 }
 
-export default function FeatureImportance({ data, topN = 15, height = 360 }: Props) {
+export default function FeatureImportance({
+  data,
+  topN = 15,
+  height = 360,
+  title,
+}: Props) {
   const sorted = [...data].sort((a, b) => a.importance - b.importance).slice(-topN);
+  const chartTitle = title ?? `Top ${sorted.length} Features`;
 
   return (
     <Plot
@@ -27,7 +34,7 @@ export default function FeatureImportance({ data, topN = 15, height = 360 }: Pro
         paper_bgcolor: "transparent",
         plot_bgcolor: "transparent",
         font: { color: "#a1a1aa", size: 10, family: "JetBrains Mono, monospace" },
-        title: { text: `Top ${sorted.length} Features`, font: { size: 12, color: "#71717a" }, x: 0 } as Partial<Plotly.Layout["title"]>,
+        title: { text: chartTitle, font: { size: 12, color: "#71717a" }, x: 0 } as Partial<Plotly.Layout["title"]>,
         xaxis: { gridcolor: "#27272a", linecolor: "#27272a", zeroline: false },
         yaxis: { gridcolor: "#27272a", linecolor: "#27272a" },
         margin: { l: 140, r: 16, t: 32, b: 32 },

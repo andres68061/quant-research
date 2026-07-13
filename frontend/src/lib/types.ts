@@ -29,12 +29,126 @@ export interface BacktestRequest {
   long_only?: boolean;
   start_date?: string;
   end_date?: string;
+  survivorship_free?: boolean;
+}
+
+export interface RollingDiagPoint {
+  date: string;
+  sharpe: number | null;
+  sortino: number | null;
+  volatility: number | null;
+}
+
+export interface DrawdownPoint {
+  date: string;
+  drawdown: number;
+}
+
+export interface ReturnHistogram {
+  bin_edges: number[];
+  counts: number[];
+}
+
+export interface BacktestDiagnostics {
+  rolling: RollingDiagPoint[];
+  drawdown: DrawdownPoint[];
+  histogram: ReturnHistogram;
+  var: {
+    historical: VarResult;
+    parametric: VarResult;
+    monte_carlo: VarResult;
+  };
+  rolling_window: number;
+  var_confidence: number;
 }
 
 export interface BacktestResponse {
   metrics: PerformanceMetrics;
   equity_curve: EquityCurvePoint[];
   total_days: number;
+  diagnostics?: BacktestDiagnostics;
+}
+
+export interface PairsBacktestRequest {
+  symbol_y: string;
+  symbol_x: string;
+  start_date?: string;
+  end_date?: string;
+  hedge_window?: number;
+  zscore_window?: number;
+  entry_z?: number;
+  exit_z?: number;
+  transaction_cost_bps?: number;
+  signal_lag_days?: number;
+}
+
+export interface PairsBacktestResponse {
+  metrics: PerformanceMetrics;
+  equity_curve: EquityCurvePoint[];
+  total_days: number;
+  diagnostics: {
+    symbol_y: string;
+    symbol_x: string;
+    engle_granger: {
+      hedge_ratio: number;
+      intercept: number;
+      adf_stat: number;
+      adf_pvalue: number;
+      n_obs: number;
+    };
+    hedge_window: number;
+    zscore_window: number;
+    entry_z: number;
+    exit_z: number;
+    transaction_cost: number;
+    signal_lag_days: number;
+    n_days: number;
+    pct_days_in_trade: number;
+  };
+  spread_series: { date: string; zscore: number; position: number }[];
+}
+
+export interface PairsScreenRequest {
+  sector?: string;
+  symbols?: string[];
+  method?: "gatev" | "engle_granger";
+  use_adv?: boolean;
+  max_symbols?: number;
+  start_date?: string;
+  end_date?: string;
+  train_frac?: number;
+  min_train_corr?: number;
+  max_train_adf_pvalue?: number;
+  max_oos_backtests?: number;
+  hedge_window?: number;
+  zscore_window?: number;
+  entry_z?: number;
+  exit_z?: number;
+  transaction_cost_bps?: number;
+}
+
+export interface PairsScreenRow {
+  symbol_y: string;
+  symbol_x: string;
+  formation_ssd?: number | null;
+  train_corr?: number | null;
+  train_adf_pvalue?: number | null;
+  train_hedge_ratio?: number | null;
+  oos_sharpe: number;
+  oos_annualized_return: number;
+  oos_max_drawdown: number;
+  oos_n_days: number;
+  oos_pct_days_in_trade: number;
+}
+
+export interface PairsScreenResponse {
+  symbols: string[];
+  split_date: string;
+  train_frac: number;
+  method?: string;
+  n_pairs_tested: number;
+  n_pairs_passed_train: number;
+  results: PairsScreenRow[];
 }
 
 export interface MLStrategyRequest {
@@ -83,6 +197,7 @@ export interface FeatureImportanceItem {
 export interface MLStrategyResponse {
   walkforward: WalkForwardResult;
   feature_importance: FeatureImportanceItem[] | null;
+  shap_importance: FeatureImportanceItem[] | null;
   metadata: {
     symbol: string;
     total_features?: number;
@@ -513,6 +628,7 @@ export interface DataCoverageResponse {
   total_symbols_loaded: number;
   survivorship_note: string;
   sp500_csv: SP500CsvInfo | null;
+  edgar_note?: string;
 }
 
 /* ── Fama-French factors ────────────────────────────────────── */

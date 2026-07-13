@@ -11,6 +11,7 @@ from api.schemas.metrics import EquityCurvePoint, PerformanceMetrics
 from api.schemas.strategy import BacktestRequest, MLStrategyRequest
 from api.schemas.walkforward import ConfusionMatrixResult, FoldResult, WalkForwardResult
 from core.backtest.portfolio import sp500_universe_filter
+from core.metrics.diagnostics import build_backtest_diagnostics
 from core.metrics.performance import (
     calculate_cumulative_returns,
     calculate_performance_metrics,
@@ -79,6 +80,7 @@ def run_backtest(req: BacktestRequest) -> dict:
         "metrics": PerformanceMetrics(**metrics).model_dump(),
         "equity_curve": [e.model_dump() for e in equity[-500:]],
         "total_days": len(net_returns),
+        "diagnostics": build_backtest_diagnostics(net_returns),
     }
 
 
@@ -163,6 +165,12 @@ def run_ml_strategy(req: MLStrategyRequest) -> dict:
             if fi is not None
             else None
         )
+        shap_raw = wf_results.get("shap_importance") or {}
+        shap_importance = (
+            [{"feature": k, "importance": float(v)} for k, v in shap_raw.items()]
+            if shap_raw
+            else None
+        )
 
         cm = None
         if all(
@@ -189,6 +197,7 @@ def run_ml_strategy(req: MLStrategyRequest) -> dict:
                 folds=folds,
             ).model_dump(),
             "feature_importance": feature_importance,
+            "shap_importance": shap_importance,
             "metadata": {
                 "symbol": req.symbol,
                 "total_features": metadata.get("total_features"),
@@ -197,4 +206,4 @@ def run_ml_strategy(req: MLStrategyRequest) -> dict:
         }
 
     except ImportError as exc:
-        raise HTTPException(status_code=501, detail=f"ML dependencies not installed: {exc}")
+        raise HTTPException(status_code=501, detail=f"ML dependencies not installed: {exc}") from exc

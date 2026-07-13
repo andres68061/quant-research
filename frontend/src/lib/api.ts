@@ -18,9 +18,13 @@ import type {
   MLStrategyRequest,
   MLStrategyResponse,
   OptimizeRequest,
+  OptimizeResponse,
+  PairsBacktestRequest,
+  PairsBacktestResponse,
+  PairsScreenRequest,
+  PairsScreenResponse,
   PortfolioJointHistoryResponse,
   PortfolioPriceRowCountsResponse,
-  OptimizeResponse,
   PricesResponse,
   RecessionPeriod,
   RegimeResponse,
@@ -55,11 +59,37 @@ export const api = {
 
   getDataCoverage: () => request<DataCoverageResponse>("/data-coverage"),
 
+  reviewQuarantine: (params: {
+    symbol: string;
+    check: string;
+    status: "cleared" | "quarantined" | "flagged";
+    note: string;
+  }) =>
+    request<{ symbol: string; check: string; status: string; review_note: string }>(
+      "/data-coverage/quarantine/review",
+      {
+        method: "POST",
+        body: JSON.stringify(params),
+      },
+    ),
+
   getFF5Series: (start?: string) =>
     request<FF5SeriesResponse>(`/fama-french/series${start ? `?start=${start}` : ""}`),
 
   runBacktest: (params: BacktestRequest) =>
     request<BacktestResponse>("/run-backtest", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+
+  runPairsBacktest: (params: PairsBacktestRequest) =>
+    request<PairsBacktestResponse>("/run-pairs-backtest", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+
+  screenPairs: (params: PairsScreenRequest) =>
+    request<PairsScreenResponse>("/screen-pairs", {
       method: "POST",
       body: JSON.stringify(params),
     }),

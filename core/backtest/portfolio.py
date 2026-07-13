@@ -53,6 +53,9 @@ def _infer_abs_bound(factor_col: str) -> float:
         return 5.0
     if factor_col.startswith("beta_"):
         return float("inf")
+    # Ratio in (0, 1]: no magnitude cap beyond finite check.
+    if factor_col in {"near_52w_high"}:
+        return float("inf")
     # Valuation / quality ratios: distressed names can print extreme levels;
     # filter only non-finite values, not an absolute magnitude cap.
     if factor_col in {
