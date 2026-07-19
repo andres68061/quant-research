@@ -7,8 +7,9 @@ the backtest does not use a full-sample OLS fit (lookahead).
 
 from __future__ import annotations
 
+import itertools
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -27,6 +28,8 @@ __all__ = [
     "spread_from_hedge",
     "rolling_spread_zscore",
     "pairs_position_from_zscore",
+    "count_cumulative_return_crossings",
+    "find_cointegrated_candidates",
 ]
 
 
@@ -207,3 +210,112 @@ def pairs_position_from_zscore(
             pos = 0.0
         positions.loc[ts] = pos
     return positions.rename("spread_position")
+
+
+def find_cointegrated_candidates(
+    panel: pd.DataFrame,
+    symbols: list[str],
+    *,
+    min_corr: float = 0.6,
+    max_adf_pvalue: float = 0.05,
+    min_obs: int = 60,
+) -> list[dict[str, Any]]:
+    """
+    Filter unordered pairs to those cointegrated over ``panel`` alone.
+
+    A candidate must clear ``|return corr| >= min_corr`` (cheap pre-filter)
+    and an Engle–Granger ADF p-value ``<= max_adf_pvalue`` on log prices.
+    No forward-looking data is used — this is safe to call on a rolling
+    formation window with no lookahead. Ranked by ADF p-value ascending
+    (most significant cointegration first).
+
+    Args:
+        panel: Wide adj_close price panel restricted to the formation window.
+        symbols: Universe to test (unordered pairs via ``itertools.combinations``).
+        min_corr: Minimum absolute return correlation to bother testing EG.
+        max_adf_pvalue: Maximum ADF p-value to accept as cointegrated.
+        min_obs: Minimum overlapping observations required for both the
+            correlation and Engle–Granger checks.
+
+    Returns:
+        List of ``{symbol_y, symbol_x, corr, adf_pvalue, hedge_ratio}``,
+        sorted by ``adf_pvalue`` ascending.
+    """
+    rets = panel[symbols].pct_change(fill_method=None)
+    candidates: list[dict[str, Any]] = []
+    for y, x in itertools.combinations(symbols, 2):
+        pair_panel = panel[[y, x]].dropna()
+        if len(pair_panel) < min_obs:
+            continue
+        corr = float(rets[y].corr(rets[x]))
+        if not np.isfinite(corr) or abs(corr) < min_corr:
+            continue
+        try:
+            log_y, log_x = align_pair_log_prices(panel, y, x)
+            eg = engle_granger_test(log_y, log_x)
+        except (ValueError, KeyError, np.linalg.LinAlgError):
+            continue
+        if eg["adf_pvalue"] > max_adf_pvalue:
+            continue
+        candidates.append(
+            {
+                "symbol_y": y,
+                "symbol_x": x,
+                "corr": corr,
+                "adf_pvalue": eg["adf_pvalue"],
+                "hedge_ratio": eg["hedge_ratio"],
+            }
+        )
+    candidates.sort(key=lambda r: r["adf_pvalue"])
+    return candidates
+
+
+def count_cumulative_return_crossings(
+    norm_a: pd.Series, norm_b: pd.Series, *, min_amplitude: float = 0.03
+) -> int:
+    """
+    Count *hysteresis-band* crossings of ``norm_a - norm_b`` — how many
+    times the gap between two normalized price paths (each starting at
+    1.0) swings from beyond ``+min_amplitude`` to beyond ``-min_amplitude``
+    or back.
+
+    A naive zero-crossing count is noise-dominated and backwards for this
+    purpose: two nearly-identical prices (e.g. dual share classes of the
+    same company) jitter across zero constantly from pure noise, which
+    would make them look like the *most* active pair, when they're
+    actually the least tradeable (no amplitude to profit from after
+    costs). Requiring the gap to clear a minimum amplitude band before a
+    crossing counts filters that noise out — this only counts genuine
+    swings large enough to plausibly clear transaction costs, which is
+    exactly the amplitude a real oscillating, mean-reverting relationship
+    needs (see ``core.strategies.pairs_persistent`` for the full
+    rationale: ranking by closeness or cointegration significance alone
+    selects pairs with too little deviation to profit from).
+
+    Args:
+        norm_a / norm_b: Price series normalized to 1.0 at the start
+            (see ``core.strategies.pairs_gatev.normalize_price_index``).
+        min_amplitude: Minimum absolute gap (in normalized-price units,
+            e.g. 0.03 = 3% of the starting price) required to "commit" to
+            a side before a swing back through zero counts as a crossing.
+
+    Returns:
+        Number of hysteresis-band crossings (>= 0).
+    """
+    aligned = pd.concat([norm_a.rename("a"), norm_b.rename("b")], axis=1).dropna()
+    if len(aligned) < 3:
+        return 0
+    diff = (aligned["a"] - aligned["b"]).to_numpy()
+
+    crossings = 0
+    side = 0  # -1 / 0 / +1: which side of the band we're currently committed to
+    for d in diff:
+        if side >= 0 and d < -min_amplitude:
+            if side == 1:
+                crossings += 1
+            side = -1
+        elif side <= 0 and d > min_amplitude:
+            if side == -1:
+                crossings += 1
+            side = 1
+    return int(crossings)

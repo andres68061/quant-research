@@ -476,6 +476,52 @@ STRATEGIES: dict[str, StrategyMetadata] = {
             "Borrow costs and short availability on the hedge leg are not modeled.",
         ),
     ),
+    "pairs_stat_arb_index": StrategyMetadata(
+        id="pairs_stat_arb_index",
+        title="Pairs stat-arb index (rolling multi-pair basket)",
+        description=(
+            "Diversified long/short index: every `trading_months`, re-form a "
+            "same-sector pairs basket by Gatev distance (SSD) on the trailing "
+            "`formation_months` window, then equal-weight blend the top-N "
+            "pairs' rolling-hedge/z-score returns into one continuous series."
+        ),
+        kind=StrategyKind.PAIRS_INDEX,
+        post_path="/run-pairs-index-backtest",
+        hypothesis=(
+            "A single cointegrated pair is a noisy bet (our own XOM/CVX signal "
+            "swings from Sharpe +0.89 to -1.11 across windows/params — notebook 17). "
+            "Gatev, Goetzmann & Rouwenhorst (2006) argue diversifying across many "
+            "pairs at once should average out idiosyncratic pair risk and leave a "
+            "steadier reversion premium."
+        ),
+        reference=(
+            "Gatev, Goetzmann & Rouwenhorst (2006) 'Pairs Trading: Performance of "
+            "a Relative-Value Arbitrage Rule', RFS 19(3)."
+        ),
+        expected_sharpe_range=(-0.5, 0.3),
+        known_limitations=(
+            "Tested on real 2012-2026 data (notebook 18): the systematic basket "
+            "LOST money net of costs (Sharpe -0.27 to -1.10) under every ranking "
+            "criterion tried — Engle-Granger significance, Gatev SSD distance, a "
+            "minimum-dispersion-filtered SSD, and formation-internal walk-forward "
+            "Sharpe — and consistently underperformed the single hand-vetted "
+            "XOM/CVX pair (Sharpe +0.27 over the same span). Treat this as a "
+            "research/backtest tool, not a strategy with demonstrated live edge.",
+            "Forcing exactly top_n_pairs every period, regardless of how many "
+            "candidates are genuinely good, mixes in low-quality/spurious matches "
+            "(e.g. GOOGL/GOOG, the same company's two share classes, ranked #1 by "
+            "SSD in nearly every period tested — 'close together' is not the same "
+            "as 'has a tradeable edge after costs').",
+            "With ~100 candidate pairs screened per period across 10 sectors, an "
+            "uncorrected significance threshold (e.g. ADF p<=0.05) is expected to "
+            "pass several false positives by chance alone — the multiple-comparisons "
+            "problem notebook 17 solved with a held-out test window is much harder "
+            "to solve inside a live rolling formation window with no future data.",
+            "Forced-unwind cost at each period boundary (closing whatever position "
+            "a pair happens to be in when the basket re-forms) is not modeled.",
+            "Same borrow-cost and structural-break caveats as `pairs_cointegration`.",
+        ),
+    ),
 }
 
 

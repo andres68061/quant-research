@@ -9,13 +9,14 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from api.dependencies import get_prices
-from api.time_utils import slice_by_dates
-from core.metrics.performance import calculate_performance_metrics
+from api.time_utils import bound_timestamp, slice_by_dates
+from core.metrics.performance import calculate_cumulative_returns, calculate_performance_metrics
 from core.optimization.portfolio import (
     calculate_cal_points,
     calculate_efficient_frontier,
     find_min_variance_portfolio,
     find_tangency_portfolio,
+    run_walk_forward_tangency,
     simulate_rebalanced_portfolio,
 )
 
@@ -48,7 +49,19 @@ class JointHistoryRequest(BaseModel):
     end_date: Optional[str] = None
 
 
-def _aligned_price_panel(symbols: List[str], start: Optional[str], end: Optional[str]) -> pd.DataFrame:
+class WalkForwardOptimizeRequest(BaseModel):
+    symbols: List[str] = Field(..., min_length=2)
+    start_date: str
+    end_date: Optional[str] = None
+    lookback_months: int = Field(24, ge=3, le=60)
+    rebalance_months: int = Field(6, ge=1, le=12)
+    risk_free_rate: float = 0.0
+    portfolio_kind: str = Field("tangency", description="'tangency' or 'min_variance'")
+
+
+def _aligned_price_panel(
+    symbols: List[str], start: Optional[str], end: Optional[str]
+) -> pd.DataFrame:
     prices = get_prices()
     if prices is None:
         raise HTTPException(status_code=503, detail="Price data not loaded")
@@ -61,7 +74,9 @@ def _aligned_price_panel(symbols: List[str], start: Optional[str], end: Optional
     return slice_by_dates(df, start, end)
 
 
-def _solo_row_counts(symbols: List[str], start: Optional[str], end: Optional[str]) -> Dict[str, int]:
+def _solo_row_counts(
+    symbols: List[str], start: Optional[str], end: Optional[str]
+) -> Dict[str, int]:
     prices = get_prices()
     if prices is None:
         raise HTTPException(status_code=503, detail="Price data not loaded")
@@ -128,9 +143,7 @@ def price_row_counts(
     if prices is None:
         raise HTTPException(status_code=503, detail="Price data not loaded")
 
-    last_panel_date: Optional[str] = (
-        str(prices.index.max().date()) if len(prices.index) else None
-    )
+    last_panel_date: Optional[str] = str(prices.index.max().date()) if len(prices.index) else None
 
     symbols: Dict[str, Dict[str, object]] = {}
     for col in prices.columns:
@@ -226,9 +239,70 @@ def simulate(req: SimulateRequest) -> dict:
     daily_ret = nav.pct_change().dropna()
     metrics = calculate_performance_metrics(daily_ret)
 
-    nav_list = [
-        {"date": str(d.date()), "value": float(v)}
-        for d, v in nav.items()
-    ]
+    nav_list = [{"date": str(d.date()), "value": float(v)} for d, v in nav.items()]
 
     return {"nav": nav_list, "metrics": metrics}
+
+
+@router.post("/walk-forward-optimize")
+def walk_forward_optimize(req: WalkForwardOptimizeRequest) -> dict:
+    """
+    Roll tangency/min-variance weights forward with no lookahead.
+
+    Unlike ``/optimize`` + ``/simulate`` (which fit weights on
+    ``[start_date, end_date]`` and then evaluate those same weights over
+    the identical window — in-sample look-ahead), this re-fits weights on
+    a trailing ``lookback_months`` window every ``rebalance_months`` and
+    only ever reports realized returns from *after* each fit. See
+    ``core.optimization.portfolio.run_walk_forward_tangency`` for the
+    full rationale.
+    """
+    if req.portfolio_kind not in {"tangency", "min_variance"}:
+        raise HTTPException(
+            status_code=400, detail="portfolio_kind must be 'tangency' or 'min_variance'"
+        )
+
+    prices = get_prices()
+    if prices is None:
+        raise HTTPException(status_code=503, detail="Price data not loaded")
+
+    missing = [s for s in req.symbols if s not in prices.columns]
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Symbols not found: {missing}")
+
+    start = bound_timestamp(req.start_date, prices.index)
+    end = bound_timestamp(req.end_date, prices.index) if req.end_date else prices.index.max()
+
+    try:
+        out = run_walk_forward_tangency(
+            prices,
+            req.symbols,
+            start=start,
+            end=end,
+            lookback_months=req.lookback_months,
+            rebalance_months=req.rebalance_months,
+            risk_free_rate=req.risk_free_rate,
+            portfolio_kind=req.portfolio_kind,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    net = out["net_returns"]
+    if net.empty:
+        raise HTTPException(
+            status_code=400,
+            detail="No realized out-of-sample days; widen the date range or shorten lookback_months.",
+        )
+
+    metrics = calculate_performance_metrics(net)
+    cum_wealth = calculate_cumulative_returns(net)
+    equity = [
+        {"date": str(d.date()), "cumulative_return": float(v - 1.0)} for d, v in cum_wealth.items()
+    ]
+
+    return {
+        "metrics": metrics,
+        "equity_curve": equity,
+        "total_days": int(len(net)),
+        "periods": out["periods"],
+    }

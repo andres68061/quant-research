@@ -160,6 +160,30 @@ Coverage expectations:
 - ML code: verify walk-forward splits have no leakage (`train.max() < test.min()`).
 - Do not mock core computation functions — test with real (small) DataFrames.
 
+### Walk-forward re-evaluation cadence
+
+A strategy is not validated by one full-history backtest or one train/held-out
+split — re-run the evaluation at multiple points in time ("go back in time,
+multiple times") so a result isn't an artifact of picking one lucky window.
+Default cadence: **once per year**. ML backtests (already computationally
+heavier per fold) may drop to **quarterly (4x/year)** only when compute
+allows — do not default to quarterly for non-ML strategies just because it
+looks more thorough; it usually just multiplies runtime for little extra
+signal. State the cadence used in any notebook/doc reporting a result.
+
+### Research findings: roadmap vs. failure log
+
+Two different documents, never mixed:
+- **`docs/ROADMAP.md`** — what we want to build next. Forward-looking only.
+- **`docs/FAILED_STRATEGIES_LOG.md`** — what we tried and why it didn't work,
+  with the real numbers. Never delete an entry here even after a
+  replacement approach ships; the negative result is still evidence.
+
+After finishing any strategy experiment (new formation criterion, new
+parameter sweep, new stopping rule, etc.), update **one** of these two —
+whichever matches the outcome — before ending the turn. See the
+`strategy-experiment-log` skill for the full checklist.
+
 ## Frontend Standards
 
 - Functional components only. One component per file, name matches export (`KPICard.tsx` → `KPICard`).

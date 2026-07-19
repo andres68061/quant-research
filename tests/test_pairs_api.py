@@ -25,9 +25,7 @@ def _cointegrated_panel(n: int = 400) -> pd.DataFrame:
     noise = rng.normal(0, 0.02, n)
     log_x = common
     log_y = common + noise
-    return pd.DataFrame(
-        {"AAA": 100 * np.exp(log_y), "BBB": 100 * np.exp(log_x)}, index=idx
-    )
+    return pd.DataFrame({"AAA": 100 * np.exp(log_y), "BBB": 100 * np.exp(log_x)}, index=idx)
 
 
 def test_run_pairs_backtest_accepts_date_range_on_tz_aware_panel() -> None:
@@ -46,3 +44,27 @@ def test_run_pairs_backtest_accepts_date_range_on_tz_aware_panel() -> None:
     assert resp.total_days > 0
     assert resp.diagnostics.symbol_y == "AAA"
     assert resp.diagnostics.symbol_x == "BBB"
+    assert resp.is_held_out is False
+    assert resp.train_diagnostics is None
+
+
+def test_run_pairs_backtest_train_frac_returns_held_out_slice_only() -> None:
+    panel = _cointegrated_panel(n=700)
+    req = PairsBacktestRequest(
+        symbol_y="AAA",
+        symbol_x="BBB",
+        start_date="2020-01-02",
+        end_date=str(panel.index[-1].date()),
+        hedge_window=60,
+        zscore_window=20,
+        train_frac=0.6,
+    )
+    with patch("api.routes.pairs.get_prices", return_value=panel):
+        resp = run_pairs_backtest(req)
+
+    assert resp.is_held_out is True
+    assert resp.train_diagnostics is not None
+    assert resp.train_start_date is not None
+    assert resp.held_out_start_date is not None
+    assert resp.train_end_date < resp.held_out_start_date
+    assert resp.total_days > 0

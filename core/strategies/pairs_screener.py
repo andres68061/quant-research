@@ -7,15 +7,13 @@ window. This avoids fitting and evaluating on the same dates.
 
 from __future__ import annotations
 
-import itertools
 import logging
 from typing import Any, Optional
 
-import numpy as np
 import pandas as pd
 
 from core.metrics.performance import calculate_performance_metrics
-from core.signals.pairs import align_pair_log_prices, engle_granger_test
+from core.signals.pairs import find_cointegrated_candidates
 from core.strategies.pairs_runner import run_pairs_cointegration_backtest
 
 logger = logging.getLogger(__name__)
@@ -47,9 +45,7 @@ def resolve_sector_symbols(
     if "quoteType" in sectors.columns:
         mask &= sectors["quoteType"].astype(str).str.upper().isin({"EQUITY", "STOCK", ""})
     symbols = [
-        str(s).upper()
-        for s in sectors.loc[mask, "symbol"].tolist()
-        if str(s).upper() in price_set
+        str(s).upper() for s in sectors.loc[mask, "symbol"].tolist() if str(s).upper() in price_set
     ]
     # Stable order for reproducibility.
     symbols = sorted(set(symbols))[:max_symbols]
@@ -112,36 +108,24 @@ def screen_pairs_walk_forward(
     train_panel = panel.iloc[:split_idx]
     test_panel = panel.iloc[split_idx:]
 
-    train_rets = train_panel.pct_change(fill_method=None)
-
-    candidates: list[dict[str, Any]] = []
-    n_tested = 0
-    for y, x in itertools.combinations(syms, 2):
-        n_tested += 1
-        pair_train = train_panel[[y, x]].dropna()
-        if len(pair_train) < hedge_window:
-            continue
-        corr = float(train_rets[y].corr(train_rets[x]))
-        if not np.isfinite(corr) or abs(corr) < min_train_corr:
-            continue
-        try:
-            log_y, log_x = align_pair_log_prices(train_panel, y, x)
-            eg = engle_granger_test(log_y, log_x)
-        except (ValueError, KeyError, np.linalg.LinAlgError):
-            continue
-        if eg["adf_pvalue"] > max_train_adf_pvalue:
-            continue
-        candidates.append(
-            {
-                "symbol_y": y,
-                "symbol_x": x,
-                "train_corr": corr,
-                "train_adf_pvalue": eg["adf_pvalue"],
-                "train_hedge_ratio": eg["hedge_ratio"],
-            }
-        )
-
-    candidates.sort(key=lambda r: r["train_adf_pvalue"])
+    n_tested = len(syms) * (len(syms) - 1) // 2
+    raw_candidates = find_cointegrated_candidates(
+        train_panel,
+        syms,
+        min_corr=min_train_corr,
+        max_adf_pvalue=max_train_adf_pvalue,
+        min_obs=hedge_window,
+    )
+    candidates = [
+        {
+            "symbol_y": c["symbol_y"],
+            "symbol_x": c["symbol_x"],
+            "train_corr": c["corr"],
+            "train_adf_pvalue": c["adf_pvalue"],
+            "train_hedge_ratio": c["hedge_ratio"],
+        }
+        for c in raw_candidates
+    ]
     to_backtest = candidates[:max_oos_backtests]
 
     results: list[dict[str, Any]] = []

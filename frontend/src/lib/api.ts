@@ -15,12 +15,16 @@ import type {
   FREDCatalogResponse,
   FREDSeriesResponse,
   GridSearchResponse,
+  MeasuresLabRequest,
+  MeasuresLabResponse,
   MLStrategyRequest,
   MLStrategyResponse,
   OptimizeRequest,
   OptimizeResponse,
   PairsBacktestRequest,
   PairsBacktestResponse,
+  PairsIndexBacktestRequest,
+  PairsIndexBacktestResponse,
   PairsScreenRequest,
   PairsScreenResponse,
   PortfolioJointHistoryResponse,
@@ -36,6 +40,8 @@ import type {
   SimulateRequest,
   SimulateResponse,
   StockDetailResponse,
+  WalkForwardOptimizeRequest,
+  WalkForwardOptimizeResponse,
 } from "./types.ts";
 
 const BASE = "/api";
@@ -90,6 +96,12 @@ export const api = {
 
   screenPairs: (params: PairsScreenRequest) =>
     request<PairsScreenResponse>("/screen-pairs", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+
+  runPairsIndexBacktest: (params: PairsIndexBacktestRequest) =>
+    request<PairsIndexBacktestResponse>("/run-pairs-index-backtest", {
       method: "POST",
       body: JSON.stringify(params),
     }),
@@ -178,6 +190,12 @@ export const api = {
       body: JSON.stringify(params),
     }),
 
+  walkForwardOptimizePortfolio: (params: WalkForwardOptimizeRequest) =>
+    request<WalkForwardOptimizeResponse>("/portfolio/walk-forward-optimize", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+
   getCetes28: () => request<{ rate: number; date: string }>("/banxico/cetes28"),
 
   /* ── Commodities ───────────────────────────────────────────── */
@@ -251,6 +269,14 @@ export const api = {
       `/simulation/sharpe-comparison?target_sharpe=${targetRatio}&n_days=${nDays}&seed=${seed}`,
       { method: "POST" },
     ),
+
+  /* ── Measures Lab ──────────────────────────────────────────── */
+
+  measuresLab: (params: MeasuresLabRequest) =>
+    request<MeasuresLabResponse>("/measures-lab", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
 
   /* ── Benchmarks ─────────────────────────────────────────── */
 

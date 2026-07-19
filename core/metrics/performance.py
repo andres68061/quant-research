@@ -208,6 +208,204 @@ def calculate_calmar_ratio(returns: pd.Series, periods_per_year: int = 252) -> f
     return float(calmar)
 
 
+def calculate_pain_index(returns: pd.Series) -> float:
+    """
+    Mean absolute drawdown over the period (a.k.a. Pain Index).
+
+    Unlike ``calculate_max_drawdown`` (the single worst point), this
+    integrates both the *depth* and *duration* of every drawdown: a
+    strategy that spends a long time moderately underwater scores worse
+    than one with the same max drawdown that recovers immediately. Days at
+    a new high (drawdown = 0) contribute 0, so this is naturally weighted
+    by how much of the period was spent how far underwater.
+
+    Args:
+        returns: Series of periodic returns.
+
+    Returns:
+        Mean |drawdown| as a decimal (>= 0).
+    """
+    drawdown = calculate_drawdown(returns)
+    if drawdown.empty:
+        return 0.0
+    return float(drawdown.abs().mean())
+
+
+def calculate_pain_ratio(returns: pd.Series, periods_per_year: int = 252) -> float:
+    """
+    Annualized return per unit of Pain Index — reward per unit of
+    time-and-depth "pain", as opposed to Calmar's reward per unit of
+    worst-single-drawdown.
+
+    Args:
+        returns: Series of periodic returns.
+        periods_per_year: Number of periods per year.
+
+    Returns:
+        Pain ratio (0.0 if there is no drawdown to divide by).
+    """
+    pain = calculate_pain_index(returns)
+    if pain == 0:
+        return 0.0
+    ann_return = returns.mean() * periods_per_year
+    return float(ann_return / pain)
+
+
+def calculate_ulcer_index(returns: pd.Series) -> float:
+    """
+    Root-mean-square drawdown (a.k.a. Ulcer Index).
+
+    Same spirit as ``calculate_pain_index`` but squares each drawdown
+    before averaging, so it penalizes deep drawdowns more than shallow
+    ones of the same duration (Pain Index weights all depths linearly).
+
+    Args:
+        returns: Series of periodic returns.
+
+    Returns:
+        RMS drawdown as a decimal (>= 0).
+    """
+    drawdown = calculate_drawdown(returns)
+    if drawdown.empty:
+        return 0.0
+    return float(np.sqrt((drawdown**2).mean()))
+
+
+def calculate_martin_ratio(returns: pd.Series, periods_per_year: int = 252) -> float:
+    """
+    Annualized return per unit of Ulcer Index (a.k.a. Ulcer Performance Index).
+
+    Args:
+        returns: Series of periodic returns.
+        periods_per_year: Number of periods per year.
+
+    Returns:
+        Martin ratio (0.0 if there is no drawdown to divide by).
+    """
+    ui = calculate_ulcer_index(returns)
+    if ui == 0:
+        return 0.0
+    ann_return = returns.mean() * periods_per_year
+    return float(ann_return / ui)
+
+
+def calculate_cost_basis_pain(returns: pd.Series) -> float:
+    """
+    Sum of daily shortfall below the *initial investment* (cost basis),
+    not the running peak: :math:`\\sum_t \\max(0,\\, 1 - w_t)` where
+    :math:`w_t = \\prod_{i \\le t}(1 + r_i)` is wealth relative to a
+    starting value of 1.0.
+
+    Differs from ``calculate_pain_index`` in two ways: (1) the reference
+    point is the original cost basis, not the running peak — a strategy
+    that falls, recovers to a new high, then falls again only "hurts" here
+    relative to day zero, not relative to its own prior peak; (2) this is
+    a **sum** over the whole history, not a mean, so it grows with how
+    long the series is (by design — paired with total, not annualized,
+    return in ``calculate_cid1_ratio``).
+
+    Args:
+        returns: Series of periodic returns.
+
+    Returns:
+        Total below-cost-basis shortfall as a decimal (>= 0).
+    """
+    wealth = calculate_cumulative_returns(returns)
+    if wealth.empty:
+        return 0.0
+    shortfall = (1.0 - wealth).clip(lower=0.0)
+    return float(shortfall.sum())
+
+
+def calculate_cid1_ratio(returns: pd.Series) -> float:
+    """
+    Total (compounded) return to date, divided by ``calculate_cost_basis_pain``.
+
+    Not a Pain Ratio variant despite the shared denominator concept — both
+    the numerator (total return, not annualized excess return) and the
+    denominator (cost-basis shortfall, not mean drawdown-from-peak) differ
+    from the classic definition, so it gets its own name rather than
+    borrowing one that no longer applies.
+
+    Deliberately not annualized and not based on the arithmetic daily mean
+    (unlike every other ratio in this module): total return over the full
+    elapsed history, divided by the cumulative below-cost-basis pain over
+    that same history. Two paths with identical Sharpe can have very
+    different scores here if one spent far longer below its starting
+    value on the way to the same endpoint.
+
+    Args:
+        returns: Series of periodic returns.
+
+    Returns:
+        Cid-1 ratio (0.0 if the series never fell below its starting value).
+    """
+    pain = calculate_cost_basis_pain(returns)
+    if pain == 0:
+        return 0.0
+    wealth = calculate_cumulative_returns(returns)
+    total_return = float(wealth.iloc[-1] - 1.0) if not wealth.empty else 0.0
+    return total_return / pain
+
+
+def calculate_typical_period_return(returns: pd.Series, period_days: int = 252) -> float:
+    """
+    Average *compounded* return over sequential, non-overlapping blocks of
+    ``period_days`` observations (e.g. 252 ≈ "typical 1-year return").
+
+    This is deliberately different from ``annualized_return`` elsewhere in
+    this module, which annualizes the arithmetic daily mean
+    (``returns.mean() * periods_per_year``). This instead answers "what
+    does a typical `period_days`-long holding actually return," compounding
+    fully within each block and simple-averaging the block outcomes — no
+    daily arithmetic mean, no annualization factor. A trailing partial
+    block (fewer than ``period_days`` observations) is dropped.
+
+    Args:
+        returns: Series of periodic returns.
+        period_days: Length of each block in observations (252 ≈ 1 year).
+
+    Returns:
+        Mean compounded per-block return as a decimal (0.0 if fewer than
+        one full block is available).
+    """
+    if period_days < 1:
+        raise ValueError("period_days must be >= 1")
+    values = returns.to_numpy(dtype=float)
+    n_blocks = len(values) // period_days
+    if n_blocks == 0:
+        return 0.0
+    block_returns = [
+        float(np.prod(1.0 + values[i * period_days : (i + 1) * period_days]) - 1.0)
+        for i in range(n_blocks)
+    ]
+    return float(np.mean(block_returns))
+
+
+def calculate_cid2_ratio(returns: pd.Series, period_days: int = 252) -> float:
+    """
+    ``calculate_typical_period_return`` divided by ``calculate_cost_basis_pain``.
+
+    Same cost-basis-pain denominator as ``calculate_cid1_ratio``, but the
+    numerator is "what a typical holding period actually returned" rather
+    than the single total-return-to-date figure — useful when the question
+    is "if I invest for about `period_days` days, what should I expect, per
+    unit of pain endured getting there."
+
+    Args:
+        returns: Series of periodic returns.
+        period_days: Length of each block in observations (252 ≈ 1 year).
+
+    Returns:
+        Cid-2 ratio (0.0 if there's no pain to divide by).
+    """
+    pain = calculate_cost_basis_pain(returns)
+    if pain == 0:
+        return 0.0
+    typical = calculate_typical_period_return(returns, period_days)
+    return typical / pain
+
+
 def calculate_information_ratio(
     returns: pd.Series,
     benchmark_returns: pd.Series,
@@ -274,6 +472,13 @@ def calculate_performance_metrics(
             "sortino_ratio": 0.0,
             "max_drawdown": 0.0,
             "calmar_ratio": 0.0,
+            "pain_index": 0.0,
+            "pain_ratio": 0.0,
+            "ulcer_index": 0.0,
+            "martin_ratio": 0.0,
+            "cid1_ratio": 0.0,
+            "typical_period_return": 0.0,
+            "cid2_ratio": 0.0,
             "cvar_95": 0.0,
             "cvar_99": 0.0,
             "time_underwater_days": 0,
@@ -291,6 +496,13 @@ def calculate_performance_metrics(
     sortino = calculate_sortino_ratio(returns_clean, risk_free_rate, periods_per_year)
     max_dd = calculate_max_drawdown(returns_clean)
     calmar = calculate_calmar_ratio(returns_clean, periods_per_year)
+    pain_index = calculate_pain_index(returns_clean)
+    pain_ratio = calculate_pain_ratio(returns_clean, periods_per_year)
+    ulcer_index = calculate_ulcer_index(returns_clean)
+    martin_ratio = calculate_martin_ratio(returns_clean, periods_per_year)
+    cid1_ratio = calculate_cid1_ratio(returns_clean)
+    typical_period_return = calculate_typical_period_return(returns_clean, periods_per_year)
+    cid2_ratio = calculate_cid2_ratio(returns_clean, periods_per_year)
     cvar_95 = calculate_historical_var(returns_clean.to_numpy(), confidence=95)["cvar"] / 100
     cvar_99 = calculate_historical_var(returns_clean.to_numpy(), confidence=99)["cvar"] / 100
     time_underwater_days = calculate_time_underwater(returns_clean)
@@ -303,6 +515,13 @@ def calculate_performance_metrics(
         "sortino_ratio": float(sortino),
         "max_drawdown": float(max_dd),
         "calmar_ratio": float(calmar),
+        "pain_index": float(pain_index),
+        "pain_ratio": float(pain_ratio),
+        "ulcer_index": float(ulcer_index),
+        "martin_ratio": float(martin_ratio),
+        "cid1_ratio": float(cid1_ratio),
+        "typical_period_return": float(typical_period_return),
+        "cid2_ratio": float(cid2_ratio),
         "cvar_95": float(cvar_95),
         "cvar_99": float(cvar_99),
         "time_underwater_days": int(time_underwater_days),
@@ -355,6 +574,13 @@ def format_performance_table(metrics: Dict[str, float]) -> pd.DataFrame:
         "sortino_ratio": "Sortino Ratio",
         "max_drawdown": "Max Drawdown",
         "calmar_ratio": "Calmar Ratio",
+        "pain_index": "Pain Index",
+        "pain_ratio": "Pain Ratio",
+        "ulcer_index": "Ulcer Index",
+        "martin_ratio": "Martin Ratio",
+        "cid1_ratio": "Cid-1 Ratio",
+        "typical_period_return": "Typical Period Return",
+        "cid2_ratio": "Cid-2 Ratio",
         "cvar_95": "CVaR 95%",
         "cvar_99": "CVaR 99%",
         "time_underwater_days": "Time Underwater (Days)",

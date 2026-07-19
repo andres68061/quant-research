@@ -24,9 +24,11 @@ from api.routes import (
     fama_french,
     fred,
     health,
+    measures_lab,
     metrics,
     momentum,
     pairs,
+    pairs_index,
     portfolio,
     replay,
     sectors,
@@ -77,6 +79,7 @@ app.include_router(data_coverage.router)
 app.include_router(fama_french.router)
 app.include_router(strategy.router)
 app.include_router(pairs.router)
+app.include_router(pairs_index.router)
 app.include_router(strategies.router)
 app.include_router(metrics.router)
 app.include_router(walkforward.router)
@@ -88,6 +91,7 @@ app.include_router(commodities.router)
 app.include_router(fred.router)
 app.include_router(sectors.router)
 app.include_router(simulation.router)
+app.include_router(measures_lab.router)
 app.include_router(events_backtest.router)
 app.include_router(exclusions.router)
 app.include_router(benchmarks.router)

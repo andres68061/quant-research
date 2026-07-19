@@ -13,6 +13,7 @@ class StrategyKind(str, Enum):
     FACTOR_CROSS_SECTION = "factor_cross_section"
     ML_DIRECTION = "ml_direction"
     PAIRS_COINTEGRATION = "pairs_cointegration"
+    PAIRS_INDEX = "pairs_index"
 
 
 @dataclass(frozen=True)

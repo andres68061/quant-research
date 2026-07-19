@@ -536,7 +536,153 @@ export default function Portfolio() {
         onTab={setActiveTab}
         loading={loading}
       />
+      <WalkForwardPanel selected={selected} startDate={startDate} endDate={endDate} rfRate={rfRate} />
     </AppLayout>
+  );
+}
+
+/**
+ * Self-contained walk-forward validation for the tangency/min-variance
+ * optimizer above. `/portfolio/optimize` + `/simulate` fit weights on
+ * [startDate, endDate] and then evaluate those same weights over the
+ * identical window — in-sample look-ahead (the optimizer has seen the
+ * returns it's graded on). This panel calls
+ * `POST /portfolio/walk-forward-optimize` instead: it re-fits weights on a
+ * trailing lookback window every rebalance_months and only ever reports
+ * *realized* returns from after each fit, so the Sharpe shown here is a
+ * genuine out-of-sample number — deliberately kept separate from the
+ * `weighting` state machine above so it can't destabilize it.
+ */
+function WalkForwardPanel({
+  selected,
+  startDate,
+  endDate,
+  rfRate,
+}: {
+  selected: string[];
+  startDate: string;
+  endDate: string;
+  rfRate: number;
+}) {
+  const [lookbackMonths, setLookbackMonths] = useState(24);
+  const [rebalanceMonths, setRebalanceMonths] = useState(6);
+  const [portfolioKind, setPortfolioKind] = useState<"tangency" | "min_variance">("tangency");
+  const [open, setOpen] = useState(false);
+
+  const wfMut = useMutation({
+    mutationFn: () =>
+      api.walkForwardOptimizePortfolio({
+        symbols: selected,
+        start_date: startDate,
+        end_date: endDate || undefined,
+        lookback_months: lookbackMonths,
+        rebalance_months: rebalanceMonths,
+        risk_free_rate: rfRate / 100,
+        portfolio_kind: portfolioKind,
+      }),
+  });
+  const wf = wfMut.data;
+
+  return (
+    <div className="mt-4 border-t border-zinc-800 pt-4">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-[11px] uppercase tracking-wider text-zinc-400 hover:text-zinc-200 flex items-center gap-1.5"
+      >
+        <span>{open ? "▾" : "▸"}</span>
+        Walk-forward validation (no look-ahead)
+      </button>
+      {open && (
+        <div className="mt-3 flex flex-col gap-3">
+          <p className="text-[11px] text-zinc-500 leading-relaxed max-w-2xl">
+            Re-fits {portfolioKind === "tangency" ? "tangency" : "min-variance"} weights on a
+            trailing lookback window every rebalance period, using the same {selected.length}{" "}
+            selected symbols and date range as above, then reports only realized (never-fit-on)
+            returns. This is the honest comparison to the optimizer&apos;s Sharpe shown above,
+            which is fit and evaluated on the same window.
+          </p>
+          <div className="flex flex-wrap gap-3 items-end">
+            <Field label="Lookback (months)">
+              <input
+                type="number"
+                min={3}
+                max={60}
+                value={lookbackMonths}
+                onChange={(e) => setLookbackMonths(+e.target.value)}
+                className="w-24 bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-xs font-mono text-zinc-200"
+              />
+            </Field>
+            <Field label="Rebalance (months)">
+              <input
+                type="number"
+                min={1}
+                max={12}
+                value={rebalanceMonths}
+                onChange={(e) => setRebalanceMonths(+e.target.value)}
+                className="w-24 bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-xs font-mono text-zinc-200"
+              />
+            </Field>
+            <Field label="Objective">
+              <select
+                value={portfolioKind}
+                onChange={(e) => setPortfolioKind(e.target.value as "tangency" | "min_variance")}
+                className="bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-xs font-mono text-zinc-200"
+              >
+                <option value="tangency">Tangency (max Sharpe)</option>
+                <option value="min_variance">Min variance</option>
+              </select>
+            </Field>
+            <RunButton
+              onClick={() => wfMut.mutate()}
+              loading={wfMut.isPending}
+              label="Run walk-forward"
+              disabled={selected.length < 2 || !startDate}
+            />
+          </div>
+          {wfMut.isError && (
+            <Notice tone="error">{(wfMut.error as Error).message}</Notice>
+          )}
+          {wf && (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <KPICard label="OOS Sharpe" value={fmtRatio(wf.metrics.sharpe_ratio)} accent="neutral" />
+                <KPICard
+                  label="Ann. return"
+                  value={fmtPct(wf.metrics.annualized_return)}
+                  accent={wf.metrics.annualized_return >= 0 ? "positive" : "negative"}
+                />
+                <KPICard label="Max DD" value={fmtPct(wf.metrics.max_drawdown)} accent="negative" />
+                <KPICard label="Pain ratio" value={fmtRatio(wf.metrics.pain_ratio)} accent="neutral" />
+                <KPICard label="Periods" value={String(wf.periods.length)} accent="neutral" />
+              </div>
+              <Plot
+                data={[
+                  {
+                    x: wf.equity_curve.map((p) => p.date),
+                    y: wf.equity_curve.map((p) => p.cumulative_return),
+                    type: "scatter",
+                    mode: "lines",
+                    name: "Walk-forward OOS",
+                    line: { color: "#f59e0b", width: 1.5 },
+                  },
+                ]}
+                layout={{
+                  ...DARK_PLOTLY_LAYOUT,
+                  height: 260,
+                  margin: { l: 48, r: 16, t: 16, b: 32 },
+                  yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, tickformat: ".1%" },
+                }}
+                config={{ displayModeBar: false, responsive: true }}
+                className="w-full"
+                useResizeHandler
+                style={{ width: "100%" }}
+              />
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

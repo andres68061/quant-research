@@ -9,7 +9,9 @@ import FamaFrench from "./pages/FamaFrench.tsx";
 import LinearAlgebra from "./pages/LinearAlgebra.tsx";
 import MetalsAnalytics from "./pages/MetalsAnalytics.tsx";
 import Methodology from "./pages/Methodology.tsx";
+import MeasuresLab from "./pages/MeasuresLab.tsx";
 import MLAlphaReplay from "./pages/MLAlphaReplay.tsx";
+import PairsIndex from "./pages/PairsIndex.tsx";
 import PairsTrading from "./pages/PairsTrading.tsx";
 import PortfolioSimulator from "./pages/PortfolioSimulator.tsx";
 import SectorBreakdown from "./pages/SectorBreakdown.tsx";
@@ -45,6 +47,7 @@ export default function App() {
         <Route path="/" element={<AnimatedPage><PortfolioSimulator /></AnimatedPage>} />
         <Route path="/ml-alpha" element={<AnimatedPage><MLAlphaReplay /></AnimatedPage>} />
         <Route path="/pairs" element={<AnimatedPage><PairsTrading /></AnimatedPage>} />
+        <Route path="/pairs-index" element={<AnimatedPage><PairsIndex /></AnimatedPage>} />
         <Route path="/momentum" element={<AnimatedPage><SortinoMomentum /></AnimatedPage>} />
         <Route path="/portfolio" element={<AnimatedPage><Portfolio /></AnimatedPage>} />
         <Route path="/etf-optimizer" element={<Navigate to="/portfolio" replace />} />
@@ -57,6 +60,7 @@ export default function App() {
         <Route path="/methodology" element={<AnimatedPage><Methodology /></AnimatedPage>} />
         <Route path="/fama-french" element={<AnimatedPage><FamaFrench /></AnimatedPage>} />
         <Route path="/sharpe-limitations" element={<AnimatedPage><SharpeRatioLimitations /></AnimatedPage>} />
+        <Route path="/measures-lab" element={<AnimatedPage><MeasuresLab /></AnimatedPage>} />
         <Route path="/linear-algebra" element={<AnimatedPage><LinearAlgebra /></AnimatedPage>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -8,6 +8,13 @@ export interface PerformanceMetrics {
   sortino_ratio: number;
   max_drawdown: number;
   calmar_ratio: number;
+  pain_index: number;
+  pain_ratio: number;
+  ulcer_index: number;
+  martin_ratio: number;
+  cid1_ratio: number;
+  typical_period_return: number;
+  cid2_ratio: number;
   n_periods: number;
   information_ratio?: number;
   beta?: number;
@@ -80,6 +87,7 @@ export interface PairsBacktestRequest {
   exit_z?: number;
   transaction_cost_bps?: number;
   signal_lag_days?: number;
+  train_frac?: number;
 }
 
 export interface PairsBacktestResponse {
@@ -106,6 +114,17 @@ export interface PairsBacktestResponse {
     pct_days_in_trade: number;
   };
   spread_series: { date: string; zscore: number; position: number }[];
+  is_held_out: boolean;
+  train_start_date?: string | null;
+  train_end_date?: string | null;
+  held_out_start_date?: string | null;
+  train_diagnostics?: {
+    hedge_ratio: number;
+    intercept: number;
+    adf_stat: number;
+    adf_pvalue: number;
+    n_obs: number;
+  } | null;
 }
 
 export interface PairsScreenRequest {
@@ -149,6 +168,53 @@ export interface PairsScreenResponse {
   n_pairs_tested: number;
   n_pairs_passed_train: number;
   results: PairsScreenRow[];
+}
+
+export interface PairsIndexBacktestRequest {
+  sector_names: string[];
+  start_date?: string;
+  end_date?: string;
+  formation_months?: number;
+  trading_months?: number;
+  top_n_pairs?: number;
+  max_symbols_per_sector?: number;
+  use_adv?: boolean;
+  hedge_window?: number;
+  zscore_window?: number;
+  entry_z?: number;
+  exit_z?: number;
+  transaction_cost_bps?: number;
+  signal_lag_days?: number;
+}
+
+export interface PairsIndexPairRow {
+  symbol_y: string;
+  symbol_x: string;
+  sector: string;
+  formation_ssd: number;
+  formation_adf_pvalue?: number | null;
+  period_sharpe: number;
+  period_n_days: number;
+}
+
+export interface PairsIndexPeriodRow {
+  formation_start: string;
+  formation_end: string;
+  trading_start: string;
+  trading_end: string;
+  n_candidates_formed: number;
+  n_pairs_selected: number;
+  avg_active_pairs: number;
+  blended_sharpe?: number | null;
+  selected_pairs: PairsIndexPairRow[];
+}
+
+export interface PairsIndexBacktestResponse {
+  metrics: PerformanceMetrics;
+  equity_curve: EquityCurvePoint[];
+  total_days: number;
+  universe: string[];
+  periods: PairsIndexPeriodRow[];
 }
 
 export interface MLStrategyRequest {
@@ -364,6 +430,31 @@ export interface SimulateResponse {
   metrics: PerformanceMetrics;
 }
 
+export interface WalkForwardOptimizeRequest {
+  symbols: string[];
+  start_date: string;
+  end_date?: string;
+  lookback_months?: number;
+  rebalance_months?: number;
+  risk_free_rate?: number;
+  portfolio_kind?: "tangency" | "min_variance";
+}
+
+export interface WalkForwardPeriod {
+  fit_start: string;
+  hold_start: string;
+  hold_end: string;
+  fit_n_obs: number;
+  weights: PortfolioWeights;
+}
+
+export interface WalkForwardOptimizeResponse {
+  metrics: PerformanceMetrics;
+  equity_curve: EquityCurvePoint[];
+  total_days: number;
+  periods: WalkForwardPeriod[];
+}
+
 /* ── Commodities ─────────────────────────────────────────────── */
 
 export interface CommodityConfig {
@@ -475,6 +566,46 @@ export interface MultiRatioComparisonResponse {
   by_sharpe: SimulatedInvestment[];
   by_sortino: SimulatedInvestment[];
   by_calmar: SimulatedInvestment[];
+}
+
+/* ── Measures Lab ─────────────────────────────────────────────── */
+
+export interface MeasureSet {
+  cid1_ratio: number;
+  cid2_ratio: number;
+  total_return: number;
+  typical_period_return: number;
+  annualized_return: number;
+  annualized_volatility: number;
+  max_drawdown: number;
+  sharpe_ratio: number;
+  sortino_ratio: number;
+  calmar_ratio: number;
+  pain_ratio: number;
+  martin_ratio: number;
+}
+
+export interface MeasuresLabSeries {
+  name: string;
+  color: string;
+  prices: number[];
+  measures: MeasureSet;
+}
+
+export interface MeasuresLabRequest {
+  n_days?: number;
+  n_relationship_draws?: number;
+  seed?: number;
+  portfolio_weight_a?: number;
+  portfolio_a?: string;
+  portfolio_b?: string;
+}
+
+export interface MeasuresLabResponse {
+  single_stock_examples: MeasuresLabSeries[];
+  portfolio_example: MeasuresLabSeries;
+  portfolio_legs: MeasuresLabSeries[];
+  relationship_scatter: Record<string, number[]>;
 }
 
 /* ── Exclusions ─────────────────────────────────────────────── */

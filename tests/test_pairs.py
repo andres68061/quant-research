@@ -14,7 +14,10 @@ from core.signals.pairs import (
     rolling_spread_zscore,
     spread_from_hedge,
 )
-from core.strategies.pairs_runner import run_pairs_cointegration_backtest
+from core.strategies.pairs_runner import (
+    run_pairs_cointegration_backtest,
+    run_pairs_holdout_backtest,
+)
 
 
 def _cointegrated_panel(n: int = 800, seed: int = 0) -> pd.DataFrame:
@@ -95,3 +98,77 @@ class TestPairsRunner:
         assert np.isfinite(out["net_returns"]).all()
         assert "engle_granger" in out["diagnostics"]
         assert out["diagnostics"]["engle_granger"]["adf_pvalue"] < 0.05
+
+
+class TestPairsHoldoutBacktest:
+    def test_splits_train_and_held_out_with_no_overlap(self) -> None:
+        prices = _cointegrated_panel(700)
+        out = run_pairs_holdout_backtest(
+            prices,
+            symbol_y="AAA",
+            symbol_x="BBB",
+            start=prices.index[0],
+            end=prices.index[-1],
+            train_frac=0.6,
+            hedge_window=120,
+            zscore_window=40,
+            transaction_cost=0.001,
+        )
+        assert out["train_end"] < out["held_out_start"]
+        held_out = out["held_out"]
+        assert len(held_out["net_returns"]) > 20
+        assert held_out["net_returns"].index.min() >= out["held_out_start"]
+        assert np.isfinite(held_out["net_returns"]).all()
+        # Train diagnostic is a real EG test on the train slice only.
+        assert "adf_pvalue" in out["train_diagnostics"]
+
+    def test_train_diagnostics_never_see_held_out_prices(self) -> None:
+        """Perturbing held-out-only prices must not change the train diagnostic.
+
+        This is the direction that actually matters for preventing selection
+        bias: you must not be able to tune or read the cointegration
+        diagnostic using data from the period you are then evaluated on. (The
+        other direction is fine by design: the held-out backtest's warm-up
+        buffer intentionally borrows train-period prices to seed the rolling
+        hedge/z-score, same as ``pairs_index``.)
+        """
+        prices = _cointegrated_panel(700, seed=3)
+        base = run_pairs_holdout_backtest(
+            prices,
+            symbol_y="AAA",
+            symbol_x="BBB",
+            start=prices.index[0],
+            end=prices.index[-1],
+            train_frac=0.6,
+            hedge_window=120,
+            zscore_window=40,
+            transaction_cost=0.001,
+        )
+        split_idx = int(len(prices) * 0.6)
+        perturbed = prices.copy()
+        # Scale only the held-out-period prices; train prices untouched.
+        perturbed.iloc[split_idx:] = perturbed.iloc[split_idx:] * 1.5
+        bumped = run_pairs_holdout_backtest(
+            perturbed,
+            symbol_y="AAA",
+            symbol_x="BBB",
+            start=prices.index[0],
+            end=prices.index[-1],
+            train_frac=0.6,
+            hedge_window=120,
+            zscore_window=40,
+            transaction_cost=0.001,
+        )
+        assert base["train_diagnostics"] == bumped["train_diagnostics"]
+
+    def test_rejects_bad_train_frac(self) -> None:
+        prices = _cointegrated_panel(300)
+        with pytest.raises(ValueError):
+            run_pairs_holdout_backtest(
+                prices,
+                symbol_y="AAA",
+                symbol_x="BBB",
+                start=prices.index[0],
+                end=prices.index[-1],
+                train_frac=0.95,
+            )

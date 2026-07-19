@@ -25,7 +25,10 @@ from core.metrics.performance import (
     calculate_performance_metrics,
 )
 from core.strategies.pairs_gatev import resolve_liquid_symbols, screen_pairs_gatev
-from core.strategies.pairs_runner import run_pairs_cointegration_backtest
+from core.strategies.pairs_runner import (
+    run_pairs_cointegration_backtest,
+    run_pairs_holdout_backtest,
+)
 from core.strategies.pairs_screener import resolve_sector_symbols, screen_pairs_walk_forward
 
 logger = logging.getLogger(__name__)
@@ -33,61 +36,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["pairs"])
 
 
-@router.post("/run-pairs-backtest", response_model=PairsBacktestResponse)
-def run_pairs_backtest(req: PairsBacktestRequest) -> PairsBacktestResponse:
-    """Run Engle–Granger pairs mean-reversion on two symbols from the price panel."""
-    if req.entry_z <= req.exit_z:
-        raise HTTPException(
-            status_code=400,
-            detail="entry_z must be strictly greater than exit_z",
-        )
-
-    prices = get_prices()
-    if prices is None:
-        raise HTTPException(status_code=503, detail="Data not loaded")
-
-    symbol_y = req.symbol_y.strip().upper()
-    symbol_x = req.symbol_x.strip().upper()
-    if symbol_y == symbol_x:
-        raise HTTPException(status_code=400, detail="symbol_y and symbol_x must differ")
-
-    start = (
-        pd.Timestamp(req.start_date, tz="America/New_York")
-        if req.start_date
-        else pd.Timestamp(date.today() - timedelta(days=5 * 365), tz="America/New_York")
-    )
-    end = (
-        pd.Timestamp(req.end_date, tz="America/New_York")
-        if req.end_date
-        else pd.Timestamp(date.today(), tz="America/New_York")
-    )
-
-    try:
-        result = run_pairs_cointegration_backtest(
-            prices,
-            symbol_y=symbol_y,
-            symbol_x=symbol_x,
-            start=start,
-            end=end,
-            hedge_window=req.hedge_window,
-            zscore_window=req.zscore_window,
-            entry_z=req.entry_z,
-            exit_z=req.exit_z,
-            transaction_cost=req.transaction_cost_bps / 10_000,
-            signal_lag_days=req.signal_lag_days,
-        )
-    except KeyError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
+def _build_response(
+    result: dict, symbol_y: str, symbol_x: str, **extra: object
+) -> PairsBacktestResponse:
+    """Build a PairsBacktestResponse from a run_pairs_cointegration_backtest result."""
     net = result["net_returns"]
-    if net.empty:
-        raise HTTPException(
-            status_code=400,
-            detail="No valid trading days after warm-up; widen the date range.",
-        )
-
     metrics = calculate_performance_metrics(net)
     cum_wealth = calculate_cumulative_returns(net)
     equity = [
@@ -127,7 +80,101 @@ def run_pairs_backtest(req: PairsBacktestRequest) -> PairsBacktestResponse:
         total_days=len(net),
         diagnostics=diagnostics,
         spread_series=spread_series,
+        **extra,
     )
+
+
+@router.post("/run-pairs-backtest", response_model=PairsBacktestResponse)
+def run_pairs_backtest(req: PairsBacktestRequest) -> PairsBacktestResponse:
+    """
+    Run Engle–Granger pairs mean-reversion on two symbols from the price panel.
+
+    When ``train_frac`` is set, enforces train/held-out separation
+    (``run_pairs_holdout_backtest``) instead of a single blended backtest —
+    see that function's docstring for why the default (no split) is only
+    safe if the pair/date-range was not chosen using knowledge of how it
+    performs over it.
+    """
+    if req.entry_z <= req.exit_z:
+        raise HTTPException(
+            status_code=400,
+            detail="entry_z must be strictly greater than exit_z",
+        )
+
+    prices = get_prices()
+    if prices is None:
+        raise HTTPException(status_code=503, detail="Data not loaded")
+
+    symbol_y = req.symbol_y.strip().upper()
+    symbol_x = req.symbol_x.strip().upper()
+    if symbol_y == symbol_x:
+        raise HTTPException(status_code=400, detail="symbol_y and symbol_x must differ")
+
+    start = (
+        pd.Timestamp(req.start_date, tz="America/New_York")
+        if req.start_date
+        else pd.Timestamp(date.today() - timedelta(days=5 * 365), tz="America/New_York")
+    )
+    end = (
+        pd.Timestamp(req.end_date, tz="America/New_York")
+        if req.end_date
+        else pd.Timestamp(date.today(), tz="America/New_York")
+    )
+
+    try:
+        if req.train_frac is not None:
+            split = run_pairs_holdout_backtest(
+                prices,
+                symbol_y=symbol_y,
+                symbol_x=symbol_x,
+                start=start,
+                end=end,
+                train_frac=req.train_frac,
+                hedge_window=req.hedge_window,
+                zscore_window=req.zscore_window,
+                entry_z=req.entry_z,
+                exit_z=req.exit_z,
+                transaction_cost=req.transaction_cost_bps / 10_000,
+                signal_lag_days=req.signal_lag_days,
+            )
+            result = split["held_out"]
+        else:
+            result = run_pairs_cointegration_backtest(
+                prices,
+                symbol_y=symbol_y,
+                symbol_x=symbol_x,
+                start=start,
+                end=end,
+                hedge_window=req.hedge_window,
+                zscore_window=req.zscore_window,
+                entry_z=req.entry_z,
+                exit_z=req.exit_z,
+                transaction_cost=req.transaction_cost_bps / 10_000,
+                signal_lag_days=req.signal_lag_days,
+            )
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    net = result["net_returns"]
+    if net.empty:
+        raise HTTPException(
+            status_code=400,
+            detail="No valid trading days after warm-up; widen the date range.",
+        )
+
+    extra: dict[str, object] = {}
+    if req.train_frac is not None:
+        extra = {
+            "is_held_out": True,
+            "train_start_date": str(split["train_start"].date()),
+            "train_end_date": str(split["train_end"].date()),
+            "held_out_start_date": str(split["held_out_start"].date()),
+            "train_diagnostics": EngleGrangerDiagnostics(**split["train_diagnostics"]),
+        }
+
+    return _build_response(result, symbol_y, symbol_x, **extra)
 
 
 @router.post("/screen-pairs", response_model=PairsScreenResponse)

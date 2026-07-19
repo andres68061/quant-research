@@ -42,6 +42,8 @@ export default function PairsTrading() {
   const [maxSymbols, setMaxSymbols] = useState(10);
   const [screenMethod, setScreenMethod] = useState<"gatev" | "engle_granger">("gatev");
   const [useAdv, setUseAdv] = useState(true);
+  const [validateOos, setValidateOos] = useState(true);
+  const [trainFrac, setTrainFrac] = useState(0.6);
 
   const fiveYearsAgo = new Date(Date.now() - 5 * 365.25 * 86_400_000).toISOString().slice(0, 10);
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -61,6 +63,7 @@ export default function PairsTrading() {
         exit_z: exitZ,
         transaction_cost_bps: tcost,
         signal_lag_days: 1,
+        train_frac: validateOos ? trainFrac : undefined,
       }),
   });
 
@@ -117,6 +120,36 @@ export default function PairsTrading() {
               className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1.5 text-xs font-mono text-zinc-200"
             />
           </Field>
+          <label className="flex items-center gap-2 mb-2 text-[11px] text-zinc-400">
+            <input
+              type="checkbox"
+              checked={validateOos}
+              onChange={(e) => setValidateOos(e.target.checked)}
+              className="accent-blue-500"
+            />
+            Validate out-of-sample
+          </label>
+          {validateOos && (
+            <>
+              <p className="text-[10px] text-zinc-500 leading-relaxed mb-2">
+                Splits Start–End below at train_frac. Diagnostics come from the
+                train slice only; every metric/curve you see is computed on
+                the held-out slice only — this pair/range can&apos;t
+                self-mislead you.
+              </p>
+              <Field label={`Train fraction (${trainFrac.toFixed(2)})`}>
+                <input
+                  type="range"
+                  min={0.2}
+                  max={0.8}
+                  step={0.05}
+                  value={trainFrac}
+                  onChange={(e) => setTrainFrac(+e.target.value)}
+                  className="w-full accent-blue-500"
+                />
+              </Field>
+            </>
+          )}
           <Field label={`Entry |z| (${entryZ.toFixed(1)})`}>
             <input
               type="range"
@@ -254,6 +287,11 @@ export default function PairsTrading() {
         <RightSidebar>
           {m ? (
             <>
+              {data.is_held_out && (
+                <p className="text-[10px] uppercase tracking-wider text-emerald-400 mb-1">
+                  Held-out mode
+                </p>
+              )}
               <KPICard label="Sharpe" value={fmtRatio(m.sharpe_ratio)} accent="neutral" />
               <KPICard
                 label="Ann. return"
@@ -261,9 +299,21 @@ export default function PairsTrading() {
                 accent={m.annualized_return >= 0 ? "positive" : "negative"}
               />
               <KPICard label="Max DD" value={fmtPct(m.max_drawdown)} accent="negative" />
+              <KPICard label="Pain ratio" value={fmtRatio(m.pain_ratio)} accent="neutral" />
               {eg && (
                 <>
-                  <KPICard label="ADF p-value" value={eg.adf_pvalue.toFixed(4)} accent="neutral" />
+                  <KPICard
+                    label={data.is_held_out ? "Held-out ADF p" : "ADF p-value"}
+                    value={eg.adf_pvalue.toFixed(4)}
+                    accent="neutral"
+                  />
+                  {data.is_held_out && data.train_diagnostics && (
+                    <KPICard
+                      label="Train ADF p"
+                      value={data.train_diagnostics.adf_pvalue.toFixed(4)}
+                      accent="neutral"
+                    />
+                  )}
                   <KPICard label="Hedge β" value={eg.hedge_ratio.toFixed(3)} accent="neutral" />
                   <KPICard
                     label="% days in trade"
@@ -351,6 +401,13 @@ export default function PairsTrading() {
           </div>
         ) : (
           <>
+            {data.is_held_out && (
+              <div className="bg-emerald-950/20 border border-emerald-900/40 rounded px-3 py-2 text-[11px] text-emerald-400 leading-relaxed">
+                Train {data.train_start_date}..{data.train_end_date} (diagnostic
+                only, never traded) → Held-out {data.held_out_start_date}..
+                {endDate} (every number below is computed on this slice only).
+              </div>
+            )}
             <EquityCurve data={data.equity_curve} title="Pairs cumulative return" height={320} />
             <Plot
               data={[
@@ -396,8 +453,10 @@ export default function PairsTrading() {
               style={{ width: "100%" }}
             />
             <p className="text-[11px] text-zinc-500 leading-relaxed">
-              Full-sample Engle–Granger ADF p={eg?.adf_pvalue.toFixed(4)} is diagnostic only. Trading
-              uses a rolling {data.diagnostics.hedge_window}d hedge and{" "}
+              {data.is_held_out
+                ? `Engle–Granger ADF p=${eg?.adf_pvalue.toFixed(4)} above is re-tested on the held-out slice only (the train slice's ADF p=${data.train_diagnostics?.adf_pvalue.toFixed(4)} was never used to pick this pair's live PnL). `
+                : `Full-sample Engle–Granger ADF p=${eg?.adf_pvalue.toFixed(4)} is diagnostic only, computed over the same range as the PnL below — turn on "Validate out-of-sample" to stop that from self-misleading you. `}
+              Trading uses a rolling {data.diagnostics.hedge_window}d hedge and{" "}
               {data.diagnostics.zscore_window}d z-score with entry |z|≥{data.diagnostics.entry_z} and
               exit |z|≤{data.diagnostics.exit_z}.
             </p>
