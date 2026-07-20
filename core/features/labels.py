@@ -3,6 +3,11 @@ Target / label construction for ML models.
 
 Centralises the creation of forward-looking labels so that every model
 uses the same conventions (log-return direction, multi-horizon, etc.).
+
+Leakage warning: these labels look ``horizon`` days into the future. When
+training on them with ``WalkForwardValidator``, pass
+``label_horizon_days=horizon`` so the trailing training rows whose label
+outcome windows overlap the test window are purged.
 """
 
 import numpy as np

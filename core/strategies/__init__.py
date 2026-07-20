@@ -5,15 +5,21 @@ Use :func:`list_strategies` / :func:`get_strategy` for catalogs;
 :func:`run_factor_cross_section_backtest` for the cross-sectional factor pipeline.
 """
 
-from core.strategies.factor_runner import run_factor_cross_section_backtest
+from core.strategies.factor_runner import (
+    FactorBacktestDetail,
+    run_factor_cross_section_backtest,
+    run_factor_cross_section_backtest_detail,
+)
 from core.strategies.registry import STRATEGIES, get_strategy, list_strategies
 from core.strategies.types import StrategyKind, StrategyMetadata
 
 __all__ = [
     "STRATEGIES",
+    "FactorBacktestDetail",
     "StrategyKind",
     "StrategyMetadata",
     "get_strategy",
     "list_strategies",
     "run_factor_cross_section_backtest",
+    "run_factor_cross_section_backtest_detail",
 ]

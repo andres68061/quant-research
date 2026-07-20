@@ -206,12 +206,23 @@ def _earliest_segment_end(series: pd.Series, max_gap_days: int = 252) -> Optiona
     return dates[pos - 1]
 
 
+_EVIDENCE_VALID_FROM = ("ipoDate",)
+_EVIDENCE_VALID_TO = ("delistedDate", "symbol_change", "price_gap")
+
+
 def apply_lifecycle_to_panel(
     prices: pd.DataFrame,
     windows: pd.DataFrame,
 ) -> tuple[pd.DataFrame, int]:
     """
     NaN out prices outside each symbol's validity window (derived layer only).
+
+    A bound is only enforced when ``source_notes`` shows real lifecycle
+    evidence for it (``ipoDate`` for ``valid_from``; ``delistedDate``,
+    ``symbol_change`` or ``price_gap`` for ``valid_to``). A ``price_span``-only
+    bound merely mirrors the panel's extent on the day the windows were built —
+    enforcing it would delete any data fetched after that build (a stale
+    ``valid_to`` once wiped every symbol's newest week).
 
     Returns:
         Tuple of (truncated panel, number of cells cleared).
@@ -223,20 +234,23 @@ def apply_lifecycle_to_panel(
     for row in windows.itertuples():
         if row.symbol not in truncated.columns:
             continue
-        # Only truncate when the window is stricter than the observed price span.
         series = truncated[row.symbol]
-        observed_from = series.first_valid_index()
-        observed_to = series.last_valid_index()
-        if observed_from is None:
+        if series.first_valid_index() is None:
             continue
-        mask = (truncated.index < row.valid_from) | (truncated.index > row.valid_to)
+        notes = getattr(row, "source_notes", "") or ""
+        enforce_from = any(k in notes for k in _EVIDENCE_VALID_FROM)
+        enforce_to = any(k in notes for k in _EVIDENCE_VALID_TO)
+        if not enforce_from and not enforce_to:
+            continue
+        mask = pd.Series(False, index=truncated.index)
+        if enforce_from:
+            mask |= truncated.index < row.valid_from
+        if enforce_to:
+            mask |= truncated.index > row.valid_to
         if not mask.any():
             continue
-        # Skip no-ops that match the observed span exactly.
-        if row.valid_from <= observed_from and row.valid_to >= observed_to:
-            continue
         before = int(series.notna().sum())
-        truncated.loc[mask, row.symbol] = pd.NA
+        truncated.loc[mask.values, row.symbol] = pd.NA
         after = int(truncated[row.symbol].notna().sum())
         n_cleared += before - after
     return truncated, n_cleared

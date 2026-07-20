@@ -28,11 +28,11 @@ def momentum_grid_search(
     if len(returns) < sortino_window + 60:
         raise HTTPException(status_code=400, detail="Not enough data for grid search")
 
-    df = analyze_momentum_grid_search(
-        returns, sortino_window=sortino_window, min_signals=10
-    )
+    from core.signals.momentum import GRID_N_TRIALS
+
+    df = analyze_momentum_grid_search(returns, sortino_window=sortino_window, min_signals=10)
     records = df.head(20).to_dict(orient="records")
-    return {"symbol": symbol, "results": records}
+    return {"symbol": symbol, "results": records, "n_trials": GRID_N_TRIALS}
 
 
 @router.get("/bootstrap")
@@ -52,9 +52,7 @@ def momentum_bootstrap(
         raise HTTPException(status_code=404, detail=f"Symbol '{symbol}' not found")
 
     returns = prices[symbol].pct_change().dropna()
-    result = bootstrap_significance_test(
-        returns, x=x, k=k, sortino_window=sortino_window
-    )
+    result = bootstrap_significance_test(returns, x=x, k=k, sortino_window=sortino_window)
     dist = result.pop("bootstrap_dist", None)
     return {"symbol": symbol, "x": x, "k": k, "bootstrap_dist": dist or [], **result}
 

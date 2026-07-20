@@ -58,8 +58,6 @@ def validate_and_sort_events(events: Sequence[Event]) -> List[Event]:
                 f"for event_type={ev.event_type!r}"
             )
         if prev is not None and ts <= prev:
-            raise DataSchemaError(
-                f"Events must have strictly increasing ts; saw {ts} after {prev}"
-            )
+            raise DataSchemaError(f"Events must have strictly increasing ts; saw {ts} after {prev}")
         prev = ts
     return sorted_ev

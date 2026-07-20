@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from core.signals.momentum import (
+    GRID_N_TRIALS,
     analyze_momentum_grid_search,
     bootstrap_significance_test,
     calculate_sortino_slopes,
@@ -39,15 +40,11 @@ class TestSortinoSlopes:
 
 class TestGridSearch:
     def test_returns_dataframe(self, daily_returns):
-        result = analyze_momentum_grid_search(
-            daily_returns, sortino_window=60, min_signals=5
-        )
+        result = analyze_momentum_grid_search(daily_returns, sortino_window=60, min_signals=5)
         assert isinstance(result, pd.DataFrame)
 
     def test_hit_rate_bounded(self, daily_returns):
-        result = analyze_momentum_grid_search(
-            daily_returns, sortino_window=60, min_signals=5
-        )
+        result = analyze_momentum_grid_search(daily_returns, sortino_window=60, min_signals=5)
         if not result.empty:
             assert (result["Z (hit_rate)"] >= 0).all()
             assert (result["Z (hit_rate)"] <= 100).all()
@@ -62,18 +59,33 @@ class TestSignificance:
         assert "p_value" in result
         assert "significant" in result
 
+    def test_multiple_testing_correction(self, daily_returns):
+        result = bootstrap_significance_test(
+            daily_returns, x=10, k=10, sortino_window=60, n_bootstraps=50
+        )
+        assert result["n_trials"] == GRID_N_TRIALS
+        if not np.isnan(result["p_value"]):
+            # Šidák: p_adj = 1 - (1 - p)^N, always >= raw p for N >= 1
+            expected = 1.0 - (1.0 - result["p_value"]) ** result["n_trials"]
+            assert result["p_value_adjusted"] == pytest.approx(expected)
+            assert result["p_value_adjusted"] >= result["p_value"]
+            assert 0.0 <= result["p_value_adjusted"] <= 1.0
+
+    def test_single_trial_no_deflation(self, daily_returns):
+        result = bootstrap_significance_test(
+            daily_returns, x=10, k=10, sortino_window=60, n_bootstraps=50, n_trials=1
+        )
+        if not np.isnan(result["p_value"]):
+            assert result["p_value_adjusted"] == pytest.approx(result["p_value"])
+
 
 class TestPrepareMLFeatures:
     def test_has_target(self, daily_returns):
-        features = prepare_ml_features(
-            daily_returns, sortino_window=60, forecast_horizon=5
-        )
+        features = prepare_ml_features(daily_returns, sortino_window=60, forecast_horizon=5)
         assert "target" in features.columns
 
     def test_no_nans(self, daily_returns):
-        features = prepare_ml_features(
-            daily_returns, sortino_window=60, forecast_horizon=5
-        )
+        features = prepare_ml_features(daily_returns, sortino_window=60, forecast_horizon=5)
         assert not features.isna().any().any()
 
 

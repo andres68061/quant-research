@@ -4,7 +4,7 @@ Working log for the platform build-out. Each entry has enough context to
 resume cold ("continue with the roadmap" should be sufficient instruction).
 Update this file whenever an item ships or a decision changes.
 
-_Last updated: 2026-07-18 (resume skills coverage section: justified ML/TS/portfolio gaps)._
+_Last updated: 2026-07-19 (bundle A regime overlay: answered, negative — see failure log)._
 
 ## Resume skills coverage — only via strategy or analytics (not vanity)
 
@@ -75,7 +75,11 @@ rules already suffice.
 
 ### Coverage checklist (tick when a bundle ships)
 
-- [ ] A — regime overlay on a real strategy  
+- [x] A — regime overlay on a real strategy — **answered 2026-07-19, negative**:
+      HMM / VIX / MA-200 exposure gating all fail to improve the mom_12_1 book
+      (see `FAILED_STRATEGIES_LOG.md` "Regime overlay" for numbers and
+      mechanism). Reusable `core/backtest/overlay.py` shipped; no UI overlay
+      toggle warranted by the evidence.  
 - [ ] B — KNN/SVM baselines on `/ml-alpha`  
 - [ ] C — residual / FF5 / ARIMA residual diagnostics  
 - [ ] D — GARCH (or EWMA+) vol targeting on a real book  
@@ -95,65 +99,79 @@ running average of the metric up to the scrubbed point, so today's
 cross-section can be seen against its own history. Multi-day feature, not
 started.
 
-## Cointegration-persistence pairs index — shipped, positive result
+## Cointegration-persistence pairs index — shipped as research product; NOT a validated edge
 
-**Why:** every SSD/significance-ranked attempt at the multi-pair basket
-failed — see `docs/FAILED_STRATEGIES_LOG.md` for the full history. The
-shared flaw: ranking by "how tightly prices track" selects pairs with too
-little deviation to profit from after costs (the opposite of what a
-mean-reversion strategy needs).
+_Updated 2026-07-18 after full validation. The previously-logged
+"+0.744 Sharpe positive result" **did not reproduce and is retracted** —
+see `docs/FAILED_STRATEGIES_LOG.md` attempt 6 for the full post-mortem
+(non-reproduction, ±6-12-month start-shift sign flips, Deflated Sharpe
+verdict). What follows is the corrected state._
 
-**Replacement approach, shipped**: `core/strategies/pairs_persistent.py`
-(+ `core.signals.pairs.count_cumulative_return_crossings`), tests in
-`tests/test_pairs_persistent.py`. Not yet wired to an API route or UI page
-— currently a validated core module only.
+**Why this approach:** every SSD/significance-ranked attempt at the
+multi-pair basket failed — see `docs/FAILED_STRATEGIES_LOG.md`. The shared
+flaw: ranking by "how tightly prices track" selects pairs with too little
+deviation to profit from after costs.
 
-1. Candidate filter (`find_crossing_cointegrated_candidates`): requires
-   genuine Engle-Granger cointegration **and** a minimum number of
-   hysteresis-band sign-changes in the normalized price-path difference
-   over the formation window (the pair's paths must visibly cross
-   repeatedly with real amplitude, not just sit close together). A naive
-   zero-crossing count is noise-dominated and backwards for this purpose —
-   two near-identical prices jitter across zero constantly from pure
-   noise, which would rank them as the *most* active pair. The hysteresis
-   band (`min_amplitude`, default 3% of normalized price) filters that out.
-2. Trading duration is event-driven (`run_pair_until_broken`), not a fixed
-   calendar window: a rolling Engle-Granger monitor (default: 252-day
-   trailing window, checked every 21 days) stops a pair once its ADF
-   p-value exceeds 0.10 for `persistence_checks` (default 4, ≈3 months)
-   consecutive checks. New formation rounds only top up free slots left by
-   pairs that already stopped — a pair that's still working keeps trading
-   past its formation round.
-3. Formation lookback sweep on real 2012-2026 data, 10 sectors, top 10
-   pairs, same cost/entry/exit params as the platform default:
+**Shipped (core + API + UI):** `core/strategies/pairs_persistent.py`,
+`POST /run-pairs-persistent-backtest`, `/pairs-persistent` page, registry
+`pairs_persistent_index` (with the negative evidence in
+`known_limitations`), tests in `tests/test_pairs_persistent.py` +
+`tests/test_pairs_persistent_api.py`.
 
-   | formation_months | Sharpe | Pain Ratio | pairs_ever | formations |
-   |---|---|---|---|---|
-   | 12 | 0.01 | 0.01 | 74 | 15 |
-   | 36 | 0.22 | 0.24 | 40 | 5 |
-   | **60** | **0.74** | **3.25** | 20 | 3 |
+1. **Candidate filter**: Engle-Granger cointegration **and** a minimum
+   number of hysteresis-band crossings of the normalized price paths over
+   the formation lookback (real oscillation with tradeable amplitude, not
+   tight tracking).
+2. **Event-driven stops** (`run_pair_until_broken`): rolling EG monitor
+   (252d window, checked every 21d) stops a pair after `persistence_checks`
+   (4) consecutive failures. Finding that still holds: rolling-window ADF
+   is noisy even for genuinely cointegrated pairs; 2 checks false-stops,
+   4 rides it out.
+3. **`rescreen_months` decoupled from `formation_months`** (the fix for
+   attempt 6's fragility): screening cadence and lookback length are
+   independent; free slots re-fill annually regardless of how long the
+   lookback is. With the old coupled design a 60-month lookback meant the
+   basket sat empty for years once its pairs died.
+4. **`freeze_hedge_in_trade`** (execution redesign, off by default):
+   freezes execution weights at entry instead of re-hedging daily beta
+   drift, which was charged at 10 bps per unit turnover every day in a
+   trade. Clean paired comparison (identical pairs/days, only execution
+   differs): improves Sharpe ~+0.2 and cuts max DD ~5pp in every cell
+   tested.
 
-   Longer formation lookbacks work better here — plausible given the
-   cointegration-persistence monitor itself needs ~252 days of clean data
-   to reliably tell "broken" from "one noisy month" (see below), so a
-   short 12-month formation barely outlives its own detection latency.
-   `formation_months=60` (5yr) is the best result found this session for
-   *any* multi-pair basket approach, better than the single XOM/CVX pair's
-   full-span Sharpe (0.27) though on a smaller sample (3 formation rounds,
-   20 pairs ever traded) — worth a second, independent validation window
-   before trusting it as a shipped strategy.
+**Validated result (2026-07-18, lookback 60mo / rescreen 12mo / 10 sectors
+/ top 10 / 10 bps / frozen hedge; start-shift robustness grid, end
+2026-07):**
 
-**Real, load-bearing finding on rolling-window ADF noise:** even a
-genuinely, permanently cointegrated synthetic pair produces occasional
-runs of 2-3 consecutive "not cointegrated" monthly checks purely from
-finite-sample ADF noise (confirmed both in unit tests and via notebook
-17's real XOM/CVX rolling-ADF history). `persistence_checks` must be high
-enough to ride that out — 2 was too low (false-stopped a provably-stable
-synthetic pair in tests); 4 was not.
+| start | Sharpe | Cid-1 | Cid-2 | total ret | max DD | beta vs eq-w mkt |
+|---|---|---|---|---|---|---|
+| 2011-01 | 0.652 | 2.672 | 0.228 | +54.0% | −12.6% | −0.000 |
+| 2012-01 | 0.330 | 0.010 | 0.001 | +19.8% | −10.7% | −0.000 |
+| 2013-01 | 0.664 | 0.065 | 0.007 | +41.8% | −12.6% | −0.000 |
 
-**Not yet done:** API route + `/pairs-persistent` (or similar) UI page;
-second held-out validation window for the `formation_months=60` result
-before calling it more than "promising."
+Sign-stable across starts (unlike the coupled design), no dead zones
+(2,100-2,600 trading days; 75-85 pairs), and genuinely market-orthogonal
+(|beta| < 0.005 — the "alpha is orthogonal to market returns" box is
+structurally ticked). **But the Deflated Sharpe Ratio verdict is honest
+and negative**: counting all 10 pairs-basket configurations this repo has
+tried, the expected max Sharpe under pure selection luck is ≈0.70
+annualized; the observed 0.33-0.66 gives DSR 0.12-0.43 — *less likely than
+not* that there is real skill here. Evaluation cadence used: once per
+year (as-of year-end truncations 2018-2026), per CLAUDE.md convention.
+
+**Disposition:** keep as a fully-disclosed research product. Do not deploy
+or claim edge. The one thing that can raise the DSR without new
+researcher degrees of freedom is genuinely new out-of-sample data — re-run
+the same frozen config at the end of each calendar year and append the
+result here. No further parameter/formation-criterion iterations on this
+family without a pre-registered hypothesis (every extra trial raises the
+luck bar for all of them).
+
+**New core metrics shipped alongside:** `core/metrics/deflated_sharpe.py`
+— `calculate_probabilistic_sharpe_ratio` (PSR), `expected_max_sharpe_under_null`,
+`calculate_deflated_sharpe_ratio` (DSR), Bailey & López de Prado (2012,
+2014). Evaluation-time diagnostics (need trial-family context), not part
+of the generic per-backtest metrics dict.
 
 ## New findings this session (acted on)
 
@@ -236,3 +254,31 @@ Prefer 2015+ windows. Needs Norgate/CRSP/Tiingo to close.
    existing factors (e.g. value + quality + momentum) into one composite
    score, then long/short on the composite; new signal-construction work on
    top of the existing per-factor infrastructure.
+
+## From external review (2026-07-19) — remaining items
+
+Shipped from the same review: purged/embargoed walk-forward
+(`core/backtest/walkforward.py`), Šidák trial-count correction on the
+momentum grid search, Newey-West FF5 alpha regression
+(`core/metrics/factor_regression.py`), GitHub Actions CI, LICENSE,
+stripped notebook outputs + nbstripout pre-commit, `requirements.lock.txt`,
+research-first README. Still open:
+
+7. **Borrow cost on the short leg** — long-short backtests currently charge
+   ADV-bucketed transaction costs but no borrow/financing on the short book.
+   Add a flat general-collateral assumption (25–50 bps/yr) as a
+   `borrow_rate_annual_bps` parameter in `calculate_portfolio_returns`,
+   plus a flag for hard-to-borrow names; matters most where the short leg
+   concentrates in small/junky names (low momentum, high vol).
+8. **Capacity / participation-rate analysis** — the dollar-ADV panel exists;
+   answer "at what AUM does this strategy stop working?" by charging
+   market impact as a function of order size / ADV participation.
+9. **Bundled sample fixture** — a tiny committed dataset (≈10 symbols,
+   2 years) powering one end-to-end demo backtest without an FMP key, so
+   the repo is self-verifying for outside readers.
+10. **Reframe ML page around cross-sectional panel prediction** — rank
+    stocks cross-sectionally instead of predicting one series' next-day
+    direction (near-zero signal-to-noise, discounted as a toy); converges
+    the ML story with the factor story. Wire the Newey-West alpha
+    regression into `/run-backtest` output as an FF5 attribution card
+    while in there (needs FF5 parquet loaded at API startup).

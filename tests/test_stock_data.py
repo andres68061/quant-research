@@ -21,14 +21,17 @@ class TestStockDataFetcher:
         """Set up test fixtures before each test method."""
         self.fetcher = StockDataFetcher()
 
-        dates = pd.date_range('2024-01-01', periods=100, freq='D')
-        self.sample_data = pd.DataFrame({
-            'Open': np.random.uniform(100, 200, 100),
-            'High': np.random.uniform(200, 300, 100),
-            'Low': np.random.uniform(50, 150, 100),
-            'Close': np.random.uniform(100, 200, 100),
-            'Volume': np.random.randint(1000000, 10000000, 100)
-        }, index=dates)
+        dates = pd.date_range("2024-01-01", periods=100, freq="D")
+        self.sample_data = pd.DataFrame(
+            {
+                "Open": np.random.uniform(100, 200, 100),
+                "High": np.random.uniform(200, 300, 100),
+                "Low": np.random.uniform(50, 150, 100),
+                "Close": np.random.uniform(100, 200, 100),
+                "Volume": np.random.randint(1000000, 10000000, 100),
+            },
+            index=dates,
+        )
 
     def test_initialization(self):
         """Test that StockDataFetcher initializes correctly."""
@@ -40,12 +43,12 @@ class TestStockDataFetcher:
         result = self.fetcher.calculate_returns(self.sample_data)
 
         assert isinstance(result, pd.DataFrame)
-        assert 'Daily_Return' in result.columns
-        assert 'Cumulative_Return' in result.columns
-        assert 'Log_Return' in result.columns
-        assert 'Volatility_30d' in result.columns
-        assert 'MA_20' in result.columns
-        assert 'MA_50' in result.columns
+        assert "Daily_Return" in result.columns
+        assert "Cumulative_Return" in result.columns
+        assert "Log_Return" in result.columns
+        assert "Volatility_30d" in result.columns
+        assert "MA_20" in result.columns
+        assert "MA_50" in result.columns
 
         empty_result = self.fetcher.calculate_returns(pd.DataFrame())
         assert empty_result.empty
@@ -56,28 +59,28 @@ class TestStockDataFetcher:
         stats = self.fetcher.get_basic_statistics(data_with_returns)
 
         assert isinstance(stats, dict)
-        assert 'current_price' in stats
-        assert 'highest_price' in stats
-        assert 'lowest_price' in stats
-        assert 'price_range' in stats
-        assert 'mean_daily_return' in stats
-        assert 'std_daily_return' in stats
-        assert 'annualized_volatility' in stats
-        assert 'sharpe_ratio' in stats
-        assert 'total_return' in stats
-        assert 'avg_volume' in stats
+        assert "current_price" in stats
+        assert "highest_price" in stats
+        assert "lowest_price" in stats
+        assert "price_range" in stats
+        assert "mean_daily_return" in stats
+        assert "std_daily_return" in stats
+        assert "annualized_volatility" in stats
+        assert "sharpe_ratio" in stats
+        assert "total_return" in stats
+        assert "avg_volume" in stats
 
         empty_stats = self.fetcher.get_basic_statistics(pd.DataFrame())
         assert empty_stats == {}
 
     def test_fetch_multiple_stocks(self):
         """Test the fetch_multiple_stocks method."""
-        symbols = ['AAPL', 'MSFT', 'GOOGL']
+        symbols = ["AAPL", "MSFT", "GOOGL"]
 
-        with patch.object(self.fetcher, 'fetch_stock_data') as mock_fetch:
+        with patch.object(self.fetcher, "fetch_stock_data") as mock_fetch:
             mock_fetch.return_value = self.sample_data
 
-            results = self.fetcher.fetch_multiple_stocks(symbols, period='1y')
+            results = self.fetcher.fetch_multiple_stocks(symbols, period="1y")
 
             assert isinstance(results, dict)
             assert len(results) == 3
@@ -90,38 +93,40 @@ class TestConvenienceFunctions:
 
     def test_fetch_stock_data_function(self):
         """Test the fetch_stock_data convenience function."""
-        with patch('core.data.stock_data.StockDataFetcher') as mock_fetcher_class:
+        with patch("core.data.stock_data.StockDataFetcher") as mock_fetcher_class:
             mock_fetcher = Mock()
-            mock_fetcher.fetch_stock_data.return_value = pd.DataFrame({'Close': [100, 101, 102]})
+            mock_fetcher.fetch_stock_data.return_value = pd.DataFrame({"Close": [100, 101, 102]})
             mock_fetcher_class.return_value = mock_fetcher
 
-            result = fetch_stock_data('AAPL', period='1y')
+            result = fetch_stock_data("AAPL", period="1y")
 
             assert isinstance(result, pd.DataFrame)
-            mock_fetcher.fetch_stock_data.assert_called_once_with('AAPL', period='1y')
+            mock_fetcher.fetch_stock_data.assert_called_once_with("AAPL", period="1y")
 
     def test_get_stock_analysis_function(self):
         """Test the get_stock_analysis convenience function."""
-        with patch('core.data.stock_data.StockDataFetcher') as mock_fetcher_class:
+        with patch("core.data.stock_data.StockDataFetcher") as mock_fetcher_class:
             mock_fetcher = Mock()
-            sample_data = pd.DataFrame({
-                'Close': [100, 101, 102],
-                'High': [105, 106, 107],
-                'Low': [95, 96, 97],
-                'Volume': [1000000, 1100000, 1200000]
-            })
+            sample_data = pd.DataFrame(
+                {
+                    "Close": [100, 101, 102],
+                    "High": [105, 106, 107],
+                    "Low": [95, 96, 97],
+                    "Volume": [1000000, 1100000, 1200000],
+                }
+            )
             mock_fetcher.fetch_stock_data.return_value = sample_data
             mock_fetcher.calculate_returns.return_value = sample_data
-            mock_fetcher.get_basic_statistics.return_value = {'current_price': 102}
+            mock_fetcher.get_basic_statistics.return_value = {"current_price": 102}
             mock_fetcher_class.return_value = mock_fetcher
 
-            result = get_stock_analysis('AAPL', period='1y')
+            result = get_stock_analysis("AAPL", period="1y")
 
             assert isinstance(result, dict)
-            assert 'data' in result
-            assert 'statistics' in result
-            assert isinstance(result['data'], pd.DataFrame)
-            assert isinstance(result['statistics'], dict)
+            assert "data" in result
+            assert "statistics" in result
+            assert isinstance(result["data"], pd.DataFrame)
+            assert isinstance(result["statistics"], dict)
 
 
 class TestDataValidation:
@@ -138,12 +143,9 @@ class TestDataValidation:
 
     def test_calculate_returns_with_single_row(self):
         """Test calculate_returns with data containing only one row."""
-        single_row_data = pd.DataFrame({
-            'Close': [100],
-            'High': [105],
-            'Low': [95],
-            'Volume': [1000000]
-        })
+        single_row_data = pd.DataFrame(
+            {"Close": [100], "High": [105], "Low": [95], "Volume": [1000000]}
+        )
         result = self.fetcher.calculate_returns(single_row_data)
 
         assert isinstance(result, pd.DataFrame)
@@ -151,14 +153,12 @@ class TestDataValidation:
 
     def test_statistics_with_missing_columns(self):
         """Test get_basic_statistics with data missing some columns."""
-        incomplete_data = pd.DataFrame({
-            'Close': [100, 101, 102]
-        })
+        incomplete_data = pd.DataFrame({"Close": [100, 101, 102]})
 
         stats = self.fetcher.get_basic_statistics(incomplete_data)
 
         assert isinstance(stats, dict)
-        assert 'current_price' in stats
+        assert "current_price" in stats
 
 
 if __name__ == "__main__":

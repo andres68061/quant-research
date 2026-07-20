@@ -260,7 +260,12 @@ def sharpe_comparison(
         {"name": "Rollercoaster", "vol_level": "high", "color": "#e74c3c"},
         {"name": "Sneaky Losses", "vol_level": "medium", "skew": -2.0, "color": "#9b59b6"},
         {"name": "Fat Tails", "vol_level": "medium", "kurtosis": 3.0, "color": "#f39c12"},
-        {"name": "Crash & Recover", "vol_level": "medium", "drawdown_events": 3, "color": "#3498db"},
+        {
+            "name": "Crash & Recover",
+            "vol_level": "medium",
+            "drawdown_events": 3,
+            "color": "#3498db",
+        },
     ]
 
     by_sharpe: List[SimulatedInvestment] = []

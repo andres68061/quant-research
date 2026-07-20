@@ -35,6 +35,7 @@ def run_pairs_cointegration_backtest(
     exit_z: float = 0.5,
     transaction_cost: float = 0.001,
     signal_lag_days: int = 1,
+    freeze_hedge_in_trade: bool = False,
 ) -> dict[str, Any]:
     """
     Run a single-pair Engle–Granger style mean-reversion backtest.
@@ -53,6 +54,12 @@ def run_pairs_cointegration_backtest(
         entry_z / exit_z: Z-score thresholds (see ``pairs_position_from_zscore``).
         transaction_cost: One-way cost as a fraction of gross notional turnover.
         signal_lag_days: Trading days between signal and return application.
+        freeze_hedge_in_trade: When True, execution weights are fixed at their
+            entry-day values for the life of each trade instead of tracking the
+            rolling hedge ratio day by day. The z-score *signal* is unchanged;
+            only execution turnover differs — the rolling beta drifts slightly
+            every day, and re-hedging that drift is charged at
+            ``transaction_cost`` on every day spent in a trade.
 
     Returns:
         Dict with ``net_returns``, ``gross_returns``, ``spread_z``, ``position``,
@@ -79,6 +86,14 @@ def run_pairs_cointegration_backtest(
     # Lag signal so today's close signal trades tomorrow's return.
     position = raw_pos.shift(signal_lag_days)
     beta_lag = beta.reindex(position.index).shift(signal_lag_days)
+
+    if freeze_hedge_in_trade:
+        # Freeze the executed hedge at its entry-day value for the life of
+        # each trade episode (a run of identical nonzero positions). Flat
+        # days keep the rolling value so the next entry re-freezes fresh.
+        episode = (position != position.shift()).cumsum()
+        entry_beta = beta_lag.groupby(episode).transform("first")
+        beta_lag = beta_lag.where(position.fillna(0.0) == 0.0, entry_beta)
 
     idx = position.index
     py = panel[symbol_y].reindex(idx)
@@ -135,6 +150,7 @@ def run_pairs_cointegration_backtest(
             "exit_z": exit_z,
             "transaction_cost": transaction_cost,
             "signal_lag_days": signal_lag_days,
+            "freeze_hedge_in_trade": freeze_hedge_in_trade,
             "n_days": len(net_returns),
             "pct_days_in_trade": float((position.fillna(0.0).abs() > 0).mean()),
         },

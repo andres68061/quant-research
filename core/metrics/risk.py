@@ -115,7 +115,5 @@ def calculate_all_var(
     return {
         "historical": calculate_historical_var(returns, confidence),
         "parametric": calculate_parametric_var(returns, confidence),
-        "monte_carlo": calculate_monte_carlo_var(
-            returns, confidence, n_simulations, seed
-        ),
+        "monte_carlo": calculate_monte_carlo_var(returns, confidence, n_simulations, seed),
     }

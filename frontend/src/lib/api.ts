@@ -25,6 +25,8 @@ import type {
   PairsBacktestResponse,
   PairsIndexBacktestRequest,
   PairsIndexBacktestResponse,
+  PairsPersistentBacktestRequest,
+  PairsPersistentBacktestResponse,
   PairsScreenRequest,
   PairsScreenResponse,
   PortfolioJointHistoryResponse,
@@ -32,7 +34,7 @@ import type {
   PricesResponse,
   RecessionPeriod,
   RegimeResponse,
-  ReplayFrame,
+  ReplayFramesResponse,
   SeasonalityResponse,
   SectorBreakdownResponse,
   SectorSummaryResponse,
@@ -106,6 +108,12 @@ export const api = {
       body: JSON.stringify(params),
     }),
 
+  runPairsPersistentBacktest: (params: PairsPersistentBacktestRequest) =>
+    request<PairsPersistentBacktestResponse>("/run-pairs-persistent-backtest", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+
   runMLStrategy: (params: MLStrategyRequest) =>
     request<MLStrategyResponse>("/run-ml-strategy", {
       method: "POST",
@@ -115,15 +123,37 @@ export const api = {
   getReplayFrames: (params: {
     factor: string;
     rebalance_freq?: string;
+    transaction_cost_bps?: number;
+    top_pct?: number;
+    bottom_pct?: number;
+    long_only?: boolean;
+    start_date?: string;
+    end_date?: string;
+    survivorship_free?: boolean;
+    min_stocks?: number;
+    signal_lag_days?: number;
     tail?: number;
   }) => {
     const sp = new URLSearchParams();
     sp.set("factor", params.factor);
     if (params.rebalance_freq) sp.set("rebalance_freq", params.rebalance_freq);
+    if (params.transaction_cost_bps != null) {
+      sp.set("transaction_cost_bps", String(params.transaction_cost_bps));
+    }
+    if (params.top_pct != null) sp.set("top_pct", String(params.top_pct));
+    if (params.bottom_pct != null) sp.set("bottom_pct", String(params.bottom_pct));
+    if (params.long_only != null) sp.set("long_only", String(params.long_only));
+    if (params.start_date) sp.set("start_date", params.start_date);
+    if (params.end_date) sp.set("end_date", params.end_date);
+    if (params.survivorship_free != null) {
+      sp.set("survivorship_free", String(params.survivorship_free));
+    }
+    if (params.min_stocks != null) sp.set("min_stocks", String(params.min_stocks));
+    if (params.signal_lag_days != null) {
+      sp.set("signal_lag_days", String(params.signal_lag_days));
+    }
     if (params.tail) sp.set("tail", String(params.tail));
-    return request<{ total_frames: number; returned_frames: number; frames: ReplayFrame[] }>(
-      `/replay/frames?${sp}`,
-    );
+    return request<ReplayFramesResponse>(`/replay/frames?${sp}`);
   },
 
   getMomentumGrid: (symbol: string) =>

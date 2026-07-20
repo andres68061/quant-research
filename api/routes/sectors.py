@@ -27,11 +27,13 @@ def sector_summary() -> dict:
 
     rows = []
     for _, row in summary.iterrows():
-        rows.append({
-            "sector": str(row.get("sector", row.name)),
-            "count": int(row.get("count", 0)),
-            "pct": round(float(row.get("count", 0)) / total * 100, 1) if total > 0 else 0.0,
-        })
+        rows.append(
+            {
+                "sector": str(row.get("sector", row.name)),
+                "count": int(row.get("count", 0)),
+                "pct": round(float(row.get("count", 0)) / total * 100, 1) if total > 0 else 0.0,
+            }
+        )
 
     return {"total_symbols": total, "sectors": rows}
 
@@ -48,11 +50,13 @@ def sector_breakdown(sector: Optional[str] = Query(None)) -> dict:
 
     symbols = []
     for _, row in df.iterrows():
-        symbols.append({
-            "symbol": str(row.get("symbol", row.name)),
-            "sector": str(row.get("sector", "Unknown")),
-            "industry": str(row.get("industry", "Unknown")),
-            "type": str(row.get("quoteType", "EQUITY")),
-        })
+        symbols.append(
+            {
+                "symbol": str(row.get("symbol", row.name)),
+                "sector": str(row.get("sector", "Unknown")),
+                "industry": str(row.get("industry", "Unknown")),
+                "type": str(row.get("quoteType", "EQUITY")),
+            }
+        )
 
     return {"symbols": symbols}

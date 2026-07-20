@@ -1,0 +1,42 @@
+# Subset of requirements.txt used by CI (.github/workflows/ci.yml).
+# Excludes heavyweight optional deps with no test coverage:
+#   - tensorflow (LSTM model only; imported lazily, no tests exercise it)
+#   - jupyter / ipykernel (notebook tooling, not needed to run the suite)
+# Keep version floors in sync with requirements.txt.
+
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.15.0
+
+yfinance>=0.2.0
+pandas-datareader>=0.10.0
+
+scikit-learn>=1.3.0
+statsmodels>=0.14.0
+xgboost>=2.0.0
+shap>=0.44.0
+hmmlearn>=0.3.0
+
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+httpx>=0.27.0
+
+python-dotenv>=1.0.0
+requests>=2.31.0
+tqdm>=4.65.0
+duckdb>=1.0.0
+pyarrow>=14.0.2
+fredapi>=0.5.0
+lxml>=4.9.3
+
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Lint (pinned to the versions used locally so CI and `make lint` agree)
+ruff==0.14.1
+black==25.9.0
+isort==7.0.0

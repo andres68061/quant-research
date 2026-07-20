@@ -29,8 +29,10 @@ def _build_raw_long_fixture() -> pd.DataFrame:
         "dgs10": ("2020-01-02", "2020-01-03"),
         "t10y2y": ("2020-01-02", "2020-01-03"),
     }.items():
-        for value, date in zip([1.0, 2.0], monthly_dates):
-            rows.append({"reference_date": pd.Timestamp(date), "series_id": series_id, "value": value})
+        for value, date in zip([1.0, 2.0], monthly_dates, strict=True):
+            rows.append(
+                {"reference_date": pd.Timestamp(date), "series_id": series_id, "value": value}
+            )
     return pd.DataFrame(rows)
 
 
@@ -76,10 +78,7 @@ def test_derive_macro_panel_matches_manual_apply_lag() -> None:
     raw_long = _build_raw_long_fixture()
     derived = derive_macro_panel_from_raw(raw_long)
 
-    wide = (
-        raw_long.pivot(index="reference_date", columns="series_id", values="value")
-        .sort_index()
-    )
+    wide = raw_long.pivot(index="reference_date", columns="series_id", values="value").sort_index()
     wide.index = pd.to_datetime(wide.index)
     wide.index.name = "date"
     wide.columns.name = None

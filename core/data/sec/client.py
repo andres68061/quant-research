@@ -113,9 +113,7 @@ def fetch_recent_filings(
             {
                 "form": form,
                 "filing_date": filing_dates[i] if i < len(filing_dates) else None,
-                "accepted_date": (
-                    str(accepted_raw)[:10] if accepted_raw else None
-                ),
+                "accepted_date": (str(accepted_raw)[:10] if accepted_raw else None),
                 "accession_number": accessions[i] if i < len(accessions) else None,
             }
         )

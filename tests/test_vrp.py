@@ -12,7 +12,6 @@ import pytest
 
 from core.signals.vrp import compute_realized_variance, compute_vrp_proxy, vrp_exposure
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

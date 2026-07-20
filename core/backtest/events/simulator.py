@@ -75,7 +75,6 @@ def simulate_equal_weight_rebalances(
         start_idx = price_index.searchsorted(ev.ts, side="right")
         if start_idx >= len(price_index):
             continue
-        start_date = price_index[start_idx]
 
         if i + 1 < len(rebalance_events):
             next_ts = rebalance_events[i + 1].ts

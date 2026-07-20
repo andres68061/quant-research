@@ -12,6 +12,7 @@ import Methodology from "./pages/Methodology.tsx";
 import MeasuresLab from "./pages/MeasuresLab.tsx";
 import MLAlphaReplay from "./pages/MLAlphaReplay.tsx";
 import PairsIndex from "./pages/PairsIndex.tsx";
+import PairsPersistent from "./pages/PairsPersistent.tsx";
 import PairsTrading from "./pages/PairsTrading.tsx";
 import PortfolioSimulator from "./pages/PortfolioSimulator.tsx";
 import SectorBreakdown from "./pages/SectorBreakdown.tsx";
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/ml-alpha" element={<AnimatedPage><MLAlphaReplay /></AnimatedPage>} />
         <Route path="/pairs" element={<AnimatedPage><PairsTrading /></AnimatedPage>} />
         <Route path="/pairs-index" element={<AnimatedPage><PairsIndex /></AnimatedPage>} />
+        <Route path="/pairs-persistent" element={<AnimatedPage><PairsPersistent /></AnimatedPage>} />
         <Route path="/momentum" element={<AnimatedPage><SortinoMomentum /></AnimatedPage>} />
         <Route path="/portfolio" element={<AnimatedPage><Portfolio /></AnimatedPage>} />
         <Route path="/etf-optimizer" element={<Navigate to="/portfolio" replace />} />

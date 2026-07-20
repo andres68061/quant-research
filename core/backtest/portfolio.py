@@ -88,6 +88,38 @@ def _normalize_rebalance_freq(freq: str) -> str:
     return freq
 
 
+def _trading_rebalance_dates(index: pd.DatetimeIndex, freq: str) -> pd.DatetimeIndex:
+    """
+    Return the last trading day of each complete period in ``index``.
+
+    Calendar period-end labels (``QE`` → e.g. Sat 2023-09-30) often fall on
+    weekends or holidays. Rebalancing must happen on the last *observed* date
+    inside each period, otherwise the rebalance is silently skipped and the
+    portfolio sits in cash for the whole following period (2023-Q3 through
+    2024-Q2 all ended on weekends — a 250-trading-day cash streak).
+
+    A rebalance falling on the final bar is dropped: there is no subsequent
+    return to hold through, so it would only pay turnover.
+
+    Args:
+        index: Sorted trading-day DatetimeIndex.
+        freq: Normalized resample alias (``ME``, ``QE``, ...).
+
+    Returns:
+        DatetimeIndex of rebalance dates, all guaranteed members of ``index``.
+
+    Example:
+        >>> idx = pd.bdate_range("2023-09-01", "2023-12-29")
+        >>> _trading_rebalance_dates(idx, "QE")[0].strftime("%Y-%m-%d")
+        '2023-09-29'
+    """
+    if len(index) == 0:
+        return pd.DatetimeIndex([], tz=getattr(index, "tz", None))
+    period_last = index.to_series().resample(freq).last().dropna()
+    dates = pd.DatetimeIndex(period_last)
+    return dates[dates < index[-1]]
+
+
 def create_signals_from_factor(
     factors_df: pd.DataFrame,
     factor_col: str,
@@ -296,7 +328,20 @@ def calculate_portfolio_returns(
     signals_wide = signals_wide.loc[common_dates]
 
     freq = _normalize_rebalance_freq(rebalance_freq)
-    rebalance_dates = returns.resample(freq).last().index
+    rebalance_dates = _trading_rebalance_dates(returns.index, freq)
+
+    # Initial formation: invest at the first date with an actionable signal
+    # instead of idling until the first period-end — a mid-quarter start would
+    # otherwise sit in cash for up to a full quarter. With signal_lag_days=1
+    # this is typically the second bar of the window.
+    active = signals_wide.abs().sum(axis=1)
+    active_dates = active.index[active > 0]
+    if len(active_dates) > 0:
+        first_active = active_dates[0]
+        if first_active < returns.index[-1] and (
+            len(rebalance_dates) == 0 or first_active < rebalance_dates[0]
+        ):
+            rebalance_dates = rebalance_dates.insert(0, first_active)
 
     positions = pd.DataFrame(0.0, index=returns.index, columns=returns.columns)
     cash_position = pd.Series(0.0, index=returns.index)
@@ -345,12 +390,27 @@ def calculate_portfolio_returns(
 
     for i, date in enumerate(returns.index):
         if i == 0:
+            # Entering the book on the first bar pays the same one-way cost as
+            # any later rebalance (positions move from all-cash to the weights).
+            pos0 = positions.loc[date].abs()
+            turnover0 = float(pos0.sum() / 2.0)
+            if turnover0 > 0:
+                traded0 = pos0[pos0 > 0]
+                if adv_aligned is not None:
+                    cost_row = costs_for_date(
+                        adv_aligned.loc[date], traded0.index, default_cost=transaction_cost
+                    )
+                    cost0 = float((traded0 * cost_row).sum() / 2.0)
+                else:
+                    cost0 = turnover0 * transaction_cost
+            else:
+                cost0 = 0.0
             daily_gross_returns.append(0.0)
-            daily_transaction_costs.append(0.0)
+            daily_transaction_costs.append(cost0)
             daily_cash.append(0.0)
             daily_n_long.append((positions.loc[date] > 0).sum())
             daily_n_short.append((positions.loc[date] < 0).sum())
-            daily_turnover.append(0.0)
+            daily_turnover.append(turnover0)
             continue
 
         prev_date = returns.index[i - 1]
@@ -452,7 +512,14 @@ def create_weighted_portfolio(
     prices_selected = prices[symbols].copy()
     returns = prices_selected.pct_change()
     freq = _normalize_rebalance_freq(rebalance_freq)
-    rebalance_dates = returns.resample(freq).last().index
+    rebalance_dates = _trading_rebalance_dates(returns.index, freq)
+
+    # Initial formation on the first bar: weights need no history, so a
+    # mid-period start should not idle until the first period-end.
+    if len(returns.index) > 1 and (
+        len(rebalance_dates) == 0 or returns.index[0] < rebalance_dates[0]
+    ):
+        rebalance_dates = rebalance_dates.insert(0, returns.index[0])
 
     weights = pd.DataFrame(0.0, index=returns.index, columns=returns.columns)
 

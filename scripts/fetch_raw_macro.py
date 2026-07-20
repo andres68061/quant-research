@@ -52,9 +52,7 @@ def _summarise(out_path: Path) -> None:
     logger.info("raw_macro_written", extra={"path": str(out_path), "rows": int(len(raw_long))})
 
     summary = (
-        raw_long.groupby("series_id")["reference_date"]
-        .agg(["min", "max", "count"])
-        .reset_index()
+        raw_long.groupby("series_id")["reference_date"].agg(["min", "max", "count"]).reset_index()
     )
     print(f"Raw FRED panel written to {out_path}")
     print(f"Total rows: {len(raw_long):,}")
@@ -71,7 +69,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s"
+    )
     logger.info("fetch_raw_macro_start", extra={"series": list(DEFAULT_FRED_SERIES_MAP)})
 
     fetch_and_write(args.out)

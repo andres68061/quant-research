@@ -11,9 +11,30 @@ import pandas as pd
 
 COMMON_ETFS = frozenset(
     [
-        "SPY", "QQQ", "IWM", "DIA", "VOO", "VTI", "AGG", "BND",
-        "GLD", "SLV", "USO", "TLT", "EEM", "VWO", "XLE", "XLF",
-        "XLK", "XLV", "XLI", "XLP", "XLY", "XLU", "XLB", "XLRE",
+        "SPY",
+        "QQQ",
+        "IWM",
+        "DIA",
+        "VOO",
+        "VTI",
+        "AGG",
+        "BND",
+        "GLD",
+        "SLV",
+        "USO",
+        "TLT",
+        "EEM",
+        "VWO",
+        "XLE",
+        "XLF",
+        "XLK",
+        "XLV",
+        "XLI",
+        "XLP",
+        "XLY",
+        "XLU",
+        "XLB",
+        "XLRE",
     ]
 )
 

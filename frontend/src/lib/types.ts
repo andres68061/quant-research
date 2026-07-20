@@ -37,6 +37,19 @@ export interface BacktestRequest {
   start_date?: string;
   end_date?: string;
   survivorship_free?: boolean;
+  min_stocks?: number;
+  signal_lag_days?: number;
+}
+
+export interface InvestedCoverage {
+  pct_days_invested: number;
+  n_days: number;
+  n_days_invested: number;
+  n_days_flat: number;
+  longest_flat_streak_days: number;
+  min_stocks: number;
+  cash_earns_zero: boolean;
+  warning: string | null;
 }
 
 export interface RollingDiagPoint {
@@ -74,6 +87,7 @@ export interface BacktestResponse {
   equity_curve: EquityCurvePoint[];
   total_days: number;
   diagnostics?: BacktestDiagnostics;
+  coverage?: InvestedCoverage;
 }
 
 export interface PairsBacktestRequest {
@@ -217,6 +231,59 @@ export interface PairsIndexBacktestResponse {
   periods: PairsIndexPeriodRow[];
 }
 
+export interface PairsPersistentBacktestRequest {
+  sector_names: string[];
+  start_date?: string;
+  end_date?: string;
+  formation_months?: number;
+  rescreen_months?: number;
+  top_n_pairs?: number;
+  max_symbols_per_sector?: number;
+  use_adv?: boolean;
+  min_crossings?: number;
+  max_adf_pvalue?: number;
+  hedge_window?: number;
+  zscore_window?: number;
+  entry_z?: number;
+  exit_z?: number;
+  transaction_cost_bps?: number;
+  signal_lag_days?: number;
+  monitor_window?: number;
+  check_every_days?: number;
+  stop_max_pvalue?: number;
+  persistence_checks?: number;
+  freeze_hedge_in_trade?: boolean;
+}
+
+export interface PairsPersistentPairRow {
+  symbol_y: string;
+  symbol_x: string;
+  sector: string;
+  formation_adf_pvalue: number;
+  formation_crossings: number;
+  trading_start: string;
+  stop_date?: string | null;
+  stopped_early: boolean;
+  n_days: number;
+}
+
+export interface PairsPersistentScreenRow {
+  formation_start: string;
+  formation_end: string;
+  active_before: number;
+  free_slots: number;
+  n_candidates_found: number;
+  n_selected: number;
+}
+
+export interface PairsPersistentBacktestResponse {
+  metrics: PerformanceMetrics;
+  equity_curve: EquityCurvePoint[];
+  total_days: number;
+  screens: PairsPersistentScreenRow[];
+  pair_history: PairsPersistentPairRow[];
+}
+
 export interface MLStrategyRequest {
   symbol: string;
   model_type: string;
@@ -280,6 +347,15 @@ export interface ReplayFrame {
   drawdown: number;
   /** Annualised Sortino on trailing window from replay precompute. */
   rolling_sortino: number | null;
+  n_long?: number | null;
+  n_short?: number | null;
+}
+
+export interface ReplayFramesResponse {
+  total_frames: number;
+  returned_frames: number;
+  frames: ReplayFrame[];
+  coverage: InvestedCoverage;
 }
 
 export interface FactorsResponse {
@@ -303,6 +379,7 @@ export interface GridSearchRow {
 export interface GridSearchResponse {
   symbol: string;
   results: GridSearchRow[];
+  n_trials: number;
 }
 
 export interface BootstrapResponse {
@@ -313,7 +390,10 @@ export interface BootstrapResponse {
   random_mean: number;
   random_std: number;
   p_value: number;
+  p_value_adjusted: number;
+  n_trials: number;
   significant: boolean;
+  significant_after_correction: boolean;
   n_signals: number;
   bootstrap_dist: number[];
 }

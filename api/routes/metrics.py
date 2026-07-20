@@ -32,9 +32,7 @@ def performance_metrics(
     if end:
         returns = returns[returns.index <= end]
 
-    metrics = calculate_performance_metrics(
-        returns, risk_free_rate=risk_free_rate
-    )
+    metrics = calculate_performance_metrics(returns, risk_free_rate=risk_free_rate)
     return PerformanceMetrics(**metrics).model_dump()
 
 

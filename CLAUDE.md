@@ -184,6 +184,16 @@ parameter sweep, new stopping rule, etc.), update **one** of these two —
 whichever matches the outcome — before ending the turn. See the
 `strategy-experiment-log` skill for the full checklist.
 
+### Decision log (ADRs)
+
+Engineering/methodology decisions (statistical method choices, defaults
+with methodological consequences, toolchain/dependency policy) are
+recorded in **`docs/decisions/`** — one short ADR per decision, with the
+alternatives rejected. Check it before re-deciding a settled question;
+append an ADR after making a qualifying decision. See the `decision-log`
+skill for the trigger criteria and template. Strategy experiment outcomes
+do NOT go here — they follow the roadmap/failure-log rule above.
+
 ## Frontend Standards
 
 - Functional components only. One component per file, name matches export (`KPICard.tsx` → `KPICard`).

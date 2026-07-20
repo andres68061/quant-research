@@ -13,7 +13,13 @@ import BottomPanel from "@/components/layout/BottomPanel.tsx";
 import LeftSidebar from "@/components/layout/LeftSidebar.tsx";
 import RightSidebar from "@/components/layout/RightSidebar.tsx";
 import { api } from "@/lib/api.ts";
-import type { AllVarResult, BacktestDiagnostics, BacktestResponse, ReplayFrame } from "@/lib/types.ts";
+import type {
+  AllVarResult,
+  BacktestDiagnostics,
+  BacktestResponse,
+  InvestedCoverage,
+  ReplayFrame,
+} from "@/lib/types.ts";
 import { cn, fmtInt, fmtPct, fmtRatio } from "@/lib/utils.ts";
 import { useReplayStore } from "@/stores/replayStore.ts";
 
@@ -70,18 +76,28 @@ export default function PortfolioSimulator() {
       api.getReplayFrames({
         factor: selectedFactor,
         rebalance_freq: rebalFreq,
+        transaction_cost_bps: tcost,
+        top_pct: topPct / 100,
+        bottom_pct: topPct / 100,
+        long_only: longOnly,
+        start_date: startDate,
+        end_date: endDate,
+        survivorship_free: survivorshipFree,
         tail: 1200,
       }),
     onSuccess: (data) => {
       setTotalFrames(data.frames.length);
       setFrame(0);
       pause();
+      setViewMode("replay");
     },
   });
 
   const frames: ReplayFrame[] = replayMut.data?.frames ?? [];
   const currentFrame = frames[frameIndex] ?? null;
   const visibleFrames = useMemo(() => frames.slice(0, frameIndex + 1), [frames, frameIndex]);
+  const coverage: InvestedCoverage | undefined =
+    viewMode === "replay" ? replayMut.data?.coverage : result?.coverage;
 
   useEffect(() => {
     return () => {
@@ -329,13 +345,17 @@ export default function PortfolioSimulator() {
     >
       {viewMode === "replay" && hasReplay ? (
         <div className="flex flex-col gap-4 h-full">
+          {coverage && <CoverageDisclosure coverage={coverage} />}
           <PnLChart frames={visibleFrames} allFrames={frames} currentIndex={frameIndex} />
           <DrawdownChart frames={visibleFrames} />
         </div>
       ) : viewMode === "risk" && result?.diagnostics ? (
         <RiskDiagnosticsPanel diagnostics={result.diagnostics} />
       ) : result ? (
-        <EquityCurve data={result.equity_curve} title="Cumulative Returns" height={420} />
+        <div className="flex flex-col gap-3 h-full">
+          {coverage && <CoverageDisclosure coverage={coverage} />}
+          <EquityCurve data={result.equity_curve} title="Cumulative Returns" height={420} />
+        </div>
       ) : (
         <EmptyState />
       )}
@@ -344,6 +364,52 @@ export default function PortfolioSimulator() {
 }
 
 /* ── Shared sub-components ────────────────────────────────── */
+
+function CoverageDisclosure({ coverage }: { coverage: InvestedCoverage }) {
+  const pctInvested = fmtPct(coverage.pct_days_invested);
+  const hasWarning = Boolean(coverage.warning);
+
+  return (
+    <div
+      className={cn(
+        "border rounded px-3 py-2 text-[11px] font-mono",
+        hasWarning
+          ? "border-amber-900/80 bg-amber-950/40 text-amber-200/90"
+          : "border-zinc-800 bg-zinc-900/80 text-zinc-400",
+      )}
+    >
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        <span>
+          Invested{" "}
+          <span className="text-zinc-100 tabular-nums">{pctInvested}</span> of days
+        </span>
+        <span>
+          Flat{" "}
+          <span className="tabular-nums text-zinc-200">
+            {fmtInt(coverage.n_days_flat)}/{fmtInt(coverage.n_days)}
+          </span>
+        </span>
+        <span>
+          Longest flat streak{" "}
+          <span className="tabular-nums text-zinc-200">
+            {fmtInt(coverage.longest_flat_streak_days)}d
+          </span>
+        </span>
+        <span>
+          min_stocks=<span className="tabular-nums">{coverage.min_stocks}</span>
+        </span>
+      </div>
+      {coverage.warning ? (
+        <p className="mt-1.5 text-[10px] leading-relaxed text-amber-200/80">{coverage.warning}</p>
+      ) : (
+        <p className="mt-1.5 text-[10px] text-zinc-600">
+          Flat = cash at 0% return when fewer than min_stocks names had a valid factor on a
+          rebalance date (not a regime model).
+        </p>
+      )}
+    </div>
+  );
+}
 
 function RiskDiagnosticsPanel({ diagnostics }: { diagnostics: BacktestDiagnostics }) {
   const rolling = diagnostics.rolling;
@@ -691,6 +757,11 @@ function FrameKPIs({
 
       <div className="text-[10px] uppercase tracking-wider text-zinc-500">Position</div>
       <SignalBadge signal={frame.position} />
+      {(frame.n_long != null || frame.n_short != null) && (
+        <div className="text-[10px] font-mono text-zinc-500">
+          n_long={fmtInt(frame.n_long ?? 0)} · n_short={fmtInt(frame.n_short ?? 0)}
+        </div>
+      )}
 
       <KPICard
         label="PnL Today"
@@ -734,7 +805,7 @@ function FrameTable({ frames, currentIndex }: { frames: ReplayFrame[]; currentIn
       <table className="w-full text-[11px] font-mono">
         <thead>
           <tr className="text-zinc-500 border-b border-zinc-800">
-            {["#", "Date", "Position", "PnL Today", "Cum PnL", "Drawdown", "Sortino"].map((h) => (
+            {["#", "Date", "Position", "nL", "nS", "PnL Today", "Cum PnL", "Drawdown", "Sortino"].map((h) => (
               <th key={h} className="text-left px-2 py-1 font-medium">{h}</th>
             ))}
           </tr>
@@ -757,6 +828,8 @@ function FrameTable({ frames, currentIndex }: { frames: ReplayFrame[]; currentIn
                 <td className="px-2 py-1">
                   <SignalBadge signal={f.position} />
                 </td>
+                <td className="px-2 py-1 tabular-nums text-zinc-500">{fmtInt(f.n_long ?? 0)}</td>
+                <td className="px-2 py-1 tabular-nums text-zinc-500">{fmtInt(f.n_short ?? 0)}</td>
                 <td className={`px-2 py-1 tabular-nums ${f.pnl_today >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                   {fmtPct(f.pnl_today)}
                 </td>

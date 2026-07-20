@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core.data.factors.build_factors import build_price_factors, merge_market_cap
+from core.data.factors.fama_french import update_ff5_parquet
 from core.data.factors.fundamentals_fmp import (
     apply_asof_lag,
     compute_value_quality_factors,
@@ -17,7 +18,6 @@ from core.data.factors.fundamentals_fmp import (
     load_bulk_ratios_range,
 )
 from core.data.factors.io import connect_duckdb, ensure_dirs, register_parquet, write_parquet
-from core.data.factors.fama_french import update_ff5_parquet
 from core.data.factors.macro import compute_macro_zscores, load_default_macro
 from core.data.factors.prices import build_prices_panel
 from core.data.factors.universe import (

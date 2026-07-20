@@ -89,27 +89,48 @@ def update_prices(out_root: Path) -> bool:
     print(f"   Fetching new FMP data since {last_date.strftime('%Y-%m-%d')}...")
     updated_prices = update_panel_from_fmp(existing_prices)
 
-    new_last_date = updated_prices.index.max()
-    if new_last_date > last_date:
-        new_rows = len(updated_prices) - len(existing_prices)
-        print(f"   ✅ Added {new_rows} new dates")
-        print(f"   New last date: {new_last_date.strftime('%Y-%m-%d')}")
-
-        # Clean isolated bad prints in the derived panel (raw layer keeps vendor values)
-        updated_prices, repair_log = repair_isolated_bad_prints(updated_prices)
-        if not repair_log.empty:
-            repairs_path = ROOT / "data" / "quality" / "bad_print_repairs.csv"
-            previous_repairs = pd.read_csv(repairs_path) if repairs_path.exists() else pd.DataFrame()
-            pd.concat([previous_repairs, repair_log.astype({"date": str})]).drop_duplicates(
-                subset=["symbol", "date"]
-            ).to_csv(repairs_path, index=False)
-            print(f"   🩹 Repaired {len(repair_log)} isolated bad prints")
-
-        write_parquet(updated_prices, prices_path)
-        return True
-    else:
+    aligned_existing = existing_prices.reindex(
+        index=updated_prices.index, columns=updated_prices.columns
+    )
+    if updated_prices.equals(aligned_existing):
         print("   ℹ️  No new data available")
         return False
+
+    new_dates = updated_prices.index.difference(existing_prices.index)
+    if len(new_dates) > 0:
+        print(f"   ✅ Added {len(new_dates)} new dates")
+        print(f"   New last date: {updated_prices.index.max().strftime('%Y-%m-%d')}")
+
+        # Refuse to extend the panel when the fetch clearly failed for most
+        # symbols (e.g. FMP outage / rate limit): near-empty rows poison every
+        # derived factor and make backtests treat the whole book as delisted.
+        typical_coverage = float(existing_prices.tail(5).notna().sum(axis=1).median())
+        worst_new_coverage = int(updated_prices.loc[new_dates].notna().sum(axis=1).min())
+        if worst_new_coverage < 0.5 * typical_coverage:
+            print(
+                f"   ❌ Aborting price write: a new date has only {worst_new_coverage} "
+                f"symbols vs a recent median of {typical_coverage:.0f}. "
+                "Vendor fetch likely failed — panel left untouched."
+            )
+            return False
+    else:
+        # No new dates, but overlapping cells changed: vendor restatements or
+        # backfill of a previously failed fetch. Must still be persisted.
+        n_filled = int((updated_prices.notna() & aligned_existing.isna()).values.sum())
+        print(f"   ✅ Restatement/backfill update: {n_filled} previously empty cells filled")
+
+    # Clean isolated bad prints in the derived panel (raw layer keeps vendor values)
+    updated_prices, repair_log = repair_isolated_bad_prints(updated_prices)
+    if not repair_log.empty:
+        repairs_path = ROOT / "data" / "quality" / "bad_print_repairs.csv"
+        previous_repairs = pd.read_csv(repairs_path) if repairs_path.exists() else pd.DataFrame()
+        pd.concat([previous_repairs, repair_log.astype({"date": str})]).drop_duplicates(
+            subset=["symbol", "date"]
+        ).to_csv(repairs_path, index=False)
+        print(f"   🩹 Repaired {len(repair_log)} isolated bad prints")
+
+    write_parquet(updated_prices, prices_path)
+    return True
 
 
 def update_macro(out_root: Path, raw_path: Path = RAW_MACRO_PARQUET) -> bool:
@@ -130,7 +151,11 @@ def update_macro(out_root: Path, raw_path: Path = RAW_MACRO_PARQUET) -> bool:
     print(f"📊 Refreshing raw macro layer at {raw_path}...")
 
     existing_macro = read_parquet(macro_path)
-    last_date = existing_macro.index.max() if existing_macro is not None and not existing_macro.empty else None
+    last_date = (
+        existing_macro.index.max()
+        if existing_macro is not None and not existing_macro.empty
+        else None
+    )
 
     print("   Fetching latest raw FRED series...")
     raw_long = load_raw_macro_default()
@@ -239,12 +264,18 @@ def refresh_fundamentals_if_due(max_age_days: int = 7) -> bool:
     if factors_path.exists():
         age_days = (pd.Timestamp.now() - pd.Timestamp(factors_path.stat().st_mtime, unit="s")).days
         if age_days < max_age_days:
-            print(f"📑 Fundamentals panel is {age_days}d old — skipping (refresh every {max_age_days}d)")
+            print(
+                f"📑 Fundamentals panel is {age_days}d old — skipping (refresh every {max_age_days}d)"
+            )
             return False
 
     print("📑 Refreshing FMP fundamentals (weekly)...")
     fetch = subprocess.run(
-        ["/opt/anaconda3/envs/quant/bin/python", str(ROOT / "scripts" / "fetch_fmp_fundamentals.py"), "--refresh"],
+        [
+            "/opt/anaconda3/envs/quant/bin/python",
+            str(ROOT / "scripts" / "fetch_fmp_fundamentals.py"),
+            "--refresh",
+        ],
         cwd=str(ROOT),
         check=False,
     )
@@ -252,7 +283,10 @@ def refresh_fundamentals_if_due(max_age_days: int = 7) -> bool:
         print(f"   ⚠️  Fundamentals fetch exited {fetch.returncode}; skipping panel rebuild")
         return False
     build = subprocess.run(
-        ["/opt/anaconda3/envs/quant/bin/python", str(ROOT / "scripts" / "build_fundamentals_panel.py")],
+        [
+            "/opt/anaconda3/envs/quant/bin/python",
+            str(ROOT / "scripts" / "build_fundamentals_panel.py"),
+        ],
         cwd=str(ROOT),
         check=False,
     )
@@ -282,7 +316,10 @@ def refresh_market_caps_if_due(max_age_days: int = 7) -> bool:
     print("💰 Refreshing FMP historical market caps (weekly)...")
     # Incremental: skip existing raw files; rebuild the stacked panel.
     result = subprocess.run(
-        ["/opt/anaconda3/envs/quant/bin/python", str(ROOT / "scripts" / "fetch_fmp_market_caps.py")],
+        [
+            "/opt/anaconda3/envs/quant/bin/python",
+            str(ROOT / "scripts" / "fetch_fmp_market_caps.py"),
+        ],
         cwd=str(ROOT),
         check=False,
     )
@@ -305,7 +342,10 @@ def refresh_sp500_membership_if_due(max_age_days: int = 7) -> bool:
 
     print("🏛️  Refreshing S&P 500 membership from FMP (weekly)...")
     result = subprocess.run(
-        ["/opt/anaconda3/envs/quant/bin/python", str(ROOT / "scripts" / "refresh_sp500_constituents.py")],
+        [
+            "/opt/anaconda3/envs/quant/bin/python",
+            str(ROOT / "scripts" / "refresh_sp500_constituents.py"),
+        ],
         cwd=str(ROOT),
         check=False,
     )
@@ -327,7 +367,9 @@ def refresh_vix_if_due(max_age_days: int = 1) -> bool:
         return False
     print("📉 Refreshing VIX from FMP...")
     series = load_vix(force_refresh=True)
-    print(f"   ✅ VIX refreshed: {len(series)} rows through {series.index.max().date() if len(series) else 'n/a'}")
+    print(
+        f"   ✅ VIX refreshed: {len(series)} rows through {series.index.max().date() if len(series) else 'n/a'}"
+    )
     return True
 
 

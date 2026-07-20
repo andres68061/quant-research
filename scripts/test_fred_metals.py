@@ -30,24 +30,24 @@ METALS_TO_TEST = {
     "Gold": [
         "GOLDAMGBD228NLBM",  # London fixing
         "GOLDPMGBD228NLBM",  # London PM fixing
-        "WPU10210301",       # Producer Price Index
+        "WPU10210301",  # Producer Price Index
     ],
     "Silver": [
-        "SLVPRUSD",          # Handy & Harman
-        "DSLVNS",            # Daily silver price
+        "SLVPRUSD",  # Handy & Harman
+        "DSLVNS",  # Daily silver price
     ],
     "Copper": [
-        "PCOPPUSDM",         # Global price (monthly)
-        "PCOPPUSD",          # Global price (annual)
-        "WPU101707",         # Producer Price Index
+        "PCOPPUSDM",  # Global price (monthly)
+        "PCOPPUSD",  # Global price (annual)
+        "WPU101707",  # Producer Price Index
     ],
     "Platinum": [
-        "PLATINUMPRICE",     # Suggested ID
-        "WPUSI019011",       # PPI Platinum
+        "PLATINUMPRICE",  # Suggested ID
+        "WPUSI019011",  # PPI Platinum
     ],
     "Palladium": [
-        "PALLADIUMPRICE",    # Suggested ID
-        "WPUSI01901121",     # PPI Palladium
+        "PALLADIUMPRICE",  # Suggested ID
+        "WPUSI01901121",  # PPI Palladium
     ],
 }
 
@@ -68,7 +68,7 @@ for metal, series_ids in METALS_TO_TEST.items():
     print(f"\n{metal}:")
     for series_id in series_ids:
         try:
-            data = fred.get_series(series_id, observation_start='2020-01-01')
+            data = fred.get_series(series_id, observation_start="2020-01-01")
             if data is not None and len(data) > 0:
                 print(f"  ✅ {series_id}: {len(data)} observations")
                 print(f"     Latest: {data.iloc[-1]:.2f} ({data.index[-1].strftime('%Y-%m-%d')})")
@@ -84,27 +84,29 @@ print("=" * 80)
 print("Method 2: Using raw FRED API")
 print("-" * 80)
 
+
 def test_series_api(series_id):
     """Test series using raw API."""
     url = f"https://api.stlouisfed.org/fred/series/observations"
     params = {
-        'series_id': series_id,
-        'api_key': FRED_API_KEY,
-        'file_type': 'json',
-        'observation_start': '2020-01-01',
+        "series_id": series_id,
+        "api_key": FRED_API_KEY,
+        "file_type": "json",
+        "observation_start": "2020-01-01",
     }
-    
+
     try:
         response = requests.get(url, params=params, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            if 'observations' in data and len(data['observations']) > 0:
-                obs = data['observations']
+            if "observations" in data and len(data["observations"]) > 0:
+                obs = data["observations"]
                 latest = obs[-1]
-                return True, len(obs), latest['value'], latest['date']
+                return True, len(obs), latest["value"], latest["date"]
         return False, 0, None, None
     except Exception as e:
         return False, 0, None, str(e)
+
 
 for metal, series_ids in METALS_TO_TEST.items():
     print(f"\n{metal}:")
@@ -134,25 +136,27 @@ print("Search for alternative series")
 print("=" * 80)
 print()
 
+
 def search_fred_series(search_term):
     """Search FRED for series."""
     url = "https://api.stlouisfed.org/fred/series/search"
     params = {
-        'search_text': search_term,
-        'api_key': FRED_API_KEY,
-        'file_type': 'json',
-        'limit': 5,
+        "search_text": search_term,
+        "api_key": FRED_API_KEY,
+        "file_type": "json",
+        "limit": 5,
     }
-    
+
     try:
         response = requests.get(url, params=params, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            if 'seriess' in data:
-                return data['seriess']
+            if "seriess" in data:
+                return data["seriess"]
     except Exception as e:
         print(f"Search error: {e}")
     return []
+
 
 search_terms = [
     ("Gold Price", "gold price"),
@@ -165,11 +169,13 @@ search_terms = [
 for name, term in search_terms:
     print(f"\n{name} ('{term}'):")
     results = search_fred_series(term)
-    
+
     if results:
         for result in results[:3]:  # Show top 3
             print(f"  {result['id']:20} - {result['title'][:60]}")
-            print(f"    Freq: {result.get('frequency', 'N/A')}, Updated: {result.get('last_updated', 'N/A')}")
+            print(
+                f"    Freq: {result.get('frequency', 'N/A')}, Updated: {result.get('last_updated', 'N/A')}"
+            )
     else:
         print("  No results found")
 
@@ -177,4 +183,3 @@ print()
 print("=" * 80)
 print("Testing Complete!")
 print("=" * 80)
-

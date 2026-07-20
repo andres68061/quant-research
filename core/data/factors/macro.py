@@ -220,10 +220,7 @@ def derive_macro_panel_from_raw(raw_long: pd.DataFrame) -> pd.DataFrame:
     if raw_long is None or raw_long.empty:
         return pd.DataFrame()
 
-    wide = (
-        raw_long.pivot(index="reference_date", columns="series_id", values="value")
-        .sort_index()
-    )
+    wide = raw_long.pivot(index="reference_date", columns="series_id", values="value").sort_index()
     wide.index = pd.to_datetime(wide.index)
     wide.index.name = "date"
     wide.columns.name = None

@@ -28,91 +28,24 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     accuracy_score,
-    classification_report,
     confusion_matrix,
     precision_recall_fscore_support,
     roc_auc_score,
 )
 from sklearn.preprocessing import StandardScaler
 
+from core.backtest.walkforward import WalkForwardValidator
+
 logger = logging.getLogger(__name__)
-
-
-class WalkForwardValidator:
-    """
-    Walk-forward validation with expanding window for time series.
-    
-    Design:
-    - Expanding window (not rolling) - uses all historical data
-    - Fixed test period (5 days default)
-    - No data leakage (train on past, test on future)
-    """
-    
-    def __init__(
-        self,
-        initial_train_days: int = 63,
-        test_days: int = 5,
-        max_splits: int = 50,
-    ):
-        """
-        Initialize walk-forward validator.
-        
-        Args:
-            initial_train_days: Initial training period (default 63 = ~3 months)
-            test_days: Test period length (default 5 = 1 week)
-            max_splits: Maximum number of splits (default 50 to prevent runaway training)
-        """
-        self.initial_train_days = initial_train_days
-        self.test_days = test_days
-        self.max_splits = max_splits
-        
-    def create_splits(self, df: pd.DataFrame) -> list:
-        """
-        Create walk-forward splits.
-        
-        Args:
-            df: Feature DataFrame
-            
-        Returns:
-            List of (train_indices, test_indices) tuples
-        """
-        splits = []
-        total_rows = len(df)
-        
-        if total_rows < self.initial_train_days + self.test_days:
-            logger.warning(
-                f"Insufficient data: {total_rows} rows (need {self.initial_train_days + self.test_days})"
-            )
-            return splits
-        
-        train_end = self.initial_train_days
-        
-        while train_end + self.test_days <= total_rows:
-            # Expanding window: always from start
-            train_indices = df.index[:train_end]
-            test_indices = df.index[train_end : train_end + self.test_days]
-            
-            splits.append((train_indices, test_indices))
-            
-            # Check max_splits limit
-            if len(splits) >= self.max_splits:
-                logger.info(f"Reached max_splits limit ({self.max_splits}). Stopping split generation.")
-                break
-            
-            # Move forward by test period
-            train_end += self.test_days
-        
-        logger.info(f"Created {len(splits)} walk-forward splits")
-        return splits
 
 
 class XGBoostDirectionModel:
     """
     XGBoost model for predicting commodity price direction.
-    
+
     No scaling required (tree-based model).
     """
-    
+
     def __init__(
         self,
         n_estimators: int = 100,
@@ -123,7 +56,7 @@ class XGBoostDirectionModel:
     ):
         """
         Initialize XGBoost model.
-        
+
         Args:
             n_estimators: Number of boosting rounds (default 100)
             max_depth: Maximum tree depth (default 3 - shallow to prevent overfitting)
@@ -133,50 +66,49 @@ class XGBoostDirectionModel:
         """
         try:
             from xgboost import XGBClassifier
-            
+
             params = {
-                'n_estimators': n_estimators,
-                'max_depth': max_depth,
-                'learning_rate': learning_rate,
-                'random_state': random_state,
-                'eval_metric': 'logloss',
-                'use_label_encoder': False,
+                "n_estimators": n_estimators,
+                "max_depth": max_depth,
+                "learning_rate": learning_rate,
+                "random_state": random_state,
+                "eval_metric": "logloss",
+                "use_label_encoder": False,
             }
-            
+
             if use_class_weight:
-                params['scale_pos_weight'] = 1.0  # Will be set dynamically
-            
+                params["scale_pos_weight"] = 1.0  # Will be set dynamically
+
             self.model = XGBClassifier(**params)
             self.feature_importance_ = None
-            
-        except ImportError:
-            raise ImportError("XGBoost not installed. Run: pip install xgboost")
-    
+
+        except ImportError as exc:
+            raise ImportError("XGBoost not installed. Run: pip install xgboost") from exc
+
     def fit(self, X: pd.DataFrame, y: pd.Series):
         """Train the model."""
         # Adjust class weight if needed
-        if hasattr(self.model, 'scale_pos_weight'):
+        if hasattr(self.model, "scale_pos_weight"):
             neg_count = (y == 0).sum()
             pos_count = (y == 1).sum()
             if pos_count > 0:
                 self.model.scale_pos_weight = neg_count / pos_count
-        
+
         self.model.fit(X, y)
         self.feature_importance_ = pd.Series(
-            self.model.feature_importances_,
-            index=X.columns
+            self.model.feature_importances_, index=X.columns
         ).sort_values(ascending=False)
-        
+
         return self
-    
+
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         """Predict class labels."""
         return self.model.predict(X)
-    
+
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """Predict class probabilities."""
         return self.model.predict_proba(X)
-    
+
     def get_feature_importance(self) -> pd.Series:
         """Get feature importance."""
         return self.feature_importance_
@@ -213,8 +145,7 @@ def compute_mean_abs_shap(
             values = values[:, :, 1]
         mean_abs = np.abs(values).mean(axis=0)
         return {
-            str(col): float(score)
-            for col, score in zip(list(X.columns), mean_abs)
+            str(col): float(score) for col, score in zip(list(X.columns), mean_abs, strict=True)
         }
     except Exception as exc:  # noqa: BLE001 — SHAP is best-effort diagnostics
         logger.warning("SHAP explanation failed: %s", exc)
@@ -224,10 +155,10 @@ def compute_mean_abs_shap(
 class LSTMDirectionModel:
     """
     LSTM model for predicting commodity price direction.
-    
+
     Requires StandardScaler for features.
     """
-    
+
     def __init__(
         self,
         sequence_length: int = 60,
@@ -240,7 +171,7 @@ class LSTMDirectionModel:
     ):
         """
         Initialize LSTM model.
-        
+
         Args:
             sequence_length: Number of time steps to look back (default 60)
             hidden_units: LSTM hidden units (default 64)
@@ -252,77 +183,80 @@ class LSTMDirectionModel:
         """
         try:
             import tensorflow as tf
-            from tensorflow import keras
-            
+
             self.sequence_length = sequence_length
             self.hidden_units = hidden_units
             self.dropout_rate = dropout_rate
             self.learning_rate = learning_rate
             self.epochs = epochs
             self.batch_size = batch_size
-            
+
             # Set random seed
             np.random.seed(random_state)
             tf.random.set_seed(random_state)
-            
+
             self.model = None
             self.scaler = StandardScaler()
             self.history = None
-            
-        except ImportError:
-            raise ImportError("TensorFlow not installed. Run: pip install tensorflow")
-    
+
+        except ImportError as exc:
+            raise ImportError("TensorFlow not installed. Run: pip install tensorflow") from exc
+
     def _build_model(self, n_features: int):
         """Build LSTM architecture."""
         from tensorflow import keras
         from tensorflow.keras import layers
-        
-        model = keras.Sequential([
-            layers.LSTM(
-                self.hidden_units,
-                return_sequences=True,
-                input_shape=(self.sequence_length, n_features)
-            ),
-            layers.Dropout(self.dropout_rate),
-            layers.LSTM(self.hidden_units, return_sequences=False),
-            layers.Dropout(self.dropout_rate),
-            layers.Dense(32, activation='relu'),
-            layers.Dropout(self.dropout_rate),
-            layers.Dense(1, activation='sigmoid'),
-        ])
-        
+
+        model = keras.Sequential(
+            [
+                layers.LSTM(
+                    self.hidden_units,
+                    return_sequences=True,
+                    input_shape=(self.sequence_length, n_features),
+                ),
+                layers.Dropout(self.dropout_rate),
+                layers.LSTM(self.hidden_units, return_sequences=False),
+                layers.Dropout(self.dropout_rate),
+                layers.Dense(32, activation="relu"),
+                layers.Dropout(self.dropout_rate),
+                layers.Dense(1, activation="sigmoid"),
+            ]
+        )
+
         model.compile(
             optimizer=keras.optimizers.Adam(learning_rate=self.learning_rate),
-            loss='binary_crossentropy',
-            metrics=['accuracy', keras.metrics.AUC(name='auc')],
+            loss="binary_crossentropy",
+            metrics=["accuracy", keras.metrics.AUC(name="auc")],
         )
-        
+
         return model
-    
-    def _create_sequences(self, X_scaled: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+
+    def _create_sequences(
+        self, X_scaled: np.ndarray, y: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Create sequences for LSTM.
-        
+
         Args:
             X_scaled: Scaled features (n_samples, n_features)
             y: Target labels (n_samples,)
-            
+
         Returns:
             (X_sequences, y_sequences) for LSTM
         """
         X_seq = []
         y_seq = []
-        
+
         for i in range(self.sequence_length, len(X_scaled)):
             X_seq.append(X_scaled[i - self.sequence_length : i])
             y_seq.append(y[i])
-        
+
         return np.array(X_seq), np.array(y_seq)
-    
+
     def fit(self, X: pd.DataFrame, y: pd.Series, verbose: int = 0):
         """
         Train LSTM model.
-        
+
         Args:
             X: Feature DataFrame
             y: Target series
@@ -331,26 +265,24 @@ class LSTMDirectionModel:
         # Scale features (fit on training data)
         X_scaled = self.scaler.fit_transform(X)
         y_values = y.values
-        
+
         # Create sequences
         X_seq, y_seq = self._create_sequences(X_scaled, y_values)
-        
+
         if len(X_seq) < 10:
-            raise ValueError(f"Not enough sequences after creating {self.sequence_length}-step sequences: {len(X_seq)}")
-        
+            raise ValueError(
+                f"Not enough sequences after creating {self.sequence_length}-step sequences: {len(X_seq)}"
+            )
+
         # Build model
         n_features = X.shape[1]
         self.model = self._build_model(n_features)
-        
+
         # Train with early stopping
         from tensorflow.keras.callbacks import EarlyStopping
-        
-        early_stop = EarlyStopping(
-            monitor='loss',
-            patience=10,
-            restore_best_weights=True
-        )
-        
+
+        early_stop = EarlyStopping(monitor="loss", patience=10, restore_best_weights=True)
+
         self.history = self.model.fit(
             X_seq,
             y_seq,
@@ -360,36 +292,36 @@ class LSTMDirectionModel:
             callbacks=[early_stop],
             validation_split=0.2,  # Use 20% of training for validation
         )
-        
+
         return self
-    
+
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         """Predict class labels."""
         # Scale using fitted scaler
         X_scaled = self.scaler.transform(X)
-        
+
         # Create sequences
         X_seq, _ = self._create_sequences(X_scaled, np.zeros(len(X)))  # Dummy y
-        
+
         if len(X_seq) == 0:
             return np.array([])
-        
+
         # Predict probabilities
         proba = self.model.predict(X_seq, verbose=0)
         predictions = (proba > 0.5).astype(int).flatten()
-        
+
         return predictions
-    
+
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """Predict class probabilities."""
         X_scaled = self.scaler.transform(X)
         X_seq, _ = self._create_sequences(X_scaled, np.zeros(len(X)))
-        
+
         if len(X_seq) == 0:
             return np.array([])
-        
+
         proba = self.model.predict(X_seq, verbose=0)
-        
+
         # Return in sklearn format: [prob_class_0, prob_class_1]
         return np.column_stack([1 - proba, proba])
 
@@ -401,45 +333,45 @@ def evaluate_model_performance(
 ) -> Dict:
     """
     Calculate comprehensive evaluation metrics.
-    
+
     Args:
         y_true: True labels
         y_pred: Predicted labels
         y_proba: Predicted probabilities (optional, for AUC)
-        
+
     Returns:
         Dictionary with metrics
     """
     metrics = {}
-    
+
     # Basic accuracy
-    metrics['accuracy'] = accuracy_score(y_true, y_pred)
-    
+    metrics["accuracy"] = accuracy_score(y_true, y_pred)
+
     # Precision, Recall, F1
     precision, recall, f1, _ = precision_recall_fscore_support(
-        y_true, y_pred, average='binary', zero_division=0
+        y_true, y_pred, average="binary", zero_division=0
     )
-    metrics['precision'] = precision
-    metrics['recall'] = recall
-    metrics['f1_score'] = f1
-    
+    metrics["precision"] = precision
+    metrics["recall"] = recall
+    metrics["f1_score"] = f1
+
     # Confusion matrix
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
-    metrics['true_negatives'] = int(tn)
-    metrics['false_positives'] = int(fp)
-    metrics['false_negatives'] = int(fn)
-    metrics['true_positives'] = int(tp)
-    
+    metrics["true_negatives"] = int(tn)
+    metrics["false_positives"] = int(fp)
+    metrics["false_negatives"] = int(fn)
+    metrics["true_positives"] = int(tp)
+
     # ROC AUC (if probabilities provided)
     if y_proba is not None:
         try:
-            metrics['roc_auc'] = roc_auc_score(y_true, y_proba[:, 1])
-        except:
-            metrics['roc_auc'] = None
-    
+            metrics["roc_auc"] = roc_auc_score(y_true, y_proba[:, 1])
+        except ValueError:
+            metrics["roc_auc"] = None
+
     # Direction accuracy (what traders care about)
-    metrics['direction_accuracy'] = metrics['accuracy']
-    
+    metrics["direction_accuracy"] = metrics["accuracy"]
+
     return metrics
 
 
@@ -451,56 +383,58 @@ def run_walk_forward_validation(
     max_splits: int = 50,
     model_params: Optional[Dict] = None,
     verbose: bool = True,
-    progress_callback = None,
+    progress_callback=None,
+    label_horizon_days: int = 1,
+    embargo_days: int = 0,
 ) -> Dict:
     """
     Run walk-forward validation with expanding window.
-    
-    Args:
-        features_df: DataFrame with features and 'target' column
-        model_type: 'xgboost', 'random_forest', 'logistic', or 'lstm'
-        initial_train_days: Initial training period
-        test_days: Test period length
-        max_splits: Maximum number of splits (default 50, prevents runaway training)
-        model_params: Model hyperparameters (dict)
-        verbose: Print progress
-        progress_callback: Optional callback function(current, total) for progress updates
-        
-    Returns:
-        Dictionary with results (metrics, predictions, split_metrics, etc.)
-    
+
     Args:
         features_df: DataFrame with features and 'target' column
         model_type: 'xgboost', 'random_forest', 'logistic', or 'lstm'
         initial_train_days: Initial training period (default 63 = 3 months)
-        test_days: Test period (default 5 = 1 week)
-        model_params: Optional model parameters
+        test_days: Test period length (default 5 = 1 week)
+        max_splits: Maximum number of splits (default 50, prevents runaway training)
+        model_params: Model hyperparameters (dict)
         verbose: Print progress
-        
+        progress_callback: Optional callback function(current, total) for progress updates
+        label_horizon_days: Forward horizon of the 'target' label in trading
+            days. Must match how the label was built (1 = next-day direction).
+            ``horizon - 1`` rows are purged from the end of every training
+            window so no training label overlaps the test window.
+        embargo_days: Extra training rows dropped before each test window.
+
     Returns:
-        Dictionary with results, predictions, and metrics
+        Dictionary with results (metrics, predictions, split_metrics, etc.)
     """
     logger.info(f"Starting walk-forward validation: {model_type}, {len(features_df)} rows")
-    
+
     if model_params is None:
         model_params = {}
-    
+
     # Separate features and target
-    feature_cols = [col for col in features_df.columns if col != 'target']
+    feature_cols = [col for col in features_df.columns if col != "target"]
     X = features_df[feature_cols]
-    y = features_df['target']
-    
+    y = features_df["target"]
+
     # Create walk-forward splits
-    validator = WalkForwardValidator(initial_train_days, test_days, max_splits)
+    validator = WalkForwardValidator(
+        initial_train_days,
+        test_days,
+        max_splits,
+        label_horizon_days=label_horizon_days,
+        embargo_days=embargo_days,
+    )
     splits = validator.create_splits(features_df)
-    
+
     if len(splits) == 0:
         return {
-            'error': 'Insufficient data for walk-forward validation',
-            'required_rows': initial_train_days + test_days,
-            'available_rows': len(features_df),
+            "error": "Insufficient data for walk-forward validation",
+            "required_rows": initial_train_days + test_days,
+            "available_rows": len(features_df),
         }
-    
+
     # Store results
     all_predictions = []
     all_true = []
@@ -508,22 +442,22 @@ def run_walk_forward_validation(
     split_metrics = []
     last_X_test: Optional[pd.DataFrame] = None
     model = None
-    
+
     # Run walk-forward
     for i, (train_idx, test_idx) in enumerate(splits):
         # Progress callback for UI updates
         if progress_callback:
             progress_callback(i + 1, len(splits))
-        
+
         if verbose:
             print(f"Split {i+1}/{len(splits)}: Train={len(train_idx)}, Test={len(test_idx)}")
-        
+
         # Get train/test data
         X_train = X.loc[train_idx]
         y_train = y.loc[train_idx]
         X_test = X.loc[test_idx]
         y_test = y.loc[test_idx]
-        
+
         # Train model
         if model_type == "xgboost":
             # Check class imbalance
@@ -532,17 +466,14 @@ def run_walk_forward_validation(
             if len(class_counts) == 2:
                 imbalance_ratio = max(class_counts) / len(y_train)
                 use_class_weight = imbalance_ratio > 0.65
-            
-            model = XGBoostDirectionModel(
-                use_class_weight=use_class_weight,
-                **model_params
-            )
+
+            model = XGBoostDirectionModel(use_class_weight=use_class_weight, **model_params)
             model.fit(X_train, y_train)
-            
+
             # Predict
             y_pred = model.predict(X_test)
             y_proba = model.predict_proba(X_test)
-            
+
         elif model_type == "random_forest":
             from sklearn.ensemble import RandomForestClassifier
 
@@ -579,69 +510,69 @@ def run_walk_forward_validation(
 
         elif model_type == "lstm":
             model = LSTMDirectionModel(**model_params)
-            
+
             # LSTM fit handles scaling internally
             try:
                 model.fit(X_train, y_train, verbose=0)
-                
+
                 # Predict
                 y_pred = model.predict(X_test)
                 y_proba = model.predict_proba(X_test)
-                
+
                 # Handle sequence length offset
                 # LSTM predictions are shorter due to sequence requirement
                 if len(y_pred) < len(y_test):
                     # Align predictions with test indices
-                    y_test = y_test.iloc[-len(y_pred):]
-            
+                    y_test = y_test.iloc[-len(y_pred) :]
+
             except Exception as e:
                 logger.warning(f"LSTM training failed on split {i+1}: {str(e)}")
                 continue
-        
+
         else:
             raise ValueError(f"Unknown model_type: {model_type}")
-        
+
         # Store predictions
         all_predictions.extend(y_pred)
         all_true.extend(y_test.values)
         if len(y_proba) > 0:
             all_probabilities.extend(y_proba[:, 1])  # Probability of class 1
-        
+
         # Keep last fold's test matrix for SHAP (tree models only)
         last_X_test = X_test
-        
+
         # Calculate split metrics
         split_acc = accuracy_score(y_test, y_pred)
-        split_metrics.append({
-            'split': i + 1,
-            'train_size': len(train_idx),
-            'test_size': len(y_test),
-            'accuracy': split_acc,
-            'train_start': train_idx[0],
-            'train_end': train_idx[-1],
-            'test_start': test_idx[0],
-            'test_end': test_idx[-1],
-        })
-    
+        split_metrics.append(
+            {
+                "split": i + 1,
+                "train_size": len(train_idx),
+                "test_size": len(y_test),
+                "accuracy": split_acc,
+                "train_start": train_idx[0],
+                "train_end": train_idx[-1],
+                "test_start": test_idx[0],
+                "test_end": test_idx[-1],
+            }
+        )
+
     # Overall metrics
     all_predictions = np.array(all_predictions)
     all_true = np.array(all_true)
     all_probabilities = np.array(all_probabilities) if all_probabilities else None
-    
+
     overall_metrics = evaluate_model_performance(
         all_true,
         all_predictions,
-        all_probabilities.reshape(-1, 1) if all_probabilities is not None else None
+        all_probabilities.reshape(-1, 1) if all_probabilities is not None else None,
     )
-    
+
     # Feature importance (last model) + SHAP for tree boosters
     feature_importance = None
     shap_importance = None
     if model_type == "xgboost":
         fi_series = model.get_feature_importance()
-        feature_importance = (
-            fi_series.to_dict() if isinstance(fi_series, pd.Series) else fi_series
-        )
+        feature_importance = fi_series.to_dict() if isinstance(fi_series, pd.Series) else fi_series
         shap_importance = compute_mean_abs_shap(model, last_X_test)
     elif model_type == "random_forest":
         feature_importance = dict(
@@ -649,30 +580,28 @@ def run_walk_forward_validation(
         )
         shap_importance = compute_mean_abs_shap(model, last_X_test)
     elif model_type == "logistic":
-        feature_importance = dict(
-            zip(feature_cols, np.abs(model.coef_[0]).tolist(), strict=False)
-        )
-    
+        feature_importance = dict(zip(feature_cols, np.abs(model.coef_[0]).tolist(), strict=False))
+
     results = {
-        'model_type': model_type,
-        'n_splits': len(splits),
-        'predictions': all_predictions,
-        'true_labels': all_true,
-        'probabilities': all_probabilities,
-        'overall_metrics': overall_metrics,
-        'split_metrics': split_metrics,
-        'feature_importance': feature_importance,
-        'shap_importance': shap_importance,
-        'model_params': model_params,
-        'validation_params': {
-            'initial_train_days': initial_train_days,
-            'test_days': test_days,
-            'window_type': 'expanding',
-        }
+        "model_type": model_type,
+        "n_splits": len(splits),
+        "predictions": all_predictions,
+        "true_labels": all_true,
+        "probabilities": all_probabilities,
+        "overall_metrics": overall_metrics,
+        "split_metrics": split_metrics,
+        "feature_importance": feature_importance,
+        "shap_importance": shap_importance,
+        "model_params": model_params,
+        "validation_params": {
+            "initial_train_days": initial_train_days,
+            "test_days": test_days,
+            "window_type": "expanding",
+        },
     }
-    
+
     logger.info(f"Walk-forward complete: {model_type}, accuracy={overall_metrics['accuracy']:.4f}")
-    
+
     return results
 
 
@@ -684,11 +613,11 @@ def compare_models(
     xgb_params: Optional[Dict] = None,
     lstm_params: Optional[Dict] = None,
     verbose: bool = True,
-    progress_callback = None,
+    progress_callback=None,
 ) -> Dict:
     """
     Compare XGBoost vs LSTM on the same data.
-    
+
     Args:
         features_df: DataFrame with features and target
         initial_train_days: Initial training period
@@ -698,12 +627,12 @@ def compare_models(
         lstm_params: LSTM parameters
         verbose: Print progress
         progress_callback: Optional callback for progress updates
-        
+
     Returns:
         Dictionary with comparison results
         lstm_params: LSTM parameters
         verbose: Print progress
-        
+
     Returns:
         Dictionary with results for both models
     """
@@ -711,16 +640,16 @@ def compare_models(
         print("=" * 80)
         print("MODEL COMPARISON: XGBoost vs LSTM")
         print("=" * 80)
-    
+
     # Run XGBoost
     if verbose:
         print("\n🌳 Training XGBoost...\n")
-    
+
     def xgb_progress(current, total):
         if progress_callback:
             # XGBoost is first half of progress
             progress_callback(current, total * 2, "XGBoost")
-    
+
     xgb_results = run_walk_forward_validation(
         features_df,
         model_type="xgboost",
@@ -731,16 +660,16 @@ def compare_models(
         verbose=verbose,
         progress_callback=xgb_progress,
     )
-    
+
     # Run LSTM
     if verbose:
         print("\n🧠 Training LSTM...\n")
-    
+
     def lstm_progress(current, total):
         if progress_callback:
             # LSTM is second half of progress
             progress_callback(total + current, total * 2, "LSTM")
-    
+
     lstm_results = run_walk_forward_validation(
         features_df,
         model_type="lstm",
@@ -751,28 +680,28 @@ def compare_models(
         verbose=verbose,
         progress_callback=lstm_progress,
     )
-    
+
     # Comparison
     comparison = {
-        'xgboost': xgb_results,
-        'lstm': lstm_results,
-        'winner': None,
+        "xgboost": xgb_results,
+        "lstm": lstm_results,
+        "winner": None,
     }
-    
+
     # Determine winner
-    xgb_acc = xgb_results.get('overall_metrics', {}).get('accuracy', 0)
-    lstm_acc = lstm_results.get('overall_metrics', {}).get('accuracy', 0)
-    
+    xgb_acc = xgb_results.get("overall_metrics", {}).get("accuracy", 0)
+    lstm_acc = lstm_results.get("overall_metrics", {}).get("accuracy", 0)
+
     if xgb_acc > lstm_acc:
-        comparison['winner'] = 'xgboost'
-        comparison['margin'] = (xgb_acc - lstm_acc) * 100
+        comparison["winner"] = "xgboost"
+        comparison["margin"] = (xgb_acc - lstm_acc) * 100
     elif lstm_acc > xgb_acc:
-        comparison['winner'] = 'lstm'
-        comparison['margin'] = (lstm_acc - xgb_acc) * 100
+        comparison["winner"] = "lstm"
+        comparison["margin"] = (lstm_acc - xgb_acc) * 100
     else:
-        comparison['winner'] = 'tie'
-        comparison['margin'] = 0
-    
+        comparison["winner"] = "tie"
+        comparison["margin"] = 0
+
     if verbose:
         print("\n" + "=" * 80)
         print("📊 COMPARISON RESULTS")
@@ -781,52 +710,49 @@ def compare_models(
         print(f"LSTM Accuracy:    {lstm_acc:.4f}")
         print(f"Winner: {comparison['winner'].upper()} (margin: {comparison['margin']:.2f}%)")
         print("=" * 80)
-    
+
     return comparison
 
 
 if __name__ == "__main__":
     # Example usage
     logging.basicConfig(level=logging.INFO)
-    
+
     print("=" * 80)
     print("Commodity ML Models - Example")
     print("=" * 80)
-    
-    from pathlib import Path
+
     import sys
-    
+    from pathlib import Path
+
     ROOT = Path(__file__).parents[1]
     sys.path.insert(0, str(ROOT))
-    
+
     from data.ml_features import create_ml_features_with_transparency
-    
+
     # Load sample data
     data_file = ROOT / "data" / "commodities" / "prices.parquet"
-    
+
     if data_file.exists():
         df = pd.read_parquet(data_file)
-        
-        if 'GLD' in df.columns:
+
+        if "GLD" in df.columns:
             print("\n📊 Preparing features for Gold (GLD)...\n")
-            
-            features, metadata = create_ml_features_with_transparency(
-                df['GLD'],
-                symbol='GLD'
-            )
-            
+
+            features, metadata = create_ml_features_with_transparency(df["GLD"], symbol="GLD")
+
             print(f"✅ Dataset ready: {len(features)} rows, {metadata['total_features']} features")
-            
+
             # Run comparison
             print("\n🚀 Running model comparison (this may take a few minutes)...\n")
-            
+
             results = compare_models(
                 features,
                 initial_train_days=63,
                 test_days=5,
                 verbose=True,
             )
-            
+
             print("\n✅ Comparison complete!")
         else:
             print("❌ GLD not found in data")

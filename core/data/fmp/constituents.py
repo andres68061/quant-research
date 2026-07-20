@@ -113,10 +113,7 @@ def build_membership_snapshots(
     """
     members = set(current_members)
     # Group events by date (newest first) so same-day adds/removes apply together.
-    by_date = (
-        change_events.sort_values("date", ascending=False)
-        .groupby("date", sort=False)
-    )
+    by_date = change_events.sort_values("date", ascending=False).groupby("date", sort=False)
     snapshots: list[dict[str, Any]] = []
     # Membership after the most recent event = current roster.
     for event_date, group in by_date:

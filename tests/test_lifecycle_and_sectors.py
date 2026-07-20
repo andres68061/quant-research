@@ -47,7 +47,7 @@ class TestLifecycle:
         truncated, n_cleared = apply_lifecycle_to_panel(prices, windows)
         assert n_cleared == 10
         assert truncated["STI"].dropna().index.max() == idx[39]
-        assert truncated.loc[idx[40]:, "STI"].isna().all()
+        assert truncated.loc[idx[40] :, "STI"].isna().all()
 
     def test_symbol_change_ends_window(self) -> None:
         # Series ends within 90 days of the rename — trust it.
@@ -64,6 +64,19 @@ class TestLifecycle:
         windows = build_lifecycle_windows(prices, symbol_changes=changes)
         assert windows.loc[0, "valid_to"] == idx[40]
         assert "symbol_change" in windows.loc[0, "source_notes"]
+
+    def test_price_span_only_window_never_truncates_fresh_data(self) -> None:
+        # Windows built when the panel ended earlier must not delete data
+        # fetched after the build: a price_span-only valid_to is not evidence
+        # of delisting, just the panel's extent on build day.
+        old_idx = pd.bdate_range("2024-01-01", periods=100, tz="America/New_York")
+        windows = build_lifecycle_windows(pd.DataFrame({"AAPL": 100.0}, index=old_idx))
+        assert windows.loc[0, "source_notes"] == "price_span"
+        new_idx = pd.bdate_range("2024-01-01", periods=110, tz="America/New_York")
+        fresh_prices = pd.DataFrame({"AAPL": 100.0}, index=new_idx)
+        truncated, n_cleared = apply_lifecycle_to_panel(fresh_prices, windows)
+        assert n_cleared == 0
+        assert truncated["AAPL"].notna().all()
 
     def test_symbol_change_ignored_if_series_continues(self) -> None:
         idx = pd.bdate_range("2018-01-01", periods=500, tz="America/New_York")

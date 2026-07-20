@@ -138,7 +138,11 @@ def exclusion_detail(
     vol = float(rets.std() * np.sqrt(252)) if len(rets) > 0 else 0.0
 
     prices_list = [
-        {"date": d.strftime("%Y-%m-%d"), "price": round(float(v), 4), "below": bool(v < price_threshold)}
+        {
+            "date": d.strftime("%Y-%m-%d"),
+            "price": round(float(v), 4),
+            "below": bool(v < price_threshold),
+        }
         for d, v in s.items()
     ]
 

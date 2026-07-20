@@ -119,9 +119,7 @@ class TestPerformanceMetrics:
         assert expected.issubset(metrics.keys())
 
     def test_with_benchmark(self, daily_returns, benchmark_returns):
-        metrics = calculate_performance_metrics(
-            daily_returns, benchmark_returns=benchmark_returns
-        )
+        metrics = calculate_performance_metrics(daily_returns, benchmark_returns=benchmark_returns)
         assert "beta" in metrics
         assert "alpha" in metrics
         assert "information_ratio" in metrics

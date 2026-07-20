@@ -30,8 +30,12 @@ class TestSectorNeutral:
         factor = pd.Series([10.0, 12.0, 20.0, 30.0], index=idx, name="ey")
         sectors = pd.Series({"A": "Tech", "B": "Tech", "C": "Health", "D": "Health"})
         demeaned = demean_factor_within_sector(factor, sectors)
-        assert abs(float(demeaned.loc[(dates[0], "A")]) + float(demeaned.loc[(dates[0], "B")])) < 1e-9
-        assert abs(float(demeaned.loc[(dates[0], "C")]) + float(demeaned.loc[(dates[0], "D")])) < 1e-9
+        assert (
+            abs(float(demeaned.loc[(dates[0], "A")]) + float(demeaned.loc[(dates[0], "B")])) < 1e-9
+        )
+        assert (
+            abs(float(demeaned.loc[(dates[0], "C")]) + float(demeaned.loc[(dates[0], "D")])) < 1e-9
+        )
 
     def test_zscore_unit_variance(self) -> None:
         date = pd.Timestamp("2020-01-02")

@@ -11,6 +11,7 @@ import pytest
 from core.backtest.portfolio import (
     _infer_abs_bound,
     _normalize_rebalance_freq,
+    _trading_rebalance_dates,
     calculate_portfolio_returns,
     calculate_rolling_metrics,
     create_equal_weight_portfolio,
@@ -18,6 +19,7 @@ from core.backtest.portfolio import (
     create_weighted_portfolio,
 )
 from core.backtest.walkforward import WalkForwardValidator
+from core.exceptions import ConfigError
 
 
 @pytest.fixture()
@@ -165,6 +167,59 @@ class TestPortfolioReturns:
         assert cum_net <= cum_gross + 1e-10
 
 
+class TestTradingRebalanceDates:
+    def test_weekend_quarter_end_snaps_to_last_trading_day(self) -> None:
+        # 2023-09-30 is a Saturday and 2023-12-31 a Sunday; the rebalances must
+        # land on the last trading day of each quarter instead of being skipped.
+        idx = pd.bdate_range("2023-07-03", "2024-01-31")
+        dates = _trading_rebalance_dates(idx, "QE")
+        assert pd.Timestamp("2023-09-29") in dates
+        assert pd.Timestamp("2023-12-29") in dates
+        assert all(d in idx for d in dates)
+
+    def test_final_bar_rebalance_dropped(self) -> None:
+        # A rebalance on the last bar has nothing to hold through — drop it.
+        idx = pd.bdate_range("2023-07-03", "2024-02-15")
+        dates = _trading_rebalance_dates(idx, "QE")
+        assert dates.max() == pd.Timestamp("2023-12-29")
+
+    def test_empty_index(self) -> None:
+        dates = _trading_rebalance_dates(pd.DatetimeIndex([]), "QE")
+        assert len(dates) == 0
+
+    def test_initial_formation_at_first_actionable_signal(self, factors_df, price_panel) -> None:
+        # A backtest starting mid-quarter must invest as soon as a signal is
+        # actionable (second bar with signal_lag_days=1), not idle in cash
+        # until the first quarter-end rebalance.
+        start = pd.Timestamp("2023-04-17")
+        f_dates = factors_df.index.get_level_values("date")
+        factors_slice = factors_df[f_dates >= start]
+        prices_slice = price_panel[price_panel.index >= start]
+        signals = create_signals_from_factor(factors_slice, "mom_12_1", min_stocks=3)
+        result = calculate_portfolio_returns(signals, prices_slice, rebalance_freq="QE")
+        # Bar 0 has no lagged signal; by bar 2 the book must be formed.
+        assert result["n_long"].iloc[2] > 0
+        assert (result.loc["2023-04-20":"2023-06-30", "n_long"] > 0).all()
+
+    def test_weighted_portfolio_invests_from_first_bar(self, price_panel) -> None:
+        returns = create_weighted_portfolio(
+            price_panel, ["AAPL", "MSFT"], "equal", rebalance_freq="QE"
+        )
+        expected_bar1 = price_panel[["AAPL", "MSFT"]].pct_change().iloc[1].mean()
+        assert returns.iloc[1] == pytest.approx(expected_bar1)
+
+    def test_quarterly_backtest_stays_invested_over_weekend_quarter_ends(
+        self, factors_df, price_panel
+    ) -> None:
+        # price_panel spans 2023-01 → 2024-02, covering the Sat 2023-09-30 and
+        # Sun 2023-12-31 quarter-ends that used to skip the rebalance entirely
+        # and leave the book in cash for the following quarter.
+        signals = create_signals_from_factor(factors_df, "mom_12_1", min_stocks=3)
+        result = calculate_portfolio_returns(signals, price_panel, rebalance_freq="QE")
+        q4_2023 = result.loc["2023-10-02":"2023-12-29"]
+        assert (q4_2023["n_long"] > 0).all()
+
+
 class TestWeightedPortfolio:
     def test_equal_weight(self, price_panel):
         returns = create_weighted_portfolio(price_panel, ["AAPL", "MSFT"], "equal")
@@ -240,6 +295,71 @@ class TestWalkForwardValidator:
         splits = wfv.create_splits(df)
         assert len(splits) == 10
 
+    def test_purge_removes_label_overlap(self):
+        """No training label's forward window may reach into the test window.
+
+        With a 5-day label horizon, the label at training row t is computed
+        from the price at t+5; the last 4 training rows before the test
+        window must therefore be purged (horizon - 1).
+        """
+        horizon = 5
+        df = pd.DataFrame(
+            {"feature": range(300)},
+            index=pd.bdate_range("2022-01-03", periods=300),
+        )
+        wfv = WalkForwardValidator(
+            initial_train_days=63,
+            test_days=5,
+            max_splits=100,
+            label_horizon_days=horizon,
+        )
+        splits = wfv.create_splits(df)
+        assert len(splits) > 0
+        positions = {ts: i for i, ts in enumerate(df.index)}
+        for train_idx, test_idx in splits:
+            last_train_pos = positions[train_idx[-1]]
+            first_test_pos = positions[test_idx[0]]
+            # Label outcome window of the last train row ends at
+            # last_train_pos + horizon; it must not reach past the start
+            # of the test window's own outcome region.
+            assert last_train_pos + (horizon - 1) < first_test_pos
+
+    def test_embargo_adds_extra_gap(self):
+        df = pd.DataFrame(
+            {"feature": range(300)},
+            index=pd.bdate_range("2022-01-03", periods=300),
+        )
+        wfv = WalkForwardValidator(
+            initial_train_days=63,
+            test_days=5,
+            label_horizon_days=1,
+            embargo_days=3,
+        )
+        splits = wfv.create_splits(df)
+        positions = {ts: i for i, ts in enumerate(df.index)}
+        for train_idx, test_idx in splits:
+            gap = positions[test_idx[0]] - positions[train_idx[-1]]
+            assert gap >= 4  # 3 embargo rows + adjacency
+
+    def test_default_horizon_matches_legacy_splits(self):
+        """label_horizon_days=1 (next-day labels) purges nothing."""
+        df = pd.DataFrame(
+            {"feature": range(200)},
+            index=pd.bdate_range("2023-01-02", periods=200),
+        )
+        legacy = WalkForwardValidator(initial_train_days=63, test_days=5)
+        splits = legacy.create_splits(df)
+        for train_idx, test_idx in splits:
+            assert df.index.get_loc(test_idx[0]) - df.index.get_loc(train_idx[-1]) == 1
+
+    def test_invalid_purge_config_raises(self):
+        with pytest.raises(ConfigError):
+            WalkForwardValidator(initial_train_days=5, label_horizon_days=10)
+        with pytest.raises(ConfigError):
+            WalkForwardValidator(label_horizon_days=0)
+        with pytest.raises(ConfigError):
+            WalkForwardValidator(embargo_days=-1)
+
 
 class TestRebalanceFreqNormalization:
     """Pandas 2.2+ resample alias handling (M -> ME, etc.)."""
@@ -307,9 +427,9 @@ class TestDelistingRealization:
         # Day 4 is the first day BBB is NaN. Position carried from day 3 (weight
         # 1.0) must realize -100% on day 4.
         day4 = dates[4]
-        assert np.isclose(result.loc[day4, "gross_return"], -1.0, atol=1e-10), (
-            f"Expected -100% on delisting day, got {result.loc[day4, 'gross_return']}"
-        )
+        assert np.isclose(
+            result.loc[day4, "gross_return"], -1.0, atol=1e-10
+        ), f"Expected -100% on delisting day, got {result.loc[day4, 'gross_return']}"
         # Subsequent days must not double-count (position zeroed out)
         for later in dates[5:]:
             assert np.isclose(result.loc[later, "gross_return"], 0.0, atol=1e-10)
@@ -358,18 +478,16 @@ class TestSignalLag:
             factors, "f", top_pct=0.25, bottom_pct=0.25, min_stocks=2, signal_lag_days=1
         )
         day0_signals = sigs.loc[dates[0], "signal"]
-        assert (day0_signals == 0).all(), (
-            "signal_lag_days=1: day 0 must have no signals (no prior factor)"
-        )
+        assert (
+            day0_signals == 0
+        ).all(), "signal_lag_days=1: day 0 must have no signals (no prior factor)"
 
         # With lag=0, day 0 produces signals immediately.
         sigs0 = create_signals_from_factor(
             factors, "f", top_pct=0.25, bottom_pct=0.25, min_stocks=2, signal_lag_days=0
         )
         day0_signals_nolag = sigs0.loc[dates[0], "signal"]
-        assert (day0_signals_nolag != 0).any(), (
-            "signal_lag_days=0: day 0 should produce signals"
-        )
+        assert (day0_signals_nolag != 0).any(), "signal_lag_days=0: day 0 should produce signals"
 
     def test_lag_zero_reproduces_legacy_behavior(self) -> None:
         """signal_lag_days=0 should produce identical signals to the old
@@ -448,6 +566,6 @@ class TestEndOfDayTzBoundary:
             f"Got {len(net)} return rows from 3-day panel; "
             "last-bar drop (Bug 5) likely regressed."
         )
-        assert dates[-1] in net.index, (
-            "The 2024-06-28 20:00 UTC bar must be in the net return index."
-        )
+        assert (
+            dates[-1] in net.index
+        ), "The 2024-06-28 20:00 UTC bar must be in the net return index."

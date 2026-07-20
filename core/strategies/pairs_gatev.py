@@ -40,9 +40,7 @@ def normalize_price_index(prices: pd.DataFrame) -> pd.DataFrame:
     """
     if prices.empty:
         return prices.copy()
-    first = prices.apply(
-        lambda col: col.dropna().iloc[0] if col.notna().any() else np.nan
-    )
+    first = prices.apply(lambda col: col.dropna().iloc[0] if col.notna().any() else np.nan)
     return prices.divide(first.replace(0.0, np.nan), axis=1)
 
 
@@ -54,9 +52,7 @@ def pair_sum_squared_deviations(
     aligned = pd.concat([norm_a, norm_b], axis=1).dropna()
     if len(aligned) < 2:
         return float("inf")
-    diff = aligned.iloc[:, 0].to_numpy(dtype=float) - aligned.iloc[:, 1].to_numpy(
-        dtype=float
-    )
+    diff = aligned.iloc[:, 0].to_numpy(dtype=float) - aligned.iloc[:, 1].to_numpy(dtype=float)
     return float(np.dot(diff, diff))
 
 
@@ -122,9 +118,7 @@ def resolve_liquid_symbols(
     price_set = set(price_columns)
     mask = sectors["sector"].astype(str).str.casefold() == sector_name.casefold()
     if "quoteType" in sectors.columns:
-        mask &= sectors["quoteType"].astype(str).str.upper().isin(
-            {"EQUITY", "STOCK", ""}
-        )
+        mask &= sectors["quoteType"].astype(str).str.upper().isin({"EQUITY", "STOCK", ""})
     candidates = sorted(
         {
             str(s).upper()
@@ -135,9 +129,7 @@ def resolve_liquid_symbols(
     if not candidates:
         return []
     if dollar_adv is None or dollar_adv.empty:
-        logger.warning(
-            "No dollar_adv for liquid universe; using alphabetical sector cap"
-        )
+        logger.warning("No dollar_adv for liquid universe; using alphabetical sector cap")
         return candidates[:max_symbols]
 
     cols = [c for c in candidates if c in dollar_adv.columns]
@@ -182,9 +174,7 @@ def screen_pairs_gatev(
     trading = panel.iloc[split_idx:]
     split_date = panel.index[split_idx]
 
-    formed = form_pairs_by_distance(
-        formation, syms, top_n=top_n, min_overlap=min_overlap
-    )
+    formed = form_pairs_by_distance(formation, syms, top_n=top_n, min_overlap=min_overlap)
 
     results: list[dict[str, Any]] = []
     for row in formed:
@@ -224,9 +214,7 @@ def screen_pairs_gatev(
                 "oos_annualized_return": float(metrics["annualized_return"]),
                 "oos_max_drawdown": float(metrics["max_drawdown"]),
                 "oos_n_days": int(len(net)),
-                "oos_pct_days_in_trade": float(
-                    out["diagnostics"]["pct_days_in_trade"]
-                ),
+                "oos_pct_days_in_trade": float(out["diagnostics"]["pct_days_in_trade"]),
             }
         )
 

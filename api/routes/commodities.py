@@ -28,7 +28,9 @@ def _load_prices() -> pd.DataFrame:
     fetcher = _get_fetcher()
     df = fetcher.load_prices()
     if df is None or df.empty:
-        raise HTTPException(status_code=503, detail="Commodity price data not available. Run fetch script first.")
+        raise HTTPException(
+            status_code=503, detail="Commodity price data not available. Run fetch script first."
+        )
     return df
 
 
@@ -101,16 +103,18 @@ def commodity_returns(
         if r.empty:
             continue
         latest = float(sub[col].dropna().iloc[-1]) if not sub[col].dropna().empty else 0.0
-        stats.append({
-            "symbol": col,
-            "mean": float(r.mean()),
-            "annualized": float(r.mean() * 252),
-            "volatility": float(r.std() * np.sqrt(252)),
-            "sortino": calculate_sortino_ratio(r, risk_free_rate=0.0, periods_per_year=252),
-            "skew": float(r.skew()),
-            "kurtosis": float(r.kurtosis()),
-            "latest_price": latest,
-        })
+        stats.append(
+            {
+                "symbol": col,
+                "mean": float(r.mean()),
+                "annualized": float(r.mean() * 252),
+                "volatility": float(r.std() * np.sqrt(252)),
+                "sortino": calculate_sortino_ratio(r, risk_free_rate=0.0, periods_per_year=252),
+                "skew": float(r.skew()),
+                "kurtosis": float(r.kurtosis()),
+                "latest_price": latest,
+            }
+        )
 
     series_data = []
     for idx, row in returns.iterrows():
@@ -184,7 +188,9 @@ def commodity_seasonality(
         for month in pivot.columns:
             val = pivot.loc[year, month]
             if pd.notna(val):
-                heatmap.append({"year": int(year), "month": int(month), "ret": round(float(val), 6)})
+                heatmap.append(
+                    {"year": int(year), "month": int(month), "ret": round(float(val), 6)}
+                )
 
     return {
         "symbol": symbol,

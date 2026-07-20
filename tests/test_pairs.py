@@ -99,6 +99,38 @@ class TestPairsRunner:
         assert "engle_granger" in out["diagnostics"]
         assert out["diagnostics"]["engle_granger"]["adf_pvalue"] < 0.05
 
+    def test_freeze_hedge_in_trade_removes_holding_cost_bleed(self) -> None:
+        """With the hedge frozen at entry, weights are constant while a trade
+        is held, so turnover (and hence cost) is zero on hold days: net must
+        equal gross on every day where the position is unchanged and nonzero.
+        The rolling variant re-hedges beta drift daily and pays for it."""
+        prices = _cointegrated_panel(700)
+        common = dict(
+            symbol_y="AAA",
+            symbol_x="BBB",
+            hedge_window=120,
+            zscore_window=40,
+            entry_z=2.0,
+            exit_z=0.5,
+            transaction_cost=0.001,
+        )
+        rolling = run_pairs_cointegration_backtest(prices, **common)
+        frozen = run_pairs_cointegration_backtest(prices, freeze_hedge_in_trade=True, **common)
+
+        pos = frozen["position"]
+        hold_days = (pos != 0) & (pos == pos.shift()) & pos.shift().notna()
+        assert hold_days.sum() > 10  # the synthetic pair actually holds trades
+        np.testing.assert_allclose(
+            frozen["net_returns"].loc[hold_days],
+            frozen["gross_returns"].loc[hold_days],
+            atol=1e-12,
+        )
+
+        rolling_costs = float((rolling["gross_returns"] - rolling["net_returns"]).sum())
+        frozen_costs = float((frozen["gross_returns"] - frozen["net_returns"]).sum())
+        assert frozen_costs < rolling_costs
+        assert frozen["diagnostics"]["freeze_hedge_in_trade"] is True
+
 
 class TestPairsHoldoutBacktest:
     def test_splits_train_and_held_out_with_no_overlap(self) -> None:

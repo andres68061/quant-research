@@ -28,13 +28,11 @@ from core.data.sector_classification import (
 def main():
     """Add quoteType to existing sector classifications."""
     parser = argparse.ArgumentParser(
-        description='Add quoteType field to sector classifications',
-        epilog='Example: python scripts/add_quote_type.py'
+        description="Add quoteType field to sector classifications",
+        epilog="Example: python scripts/add_quote_type.py",
     )
     parser.add_argument(
-        '--force',
-        action='store_true',
-        help='Force re-fetch all symbols (even if quoteType exists)'
+        "--force", action="store_true", help="Force re-fetch all symbols (even if quoteType exists)"
     )
 
     args = parser.parse_args()
@@ -55,11 +53,11 @@ def main():
     print(f"📋 Current classifications: {len(df)} symbols")
 
     # Check if quoteType column exists
-    if 'quoteType' in df.columns and not args.force:
+    if "quoteType" in df.columns and not args.force:
         print("✅ quoteType column already exists")
 
         # Count how many have Unknown quoteType
-        unknown_count = (df['quoteType'] == 'Unknown').sum()
+        unknown_count = (df["quoteType"] == "Unknown").sum()
 
         if unknown_count == 0:
             print("✅ All symbols have quoteType - no update needed")
@@ -67,15 +65,14 @@ def main():
 
             # Show breakdown
             print("📊 Asset Type Breakdown:")
-            print(df['quoteType'].value_counts())
+            print(df["quoteType"].value_counts())
             return
         else:
             print(f"⚠️  {unknown_count} symbols have Unknown quoteType")
             print("   Will re-fetch these symbols")
 
             # Get symbols with Unknown quoteType
-            symbols_to_update = df[df['quoteType']
-                                   == 'Unknown']['symbol'].tolist()
+            symbols_to_update = df[df["quoteType"] == "Unknown"]["symbol"].tolist()
     else:
         if args.force:
             print("🔄 Force refresh enabled - will re-fetch all symbols")
@@ -83,12 +80,13 @@ def main():
             print("📥 quoteType column not found - will fetch for all symbols")
 
         # Update all symbols
-        symbols_to_update = df['symbol'].tolist()
+        symbols_to_update = df["symbol"].tolist()
 
     print()
     print(f"🚀 Updating {len(symbols_to_update)} symbols...")
-    print("   This will take approximately {:.1f} minutes".format(
-        len(symbols_to_update) * 0.5 / 60))
+    print(
+        "   This will take approximately {:.1f} minutes".format(len(symbols_to_update) * 0.5 / 60)
+    )
     print()
 
     # Re-fetch with quoteType
@@ -100,19 +98,19 @@ def main():
     print("=" * 80)
     print()
 
-    if 'quoteType' in updated_df.columns:
+    if "quoteType" in updated_df.columns:
         print("✅ quoteType column added successfully")
         print()
 
         # Show asset type breakdown
         print("📈 Asset Type Breakdown:")
         print()
-        type_counts = updated_df['quoteType'].value_counts()
+        type_counts = updated_df["quoteType"].value_counts()
 
         for asset_type, count in type_counts.items():
-            pct = (count / len(updated_df) * 100)
+            pct = count / len(updated_df) * 100
             bar_length = int(pct / 2)
-            bar = '█' * bar_length
+            bar = "█" * bar_length
             print(f"   {asset_type:20s} {count:4d} ({pct:5.1f}%) {bar}")
 
         print()
@@ -122,21 +120,18 @@ def main():
         print()
 
         for asset_type in type_counts.index[:5]:  # Top 5 types
-            examples = updated_df[updated_df['quoteType']
-                                  == asset_type]['symbol'].head(5).tolist()
+            examples = updated_df[updated_df["quoteType"] == asset_type]["symbol"].head(5).tolist()
             print(f"   {asset_type:15s}: {', '.join(examples)}")
 
         print()
 
         # Highlight non-EQUITY types
-        non_equity = updated_df[~updated_df['quoteType'].isin(
-            ['EQUITY', 'Unknown'])]
+        non_equity = updated_df[~updated_df["quoteType"].isin(["EQUITY", "Unknown"])]
         if not non_equity.empty:
             print(f"🎯 Found {len(non_equity)} non-stock assets:")
             print()
             for _, row in non_equity.iterrows():
-                print(
-                    f"   {row['symbol']:8s} - {row['quoteType']:15s} - {row['sector']}")
+                print(f"   {row['symbol']:8s} - {row['quoteType']:15s} - {row['sector']}")
 
     else:
         print("⚠️  quoteType column not added - something went wrong")
@@ -153,5 +148,5 @@ def main():
     print()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

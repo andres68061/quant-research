@@ -18,6 +18,7 @@ def test_imports():
 
     try:
         import numpy as np
+
         logger.info("import_ok", extra={"package": "numpy", "version": np.__version__})
     except Exception as e:
         logger.exception("import_fail", extra={"package": "numpy", "error": str(e)})
@@ -25,6 +26,7 @@ def test_imports():
 
     try:
         import pandas as pd
+
         logger.info("import_ok", extra={"package": "pandas", "version": pd.__version__})
     except Exception as e:
         logger.exception("import_fail", extra={"package": "pandas", "error": str(e)})
@@ -32,6 +34,7 @@ def test_imports():
 
     try:
         import scipy
+
         logger.info("import_ok", extra={"package": "scipy", "version": scipy.__version__})
     except Exception as e:
         logger.exception("import_fail", extra={"package": "scipy", "error": str(e)})
@@ -39,13 +42,17 @@ def test_imports():
 
     try:
         import matplotlib.pyplot as plt
-        logger.info("import_ok", extra={"package": "matplotlib", "version": plt.matplotlib.__version__})
+
+        logger.info(
+            "import_ok", extra={"package": "matplotlib", "version": plt.matplotlib.__version__}
+        )
     except Exception as e:
         logger.exception("import_fail", extra={"package": "matplotlib", "error": str(e)})
         return False
 
     try:
         import seaborn as sns
+
         logger.info("import_ok", extra={"package": "seaborn", "version": sns.__version__})
     except Exception as e:
         logger.exception("import_fail", extra={"package": "seaborn", "error": str(e)})
@@ -53,6 +60,7 @@ def test_imports():
 
     try:
         import plotly
+
         logger.info("import_ok", extra={"package": "plotly", "version": plotly.__version__})
     except Exception as e:
         logger.exception("import_fail", extra={"package": "plotly", "error": str(e)})
@@ -60,6 +68,7 @@ def test_imports():
 
     try:
         import yfinance as yf
+
         logger.info("import_ok", extra={"package": "yfinance", "version": yf.__version__})
     except Exception as e:
         logger.exception("import_fail", extra={"package": "yfinance", "error": str(e)})
@@ -73,6 +82,7 @@ def test_imports():
 
     try:
         import talib  # noqa: F401
+
         logger.info("import_ok", extra={"package": "ta-lib"})
     except Exception as e:
         logger.exception("import_fail", extra={"package": "ta-lib", "error": str(e)})
@@ -80,6 +90,7 @@ def test_imports():
 
     try:
         import sklearn
+
         logger.info("import_ok", extra={"package": "scikit-learn", "version": sklearn.__version__})
     except Exception as e:
         logger.exception("import_fail", extra={"package": "scikit-learn", "error": str(e)})
@@ -87,13 +98,17 @@ def test_imports():
 
     try:
         import statsmodels
-        logger.info("import_ok", extra={"package": "statsmodels", "version": statsmodels.__version__})
+
+        logger.info(
+            "import_ok", extra={"package": "statsmodels", "version": statsmodels.__version__}
+        )
     except Exception as e:
         logger.exception("import_fail", extra={"package": "statsmodels", "error": str(e)})
         return False
 
     try:
         import jupyter  # noqa: F401
+
         logger.info("import_ok", extra={"package": "jupyter"})
     except Exception as e:
         logger.exception("import_fail", extra={"package": "jupyter", "error": str(e)})
@@ -101,6 +116,7 @@ def test_imports():
 
     try:
         import ipykernel
+
         logger.info("import_ok", extra={"package": "ipykernel", "version": ipykernel.__version__})
     except Exception as e:
         logger.exception("import_fail", extra={"package": "ipykernel", "error": str(e)})
@@ -108,6 +124,7 @@ def test_imports():
 
     try:
         import requests
+
         logger.info("import_ok", extra={"package": "requests", "version": requests.__version__})
     except Exception as e:
         logger.exception("import_fail", extra={"package": "requests", "error": str(e)})
@@ -115,6 +132,7 @@ def test_imports():
 
     try:
         import tqdm
+
         logger.info("import_ok", extra={"package": "tqdm", "version": tqdm.__version__})
     except Exception as e:
         logger.exception("import_fail", extra={"package": "tqdm", "error": str(e)})
@@ -133,13 +151,15 @@ def test_basic_functionality():
         import pandas as pd
 
         arr = np.array([1, 2, 3, 4, 5])
-        df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})
+        df = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]})
         plt.figure(figsize=(6, 4))
         plt.plot([1, 2, 3, 4], [1, 4, 2, 3])
-        plt.title('Test Plot')
+        plt.title("Test Plot")
         plt.close()
 
-        logger.info("basic_functionality_ok", extra={"numpy_array": arr.tolist(), "df_rows": int(len(df))})
+        logger.info(
+            "basic_functionality_ok", extra={"numpy_array": arr.tolist(), "df_rows": int(len(df))}
+        )
         return True
     except Exception as e:
         logger.exception("basic_functionality_fail", extra={"error": str(e)})

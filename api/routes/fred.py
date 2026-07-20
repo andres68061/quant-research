@@ -16,8 +16,7 @@ router = APIRouter(prefix="/fred", tags=["fred"])
 def catalog() -> dict:
     """Return the indicator catalog grouped by category."""
     categories = [
-        {"category": cat, "indicators": indicators}
-        for cat, indicators in INDICATOR_CATALOG.items()
+        {"category": cat, "indicators": indicators} for cat, indicators in INDICATOR_CATALOG.items()
     ]
     return {"categories": categories}
 

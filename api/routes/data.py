@@ -1,6 +1,6 @@
 """Data discovery endpoints: assets, factors, prices."""
 
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
@@ -58,8 +58,5 @@ def get_price_series(
     return {
         "symbol": symbol,
         "count": len(series),
-        "data": [
-            {"date": str(d.date()), "price": float(v)}
-            for d, v in series.items()
-        ],
+        "data": [{"date": str(d.date()), "price": float(v)} for d, v in series.items()],
     }

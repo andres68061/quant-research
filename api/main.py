@@ -29,6 +29,7 @@ from api.routes import (
     momentum,
     pairs,
     pairs_index,
+    pairs_persistent,
     portfolio,
     replay,
     sectors,
@@ -80,6 +81,7 @@ app.include_router(fama_french.router)
 app.include_router(strategy.router)
 app.include_router(pairs.router)
 app.include_router(pairs_index.router)
+app.include_router(pairs_persistent.router)
 app.include_router(strategies.router)
 app.include_router(metrics.router)
 app.include_router(walkforward.router)

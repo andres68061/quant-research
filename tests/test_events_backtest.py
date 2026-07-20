@@ -77,9 +77,7 @@ class TestSimulator:
         b = 100 * np.exp(rng.normal(0, 0.01, len(idx)).cumsum())
         return pd.DataFrame({"AAA": a, "BBB": b}, index=idx)
 
-    def test_matches_manual_equal_weight(
-        self, price_panel: pd.DataFrame
-    ) -> None:
+    def test_matches_manual_equal_weight(self, price_panel: pd.DataFrame) -> None:
         """Portfolio return equals manual 0.5 * r_a + 0.5 * r_b after rebalance."""
         ev = Event(
             ts=_utc_ts("2024-01-01"),
@@ -98,21 +96,15 @@ class TestSimulator:
             atol=1e-12,
         )
 
-    def test_no_future_warning_legacy_freq_portfolio(
-        self, price_panel: pd.DataFrame
-    ) -> None:
+    def test_no_future_warning_legacy_freq_portfolio(self, price_panel: pd.DataFrame) -> None:
         """Cross-check: factor pipeline with ME avoids resample FutureWarning."""
         # Build trivial long-only factor panel MultiIndex
         records = []
         for dt in price_panel.index:
             for sym in price_panel.columns:
                 records.append({"date": dt, "symbol": sym, "f": 1.0})
-        factors = (
-            pd.DataFrame(records).set_index(["date", "symbol"]).sort_index()
-        )
-        signals = create_signals_from_factor(
-            factors, "f", long_only=True, min_stocks=1
-        )
+        factors = pd.DataFrame(records).set_index(["date", "symbol"]).sort_index()
+        signals = create_signals_from_factor(factors, "f", long_only=True, min_stocks=1)
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             calculate_portfolio_returns(

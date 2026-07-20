@@ -16,6 +16,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/ml-alpha", label: "ML Direction" },
       { to: "/pairs", label: "Pairs" },
       { to: "/pairs-index", label: "Pairs Index" },
+      { to: "/pairs-persistent", label: "Pairs Persistence" },
       { to: "/momentum", label: "Momentum Grid" },
       { to: "/portfolio", label: "Portfolio" },
     ],

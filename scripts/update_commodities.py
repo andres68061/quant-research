@@ -17,13 +17,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from core.data.commodities import CommodityDataFetcher, COMMODITIES_CONFIG
+from core.data.commodities import COMMODITIES_CONFIG, CommodityDataFetcher
 
 
 def main(symbols=None):
     """
     Update commodities data incrementally.
-    
+
     Args:
         symbols: List of commodity symbols to update. If None, updates all.
     """
@@ -33,7 +33,7 @@ def main(symbols=None):
     print()
 
     fetcher = CommodityDataFetcher()
-    
+
     if not fetcher.prices_file.exists():
         print("✗ No existing data found!")
         print()
@@ -41,13 +41,13 @@ def main(symbols=None):
         print("  python scripts/fetch_commodities.py")
         print()
         sys.exit(1)
-    
+
     # Load existing data to show current state
     existing_df = fetcher.load_prices()
     print(f"Current data: {len(existing_df)} rows, {len(existing_df.columns)} commodities")
     print(f"Last date: {existing_df.index[-1].date()}")
     print()
-    
+
     # Determine which symbols to update
     if symbols is None:
         symbols_to_update = list(COMMODITIES_CONFIG.keys())
@@ -55,18 +55,18 @@ def main(symbols=None):
     else:
         symbols_to_update = symbols
         print(f"Updating {len(symbols_to_update)} commodities: {', '.join(symbols_to_update)}")
-    
+
     print("-" * 70)
-    
+
     # Update each commodity
     updated_df = existing_df.copy()
     update_count = 0
-    
+
     for symbol in symbols_to_update:
         if symbol not in COMMODITIES_CONFIG:
             print(f"⚠️  Unknown commodity: {symbol}")
             continue
-        
+
         # Get last date for this commodity (None if new)
         last_date = None
         if symbol in updated_df.columns:
@@ -75,28 +75,28 @@ def main(symbols=None):
                 print(f"\n{symbol}: Last date = {last_date.date()}")
         else:
             print(f"\n{symbol}: New commodity (full fetch)")
-        
+
         # Update
         updated_df = fetcher.update_commodity(symbol, existing_df=updated_df)
-        
+
         # Check if we got new data
         if symbol in updated_df.columns:
             new_last_date = updated_df[symbol].last_valid_index()
             if last_date is None or (new_last_date and new_last_date > last_date):
                 update_count += 1
-    
+
     print()
     print("-" * 70)
-    
+
     if update_count > 0:
         print(f"✓ Updated {update_count} commodities")
         print(f"  New data range: {updated_df.index[0].date()} to {updated_df.index[-1].date()}")
         print(f"  Total rows: {len(updated_df):,}")
         print()
-        
+
         # Save updated data
         fetcher.save_prices(updated_df)
-        
+
         print()
         print("=" * 70)
         print("✓ DONE - Commodities data updated")
@@ -110,12 +110,10 @@ def main(symbols=None):
 
 
 if __name__ == "__main__":
-    import pandas as pd
-    
+
     # Check if specific symbols were provided as arguments
     if len(sys.argv) > 1:
         symbols = sys.argv[1:]
         main(symbols=symbols)
     else:
         main()
-

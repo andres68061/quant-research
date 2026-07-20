@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from core.data.commodities import CommodityDataFetcher, COMMODITIES_CONFIG
+from core.data.commodities import COMMODITIES_CONFIG, CommodityDataFetcher
 
 
 def main():
@@ -27,17 +27,17 @@ def main():
     print()
 
     fetcher = CommodityDataFetcher()
-    
+
     print(f"Data directory: {fetcher.data_dir}")
     print(f"Output file: {fetcher.prices_file}")
     print()
-    
+
     print(f"Fetching {len(COMMODITIES_CONFIG)} commodities...")
     print("-" * 70)
-    
+
     # Fetch all data
     df = fetcher.fetch_all_commodities()
-    
+
     if df.empty:
         print()
         print("✗ No data fetched. Please check:")
@@ -45,14 +45,14 @@ def main():
         print("  2. FMP_API_KEY in .env")
         print("  3. FMP Premium coverage for the mapped futures symbols")
         sys.exit(1)
-    
+
     print()
     print("-" * 70)
     print(f"✓ Successfully fetched {len(df.columns)} commodities")
     print(f"  Date range: {df.index[0].date()} to {df.index[-1].date()}")
     print(f"  Total rows: {len(df):,}")
     print()
-    
+
     # Display summary
     print("Summary by commodity:")
     print("-" * 70)
@@ -61,17 +61,21 @@ def main():
         first_date = df[col].first_valid_index()
         last_date = df[col].last_valid_index()
         latest_price = df[col].iloc[-1] if pd.notna(df[col].iloc[-1]) else None
-        
+
         if first_date and last_date:
-            print(f"  {col:15s}: {non_null:5,} days  "
-                  f"({first_date.date()} to {last_date.date()})  "
-                  f"Latest: ${latest_price:.2f}" if latest_price else "N/A")
-    
+            print(
+                f"  {col:15s}: {non_null:5,} days  "
+                f"({first_date.date()} to {last_date.date()})  "
+                f"Latest: ${latest_price:.2f}"
+                if latest_price
+                else "N/A"
+            )
+
     print()
-    
+
     # Save to parquet
     fetcher.save_prices(df)
-    
+
     print()
     print("=" * 70)
     print("✓ DONE - Commodities data initialized")
@@ -86,5 +90,5 @@ def main():
 
 if __name__ == "__main__":
     import pandas as pd
-    main()
 
+    main()

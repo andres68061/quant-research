@@ -1,14 +1,17 @@
 [tool.black]
 line-length = 100
 target-version = ["py311"]
+extend-exclude = "_archive|notebooks"
 
 [tool.isort]
 profile = "black"
 line_length = 100
+skip_glob = ["_archive/*", "notebooks/*"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-exclude = ["_archive", "notebooks"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"]
@@ -18,6 +21,11 @@ ignore = [
   "B006",  # mutable default args (relax for now)
   "F541",  # f-string without placeholders
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI's `param: int = Query(...)` pattern is a function call in a
+# default argument by design.
+"api/**" = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

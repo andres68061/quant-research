@@ -223,6 +223,40 @@ class TestRunPairsPersistentIndex:
         assert not any(s.startswith("TIGHT") for s in selected_flat)
         assert any(s.startswith("OSC") for s in selected_flat)
 
+    def test_rescreen_cadence_decoupled_from_lookback(self) -> None:
+        """rescreen_months < formation_months must produce more screening
+        rounds over the same span, each still looking back the full
+        formation_months window."""
+        osc = _oscillating_pair(n=700, seed=12, period_days=60)
+        sectors = _sectors_for(list(osc.columns))
+        common = dict(
+            sector_names=["Test Sector"],
+            start=osc.index[0],
+            end=osc.index[-1],
+            formation_months=6,
+            top_n_pairs=5,
+            min_corr=0.3,
+            max_adf_pvalue=0.10,
+            min_crossings=3,
+            hedge_window=60,
+            zscore_window=20,
+            transaction_cost=0.0,
+            monitor_window=120,
+            check_every_days=21,
+            persistence_checks=2,
+            min_formation_obs=100,
+        )
+
+        coupled = run_pairs_persistent_index(osc, sectors, **common)
+        decoupled = run_pairs_persistent_index(osc, sectors, rescreen_months=3, **common)
+
+        assert len(decoupled["formations"]) > len(coupled["formations"])
+        for f in decoupled["formations"]:
+            window_days = (
+                pd.Timestamp(f["formation_end"]) - pd.Timestamp(f["formation_start"])
+            ).days
+            assert 170 <= window_days <= 190  # always the full 6-month lookback
+
     def test_rejects_bad_params(self) -> None:
         tight = _tight_pair(n=200)
         sectors = _sectors_for(list(tight.columns))
@@ -234,6 +268,16 @@ class TestRunPairsPersistentIndex:
                 start=tight.index[0],
                 end=tight.index[-1],
                 formation_months=1,
+            )
+        with pytest.raises(ValueError):
+            run_pairs_persistent_index(
+                tight,
+                sectors,
+                sector_names=["Test Sector"],
+                start=tight.index[0],
+                end=tight.index[-1],
+                formation_months=6,
+                rescreen_months=0,
             )
         with pytest.raises(ValueError):
             run_pairs_persistent_index(

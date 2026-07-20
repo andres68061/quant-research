@@ -36,7 +36,7 @@ class StockDataFetcher:
         period: str = "1y",
         interval: str = "1d",
         start_date: Optional[str] = None,
-        end_date: Optional[str] = None
+        end_date: Optional[str] = None,
     ) -> Optional[pd.DataFrame]:
         """
         Fetch stock data for a given symbol.
@@ -66,8 +66,7 @@ class StockDataFetcher:
             ticker = yf.Ticker(symbol)
 
             if start_date and end_date:
-                data = ticker.history(
-                    start=start_date, end=end_date, interval=interval)
+                data = ticker.history(start=start_date, end=end_date, interval=interval)
             else:
                 data = ticker.history(period=period, interval=interval)
 
@@ -78,8 +77,7 @@ class StockDataFetcher:
             # Cache the data
             self.cache[cache_key] = data
 
-            logger.info(
-                f"Successfully fetched {len(data)} data points for {symbol}")
+            logger.info(f"Successfully fetched {len(data)} data points for {symbol}")
             return data
 
         except Exception as e:
@@ -106,26 +104,23 @@ class StockDataFetcher:
 
         # Use Adjusted Close for returns (accounts for dividends and splits)
         # Fallback to Close if Adj Close not available
-        price_col = 'Adj Close' if 'Adj Close' in result.columns else 'Close'
+        price_col = "Adj Close" if "Adj Close" in result.columns else "Close"
 
         # Calculate daily returns
-        result['Daily_Return'] = result[price_col].pct_change(fill_method=None)
+        result["Daily_Return"] = result[price_col].pct_change(fill_method=None)
 
         # Calculate cumulative returns
-        result['Cumulative_Return'] = (
-            1 + result['Daily_Return']).cumprod() - 1
+        result["Cumulative_Return"] = (1 + result["Daily_Return"]).cumprod() - 1
 
         # Calculate log returns
-        result['Log_Return'] = np.log(
-            result[price_col] / result[price_col].shift(1))
+        result["Log_Return"] = np.log(result[price_col] / result[price_col].shift(1))
 
         # Calculate volatility (rolling 30-day)
-        result['Volatility_30d'] = result['Daily_Return'].rolling(
-            window=30).std() * np.sqrt(252)
+        result["Volatility_30d"] = result["Daily_Return"].rolling(window=30).std() * np.sqrt(252)
 
         # Calculate moving averages
-        result['MA_20'] = result[price_col].rolling(window=20).mean()
-        result['MA_50'] = result[price_col].rolling(window=50).mean()
+        result["MA_20"] = result[price_col].rolling(window=20).mean()
+        result["MA_50"] = result[price_col].rolling(window=50).mean()
 
         return result
 
@@ -146,45 +141,45 @@ class StockDataFetcher:
 
         # Use Adjusted Close for statistics (accounts for dividends and splits)
         # Fallback to Close if Adj Close not available
-        price_col = 'Adj Close' if 'Adj Close' in data.columns else 'Close'
+        price_col = "Adj Close" if "Adj Close" in data.columns else "Close"
 
         stats = {}
 
         # Price statistics
-        stats['current_price'] = data[price_col].iloc[-1]
-        stats['highest_price'] = data['High'].max(
-        ) if 'High' in data.columns else data[price_col].max()
-        stats['lowest_price'] = data['Low'].min(
-        ) if 'Low' in data.columns else data[price_col].min()
-        stats['price_range'] = stats['highest_price'] - stats['lowest_price']
+        stats["current_price"] = data[price_col].iloc[-1]
+        stats["highest_price"] = (
+            data["High"].max() if "High" in data.columns else data[price_col].max()
+        )
+        stats["lowest_price"] = (
+            data["Low"].min() if "Low" in data.columns else data[price_col].min()
+        )
+        stats["price_range"] = stats["highest_price"] - stats["lowest_price"]
 
         # Return statistics
-        if 'Daily_Return' in data.columns:
-            returns = data['Daily_Return'].dropna()
-            stats['mean_daily_return'] = returns.mean()
-            stats['std_daily_return'] = returns.std()
-            stats['annualized_volatility'] = returns.std() * np.sqrt(252)
-            stats['sharpe_ratio'] = (
-                returns.mean() / returns.std()) * np.sqrt(252) if returns.std() > 0 else 0
-            stats['total_return'] = (
-                data[price_col].iloc[-1] / data[price_col].iloc[0] - 1) * 100
+        if "Daily_Return" in data.columns:
+            returns = data["Daily_Return"].dropna()
+            stats["mean_daily_return"] = returns.mean()
+            stats["std_daily_return"] = returns.std()
+            stats["annualized_volatility"] = returns.std() * np.sqrt(252)
+            stats["sharpe_ratio"] = (
+                (returns.mean() / returns.std()) * np.sqrt(252) if returns.std() > 0 else 0
+            )
+            stats["total_return"] = (data[price_col].iloc[-1] / data[price_col].iloc[0] - 1) * 100
 
         # Volume statistics
-        if 'Volume' in data.columns:
-            stats['avg_volume'] = data['Volume'].mean()
-            stats['max_volume'] = data['Volume'].max()
-            stats['min_volume'] = data['Volume'].min()
+        if "Volume" in data.columns:
+            stats["avg_volume"] = data["Volume"].mean()
+            stats["max_volume"] = data["Volume"].max()
+            stats["min_volume"] = data["Volume"].min()
         else:
-            stats['avg_volume'] = 0
-            stats['max_volume'] = 0
-            stats['min_volume'] = 0
+            stats["avg_volume"] = 0
+            stats["max_volume"] = 0
+            stats["min_volume"] = 0
 
         return stats
 
     def fetch_multiple_stocks(
-        self,
-        symbols: List[str],
-        period: str = "1y"
+        self, symbols: List[str], period: str = "1y"
     ) -> Dict[str, pd.DataFrame]:
         """
         Fetch data for multiple stocks simultaneously.
@@ -225,7 +220,9 @@ def fetch_stock_data(symbol: str, period: str = "1y") -> Optional[pd.DataFrame]:
     return fetcher.fetch_stock_data(symbol, period=period)
 
 
-def get_stock_analysis(symbol: str, period: str = "1y") -> Dict[str, Union[pd.DataFrame, Dict[str, float]]]:
+def get_stock_analysis(
+    symbol: str, period: str = "1y"
+) -> Dict[str, Union[pd.DataFrame, Dict[str, float]]]:
     """
     Get comprehensive stock analysis including data and statistics.
 
@@ -241,7 +238,7 @@ def get_stock_analysis(symbol: str, period: str = "1y") -> Dict[str, Union[pd.Da
     # Fetch data
     data = fetcher.fetch_stock_data(symbol, period=period)
     if data is None:
-        return {'data': pd.DataFrame(), 'statistics': {}}
+        return {"data": pd.DataFrame(), "statistics": {}}
 
     # Calculate returns
     data_with_returns = fetcher.calculate_returns(data)
@@ -249,10 +246,7 @@ def get_stock_analysis(symbol: str, period: str = "1y") -> Dict[str, Union[pd.Da
     # Get statistics
     stats = fetcher.get_basic_statistics(data_with_returns)
 
-    return {
-        'data': data_with_returns,
-        'statistics': stats
-    }
+    return {"data": data_with_returns, "statistics": stats}
 
 
 if __name__ == "__main__":
@@ -263,7 +257,7 @@ if __name__ == "__main__":
     fetcher = StockDataFetcher()
 
     # Fetch data for Apple
-    apple_data = fetcher.fetch_stock_data('AAPL', period='6mo')
+    apple_data = fetcher.fetch_stock_data("AAPL", period="6mo")
 
     if apple_data is not None:
         # Calculate returns

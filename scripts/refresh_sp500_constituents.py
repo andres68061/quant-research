@@ -92,7 +92,9 @@ def main() -> None:
                 PROMOTE_JACCARD,
             )
             sys.exit(1)
-        out_name = f"S&P 500 Historical Components & Changes({date.today().strftime('%m-%d-%Y')}).csv"
+        out_name = (
+            f"S&P 500 Historical Components & Changes({date.today().strftime('%m-%d-%Y')}).csv"
+        )
         out_path = ROOT / "data" / out_name
         snapshots_to_csv_frame(snapshots).to_csv(out_path, index=False)
         logger.info("Promoted FMP membership to %s", out_path)

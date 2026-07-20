@@ -522,6 +522,53 @@ STRATEGIES: dict[str, StrategyMetadata] = {
             "Same borrow-cost and structural-break caveats as `pairs_cointegration`.",
         ),
     ),
+    "pairs_persistent_index": StrategyMetadata(
+        id="pairs_persistent_index",
+        title="Pairs persistence index (trade until cointegration breaks)",
+        description=(
+            "Event-driven pairs basket: candidates must be Engle-Granger "
+            "cointegrated AND have normalized price paths that cross repeatedly "
+            "with real amplitude over the formation lookback (not just track "
+            "tightly). Each selected pair trades until a rolling cointegration "
+            "monitor fails `persistence_checks` consecutive checks; screening "
+            "re-fills free slots every `rescreen_months`."
+        ),
+        kind=StrategyKind.PAIRS_INDEX,
+        post_path="/run-pairs-persistent-backtest",
+        hypothesis=(
+            "A pair worth trading must deviate and revert (visible path "
+            "crossings), not merely track tightly — tight tracking is the "
+            "GOOGL/GOOG failure mode where costs exceed the whole gross edge. "
+            "And a broken relationship should be exited when the data says it "
+            "broke, not on a fixed calendar schedule."
+        ),
+        reference=(
+            "Engle & Granger (1987); Gatev, Goetzmann & Rouwenhorst (2006); "
+            "Bailey & López de Prado (2014) 'The Deflated Sharpe Ratio' for the "
+            "multiple-testing evaluation applied to this strategy's own results."
+        ),
+        expected_sharpe_range=(-1.0, 0.6),
+        known_limitations=(
+            "NOT VALIDATED as a live edge. A one-off 2012-2026 run at "
+            "formation_months=60 initially showed Sharpe +0.74, but the result "
+            "failed to reproduce (-0.29 on re-run of the documented config) and "
+            "start-date shifts of +/-6-12 months swing Sharpe from +0.54 to "
+            "-0.97: with a 60-month screening cadence the whole outcome hinges "
+            "on 2-3 calendar-lucky screening snapshots. See "
+            "docs/FAILED_STRATEGIES_LOG.md for the full numbers.",
+            "Deflated Sharpe Ratio over the full family of pairs-basket "
+            "attempts in this repo (8+ configurations) puts the expected max "
+            "Sharpe under pure selection luck at ~0.6 annualized — any "
+            "single-window result below that level is indistinguishable from "
+            "multiple-testing noise.",
+            "The rolling 252-day cointegration monitor is much shorter than a "
+            "60-month formation window: a pair can pass formation yet fail the "
+            "monitor immediately (several pairs stop at the earliest possible "
+            "checkpoint), and conversely the monitor is structurally late "
+            "recognizing an improving relationship (see XOM/CVX 2023 case).",
+            "Same borrow-cost and structural-break caveats as " "`pairs_cointegration`.",
+        ),
+    ),
 }
 
 

@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 
 from api.dependencies import get_dollar_adv, get_factors, get_prices
 from api.schemas.metrics import EquityCurvePoint, PerformanceMetrics
-from api.schemas.strategy import BacktestRequest, MLStrategyRequest
+from api.schemas.strategy import BacktestRequest, InvestedCoverage, MLStrategyRequest
 from api.schemas.walkforward import ConfusionMatrixResult, FoldResult, WalkForwardResult
 from core.backtest.portfolio import sp500_universe_filter
 from core.metrics.diagnostics import build_backtest_diagnostics
@@ -16,7 +16,7 @@ from core.metrics.performance import (
     calculate_cumulative_returns,
     calculate_performance_metrics,
 )
-from core.strategies import run_factor_cross_section_backtest
+from core.strategies import run_factor_cross_section_backtest_detail
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ def run_backtest(req: BacktestRequest) -> dict:
 
     uf = sp500_universe_filter() if req.survivorship_free else None
 
-    net_returns = run_factor_cross_section_backtest(
+    detail = run_factor_cross_section_backtest_detail(
         factors,
         prices,
         factor_col=factor_col,
@@ -64,6 +64,7 @@ def run_backtest(req: BacktestRequest) -> dict:
         signal_lag_days=req.signal_lag_days,
         dollar_adv=get_dollar_adv(),
     )
+    net_returns = detail["net_return"]
     _last_backtest_returns = net_returns
 
     metrics = calculate_performance_metrics(net_returns)
@@ -78,9 +79,10 @@ def run_backtest(req: BacktestRequest) -> dict:
 
     return {
         "metrics": PerformanceMetrics(**metrics).model_dump(),
-        "equity_curve": [e.model_dump() for e in equity[-500:]],
+        "equity_curve": [e.model_dump() for e in equity],
         "total_days": len(net_returns),
         "diagnostics": build_backtest_diagnostics(net_returns),
+        "coverage": InvestedCoverage(**detail["coverage"]).model_dump(),
     }
 
 
@@ -122,6 +124,8 @@ def run_ml_strategy(req: MLStrategyRequest) -> dict:
             test_days=req.test_days,
             max_splits=req.max_splits,
             verbose=False,
+            label_horizon_days=req.label_horizon_days,
+            embargo_days=req.embargo_days,
         )
 
         if "error" in wf_results:
@@ -206,4 +210,6 @@ def run_ml_strategy(req: MLStrategyRequest) -> dict:
         }
 
     except ImportError as exc:
-        raise HTTPException(status_code=501, detail=f"ML dependencies not installed: {exc}") from exc
+        raise HTTPException(
+            status_code=501, detail=f"ML dependencies not installed: {exc}"
+        ) from exc

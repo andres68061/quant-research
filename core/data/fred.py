@@ -38,8 +38,9 @@ INDICATOR_CATALOG: Dict[str, List[Dict[str, str]]] = {
 
 def _get_fred():
     """Lazy-load the Fred client."""
-    from config.settings import FRED_API_KEY
     from fredapi import Fred
+
+    from config.settings import FRED_API_KEY
 
     if not FRED_API_KEY:
         raise RuntimeError("FRED_API_KEY not configured")
@@ -117,15 +118,19 @@ def get_recession_periods(
         elif val == 0 and in_recession:
             in_recession = False
             if rec_start is not None:
-                periods.append({
-                    "start": str(rec_start.date()),
-                    "end": str(date.date()),
-                })
+                periods.append(
+                    {
+                        "start": str(rec_start.date()),
+                        "end": str(date.date()),
+                    }
+                )
 
     if in_recession and rec_start is not None:
-        periods.append({
-            "start": str(rec_start.date()),
-            "end": str(rec.index[-1].date()),
-        })
+        periods.append(
+            {
+                "start": str(rec_start.date()),
+                "end": str(rec.index[-1].date()),
+            }
+        )
 
     return periods

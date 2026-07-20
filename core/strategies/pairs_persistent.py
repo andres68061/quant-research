@@ -107,6 +107,7 @@ def run_pair_until_broken(
     check_every_days: int = 21,
     max_pvalue: float = 0.10,
     persistence_checks: int = 4,
+    freeze_hedge_in_trade: bool = False,
 ) -> dict[str, Any]:
     """
     Trade ``[start, max_end]``, but stop the first time a rolling
@@ -146,6 +147,7 @@ def run_pair_until_broken(
         exit_z=exit_z,
         transaction_cost=transaction_cost,
         signal_lag_days=signal_lag_days,
+        freeze_hedge_in_trade=freeze_hedge_in_trade,
     )
     for key in ("net_returns", "gross_returns", "spread_z", "position", "hedge_ratio"):
         out[key] = out[key].loc[out[key].index >= start]
@@ -191,6 +193,7 @@ def run_pairs_persistent_index(
     end: pd.Timestamp,
     dollar_adv: Optional[pd.DataFrame] = None,
     formation_months: int = 12,
+    rescreen_months: Optional[int] = None,
     top_n_pairs: int = 10,
     max_symbols_per_sector: int = 12,
     min_corr: float = 0.5,
@@ -207,32 +210,45 @@ def run_pairs_persistent_index(
     max_pvalue: float = 0.10,
     persistence_checks: int = 4,
     min_formation_obs: int = 120,
+    freeze_hedge_in_trade: bool = False,
 ) -> dict[str, Any]:
     """
     Rolling formation that only tops up *free* slots, each pair trading
     until its own cointegration breaks (event-driven), not a synchronized
     calendar window.
 
-    Every ``formation_months``, count currently-active pairs (selected
-    previously and not yet stopped as of this formation date); if fewer
-    than ``top_n_pairs`` are active, screen for new crossing+cointegrated
-    candidates (excluding any pair ever selected before, win or lose) and
-    fill the free slots with the most significant ones. Each newly
-    selected pair then trades via ``run_pair_until_broken`` from this
-    formation date all the way to ``end`` (its own persistence check
-    decides when it actually stops, independent of the next formation
-    round). The index return each day is the equal-weight average of
-    whichever pairs are still active that day.
+    Screening happens every ``rescreen_months`` (defaults to
+    ``formation_months`` for backward compatibility), each time looking
+    back over the trailing ``formation_months`` window. Decoupling the two
+    matters: with a long lookback (e.g. 60 months) and no decoupling, the
+    basket is only replenished twice a decade — once every pair from a
+    screening round has stopped, the index sits flat for years, and the
+    whole result hinges on a couple of calendar-lucky screening snapshots.
+    An annual re-screen (``rescreen_months=12``) with the same long
+    lookback replenishes dead slots on the platform's standard evaluation
+    cadence instead.
+
+    At each screen date: count currently-active pairs (selected previously
+    and not yet stopped); if fewer than ``top_n_pairs`` are active, screen
+    for new crossing+cointegrated candidates (excluding any pair ever
+    selected before, win or lose) and fill the free slots with the most
+    significant ones. Each newly selected pair then trades via
+    ``run_pair_until_broken`` from the screen date all the way to ``end``
+    (its own persistence check decides when it actually stops, independent
+    of later screening rounds). The index return each day is the
+    equal-weight average of whichever pairs are still active that day.
 
     Returns:
         Dict with ``net_returns`` (the blended index), ``formations`` (one
-        entry per formation round: date, free slots, candidates found,
+        entry per screening round: date, free slots, candidates found,
         newly selected pairs with their formation stats), and
         ``pair_history`` (one entry per pair ever selected: formation
         date, trading start/stop dates, own Sharpe).
     """
     if formation_months < 3:
         raise ValueError("formation_months must be >= 3")
+    if rescreen_months is not None and rescreen_months < 1:
+        raise ValueError("rescreen_months must be >= 1")
     if top_n_pairs < 1:
         raise ValueError("top_n_pairs must be >= 1")
     if start >= end:
@@ -242,6 +258,7 @@ def run_pairs_persistent_index(
             f"formation_months={formation_months} is too short for "
             f"min_formation_obs={min_formation_obs}"
         )
+    cadence_months = rescreen_months if rescreen_months is not None else formation_months
 
     panel = prices.sort_index()
     universe_by_sector = {
@@ -260,17 +277,15 @@ def run_pairs_persistent_index(
     formations: list[dict[str, Any]] = []
     pair_returns: dict[str, pd.Series] = {}
 
-    formation_start = start
-    while formation_start < end:
-        formation_end = min(formation_start + pd.DateOffset(months=formation_months), end)
-        if formation_end <= formation_start:
-            break
+    screen_date = start + pd.DateOffset(months=formation_months)
+    while screen_date < end:
+        formation_window_start = screen_date - pd.DateOffset(months=formation_months)
 
         active_count = sum(
             1
             for h in pair_history
-            if h["trading_start"] < formation_end
-            and (h["stop_date"] is None or h["stop_date"] > formation_end)
+            if h["trading_start"] < screen_date
+            and (h["stop_date"] is None or h["stop_date"] > screen_date)
         )
         free_slots = max(0, top_n_pairs - active_count)
 
@@ -280,7 +295,7 @@ def run_pairs_persistent_index(
                 if len(syms) < 2:
                     continue
                 fp = panel.loc[
-                    (panel.index >= formation_start) & (panel.index < formation_end), syms
+                    (panel.index >= formation_window_start) & (panel.index < screen_date), syms
                 ]
                 fp = fp.dropna(how="all")
                 if len(fp) < min_formation_obs:
@@ -315,7 +330,7 @@ def run_pairs_persistent_index(
                     panel,
                     symbol_y=y,
                     symbol_x=x,
-                    start=formation_end,
+                    start=screen_date,
                     max_end=end,
                     hedge_window=hedge_window,
                     zscore_window=zscore_window,
@@ -327,6 +342,7 @@ def run_pairs_persistent_index(
                     check_every_days=check_every_days,
                     max_pvalue=max_pvalue,
                     persistence_checks=persistence_checks,
+                    freeze_hedge_in_trade=freeze_hedge_in_trade,
                 )
             except (ValueError, KeyError) as exc:
                 logger.info("Persistent index skip %s/%s: %s", y, x, exc)
@@ -334,7 +350,7 @@ def run_pairs_persistent_index(
             net = out["net_returns"]
             if len(net) < 10:
                 continue
-            pair_returns[f"{y}/{x}@{formation_end.date()}"] = net
+            pair_returns[f"{y}/{x}@{screen_date.date()}"] = net
             pair_history.append(
                 {
                     "symbol_y": y,
@@ -342,7 +358,7 @@ def run_pairs_persistent_index(
                     "sector": c["sector"],
                     "formation_adf_pvalue": c["adf_pvalue"],
                     "formation_crossings": c["crossings"],
-                    "trading_start": formation_end,
+                    "trading_start": screen_date,
                     "stop_date": out["stop_date"],
                     "stopped_early": out["stopped_early"],
                     "n_days": len(net),
@@ -351,8 +367,8 @@ def run_pairs_persistent_index(
 
         formations.append(
             {
-                "formation_start": str(pd.Timestamp(formation_start).date()),
-                "formation_end": str(pd.Timestamp(formation_end).date()),
+                "formation_start": str(pd.Timestamp(formation_window_start).date()),
+                "formation_end": str(pd.Timestamp(screen_date).date()),
                 "active_before": active_count,
                 "free_slots": free_slots,
                 "n_candidates_found": len(candidates),
@@ -360,7 +376,7 @@ def run_pairs_persistent_index(
             }
         )
 
-        formation_start = formation_start + pd.DateOffset(months=formation_months)
+        screen_date = screen_date + pd.DateOffset(months=cadence_months)
 
     if pair_returns:
         combined = pd.DataFrame(pair_returns)

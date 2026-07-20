@@ -63,7 +63,9 @@ def main() -> None:
         write_parquet(factors_price, FACTORS_PRICE_PATH)
         factors_all = merge_market_cap(factors_price, MCAP_PATH)
         write_parquet(factors_all, FACTORS_ALL_PATH)
-        logger.info("Rebuilt factors_price %s and factors_all %s", factors_price.shape, factors_all.shape)
+        logger.info(
+            "Rebuilt factors_price %s and factors_all %s", factors_price.shape, factors_all.shape
+        )
 
 
 if __name__ == "__main__":

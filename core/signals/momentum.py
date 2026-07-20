@@ -17,10 +17,17 @@ from core.backtest.portfolio import calculate_rolling_metrics
 
 logger = logging.getLogger(__name__)
 
+# The (X, K) grid searched by analyze_momentum_grid_search. The size of this
+# grid is the trial count for any multiple-testing correction applied to a
+# cell selected from it — a cell chosen because it looked best among
+# GRID_N_TRIALS candidates must be judged against the best of GRID_N_TRIALS
+# null draws, not against a single draw.
+GRID_LOOKBACK_WINDOWS = [5, 10, 15, 20, 30, 45, 60, 90]
+GRID_FORECAST_HORIZONS = [5, 10, 15, 20, 30]
+GRID_N_TRIALS = len(GRID_LOOKBACK_WINDOWS) * len(GRID_FORECAST_HORIZONS)
 
-def calculate_sortino_slopes(
-    rolling_sortino: pd.Series, x_days: int
-) -> pd.Series:
+
+def calculate_sortino_slopes(rolling_sortino: pd.Series, x_days: int) -> pd.Series:
     """Sortino slope over *x_days*."""
     return rolling_sortino.diff(x_days) / x_days
 
@@ -46,8 +53,8 @@ def analyze_momentum_grid_search(
     rolling_metrics = calculate_rolling_metrics(returns, window=sortino_window)
     rolling_sortino = rolling_metrics["sortino_ratio"].dropna()
 
-    lookback_windows = [5, 10, 15, 20, 30, 45, 60, 90]
-    forecast_horizons = [5, 10, 15, 20, 30]
+    lookback_windows = GRID_LOOKBACK_WINDOWS
+    forecast_horizons = GRID_FORECAST_HORIZONS
     baseline_window = 30
 
     results: List[Dict] = []
@@ -55,19 +62,13 @@ def analyze_momentum_grid_search(
     for x in lookback_windows:
         for k in forecast_horizons:
             recent_slope = calculate_sortino_slopes(rolling_sortino, x)
-            baseline_slope = calculate_sortino_slopes(
-                rolling_sortino.shift(x), baseline_window
-            )
+            baseline_slope = calculate_sortino_slopes(rolling_sortino.shift(x), baseline_window)
 
             strong_momentum = (
-                (recent_slope > baseline_slope)
-                & recent_slope.notna()
-                & baseline_slope.notna()
+                (recent_slope > baseline_slope) & recent_slope.notna() & baseline_slope.notna()
             )
 
-            future_slope = calculate_sortino_slopes(
-                rolling_sortino.shift(-k), k
-            )
+            future_slope = calculate_sortino_slopes(rolling_sortino.shift(-k), k)
             continued = (future_slope > 0) & future_slope.notna()
 
             valid_indices = strong_momentum[strong_momentum].index
@@ -110,9 +111,18 @@ def bootstrap_significance_test(
     k: int,
     sortino_window: int = 252,
     n_bootstraps: int = 500,
+    n_trials: int = GRID_N_TRIALS,
 ) -> Dict:
     """
     Bootstrap test: is the observed hit rate significantly above random?
+
+    The raw ``p_value`` treats the tested (x, k) as the only configuration
+    ever examined. When the pair was picked because it looked best in the
+    grid search, that p-value is subject to selection bias under multiple
+    testing (Bailey & López de Prado, "The Deflated Sharpe Ratio", 2014).
+    ``p_value_adjusted`` applies a Šidák correction for ``n_trials``
+    comparisons: ``1 - (1 - p)^n_trials`` — the probability that at least
+    one of ``n_trials`` skill-less configurations would look this good.
 
     Args:
         returns: Daily returns series
@@ -120,10 +130,14 @@ def bootstrap_significance_test(
         k: Forecast horizon
         sortino_window: Window for rolling Sortino
         n_bootstraps: Number of bootstrap samples
+        n_trials: Number of configurations searched before selecting this
+            one (default: the full grid-search size). Pass 1 only when the
+            (x, k) pair was pre-registered, not selected from the grid.
 
     Returns:
         Dictionary with actual_hit_rate, random_mean, p_value,
-        significant (bool), n_signals, and bootstrap_dist
+        p_value_adjusted, n_trials, significant (raw),
+        significant_after_correction, n_signals, and bootstrap_dist
     """
     rolling_metrics = calculate_rolling_metrics(returns, window=sortino_window)
     rolling_sortino = rolling_metrics["sortino_ratio"].dropna()
@@ -131,9 +145,7 @@ def bootstrap_significance_test(
     recent_slope = calculate_sortino_slopes(rolling_sortino, x)
     baseline_slope = calculate_sortino_slopes(rolling_sortino.shift(x), 30)
     strong_momentum = (
-        (recent_slope > baseline_slope)
-        & recent_slope.notna()
-        & baseline_slope.notna()
+        (recent_slope > baseline_slope) & recent_slope.notna() & baseline_slope.notna()
     )
     future_slope = calculate_sortino_slopes(rolling_sortino.shift(-k), k)
     continued = (future_slope > 0) & future_slope.notna()
@@ -145,7 +157,10 @@ def bootstrap_significance_test(
             "actual_hit_rate": np.nan,
             "random_mean": np.nan,
             "p_value": np.nan,
+            "p_value_adjusted": np.nan,
+            "n_trials": n_trials,
             "significant": False,
+            "significant_after_correction": False,
             "n_signals": len(valid_indices),
         }
 
@@ -154,8 +169,7 @@ def bootstrap_significance_test(
 
     rng = np.random.default_rng(42)
     bootstrap_hit_rates = [
-        outcomes.sample(frac=1, replace=True, random_state=int(rng.integers(1e9))).mean()
-        * 100
+        outcomes.sample(frac=1, replace=True, random_state=int(rng.integers(1e9))).mean() * 100
         for _ in range(n_bootstraps)
     ]
 
@@ -167,12 +181,17 @@ def bootstrap_significance_test(
         )
     )
 
+    p_value_adjusted = float(1.0 - (1.0 - p_value) ** n_trials)
+
     return {
         "actual_hit_rate": float(actual_hit_rate),
         "random_mean": random_mean,
         "random_std": float(np.std(bootstrap_hit_rates)),
         "p_value": p_value,
+        "p_value_adjusted": p_value_adjusted,
+        "n_trials": n_trials,
         "significant": p_value < 0.05,
+        "significant_after_correction": p_value_adjusted < 0.05,
         "n_signals": len(valid_indices),
         "bootstrap_dist": bootstrap_hit_rates,
     }
@@ -281,7 +300,7 @@ def analyze_ml_prediction(
     mean_importance = np.mean(feature_importances, axis=0)
     importance_dict = dict(
         sorted(
-            zip(x_df.columns, mean_importance),
+            zip(x_df.columns, mean_importance, strict=True),
             key=lambda t: t[1],
             reverse=True,
         )
@@ -325,9 +344,7 @@ def get_current_regime(
         return None
 
     recent_slope = calculate_sortino_slopes(rolling_sortino, x).iloc[-1]
-    baseline_slope = calculate_sortino_slopes(
-        rolling_sortino.shift(x), 30
-    ).iloc[-1]
+    baseline_slope = calculate_sortino_slopes(rolling_sortino.shift(x), 30).iloc[-1]
 
     current_sortino = rolling_sortino.iloc[-1]
 
@@ -338,9 +355,7 @@ def get_current_regime(
             "baseline_slope": float(baseline_slope),
             "strong_momentum": bool(recent_slope > baseline_slope),
             "slope_ratio": (
-                float(recent_slope / baseline_slope)
-                if baseline_slope != 0
-                else np.nan
+                float(recent_slope / baseline_slope) if baseline_slope != 0 else np.nan
             ),
         }
 

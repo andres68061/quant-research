@@ -308,11 +308,12 @@ function BootstrapKPIs({ data }: { data: BootstrapResponse | undefined }) {
     <div className="flex flex-col gap-2 mt-3">
       <div className="text-[10px] uppercase tracking-wider text-zinc-500">Bootstrap Test</div>
       <KPICard
-        label="Significant"
-        value={data.significant ? "YES" : "NO"}
-        accent={data.significant ? "positive" : "negative"}
+        label={`Significant (${data.n_trials} trials)`}
+        value={data.significant_after_correction ? "YES" : "NO"}
+        accent={data.significant_after_correction ? "positive" : "negative"}
       />
-      <KPICard label="p-value" value={fmtRatio(data.p_value, 4)} />
+      <KPICard label="p-value (adj)" value={fmtRatio(data.p_value_adjusted, 4)} />
+      <KPICard label="p-value (raw)" value={fmtRatio(data.p_value, 4)} />
       <KPICard label="Hit Rate" value={`${data.actual_hit_rate.toFixed(1)}%`} />
       <KPICard label="Signals" value={String(data.n_signals)} />
     </div>

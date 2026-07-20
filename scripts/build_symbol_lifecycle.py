@@ -75,7 +75,9 @@ def main() -> None:
     windows = build_lifecycle_windows(prices, changes, delisted)
     write_lifecycle_windows(windows, lifecycle_path)
 
-    truncated_notes = windows[windows["source_notes"].str.contains("price_gap|symbol_change|delistedDate")]
+    truncated_notes = windows[
+        windows["source_notes"].str.contains("price_gap|symbol_change|delistedDate")
+    ]
     logger.info(
         "Windows built for %d symbols; %d have a truncation reason beyond price_span",
         len(windows),

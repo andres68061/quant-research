@@ -10,6 +10,40 @@ class WalkForwardConfig(BaseModel):
     initial_train_days: int = Field(63, ge=10)
     test_days: int = Field(5, ge=1)
     max_splits: int = Field(50, ge=1)
+    label_horizon_days: int = Field(
+        1,
+        ge=1,
+        description=(
+            "Forward horizon of the target label in trading days (the shipped "
+            "ML features use next-day direction = 1). horizon - 1 rows are "
+            "purged from the end of each training window so no training label "
+            "overlaps the test window."
+        ),
+    )
+    embargo_days: int = Field(
+        0,
+        ge=0,
+        description="Extra training rows dropped before each test window.",
+    )
+
+
+class InvestedCoverage(BaseModel):
+    """How often the factor book held stock exposure vs sat in cash."""
+
+    pct_days_invested: float = Field(..., ge=0, le=1)
+    n_days: int = Field(..., ge=0)
+    n_days_invested: int = Field(..., ge=0)
+    n_days_flat: int = Field(..., ge=0)
+    longest_flat_streak_days: int = Field(..., ge=0)
+    min_stocks: int = Field(..., ge=1)
+    cash_earns_zero: bool = True
+    warning: Optional[str] = Field(
+        None,
+        description=(
+            "Present when flat stretches are material. Flat usually means fewer "
+            "than min_stocks names had a valid factor on a rebalance date."
+        ),
+    )
 
 
 class BacktestRequest(BaseModel):
@@ -73,3 +107,18 @@ class MLStrategyRequest(BaseModel):
     initial_train_days: int = Field(63, ge=10)
     test_days: int = Field(5, ge=1)
     max_splits: int = Field(50, ge=1)
+    label_horizon_days: int = Field(
+        1,
+        ge=1,
+        description=(
+            "Forward horizon of the target label in trading days (the shipped "
+            "ML features use next-day direction = 1). horizon - 1 rows are "
+            "purged from the end of each training window so no training label "
+            "overlaps the test window."
+        ),
+    )
+    embargo_days: int = Field(
+        0,
+        ge=0,
+        description="Extra training rows dropped before each test window.",
+    )

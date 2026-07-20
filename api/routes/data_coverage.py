@@ -319,8 +319,7 @@ def data_coverage() -> DataCoverageResponse:
             "S&P membership: trust the Updated CSV (docs/SP500_MEMBERSHIP.md); "
             "FMP is cross-check only (notation-normalized Jaccard). "
             "Macro uses fixed pub lags, not ALFRED vintages "
-            "(docs/MACRO_VINTAGES.md)."
-            + age_note
+            "(docs/MACRO_VINTAGES.md)." + age_note
         ),
     )
 

@@ -15,9 +15,7 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-def _get_component_returns(
-    component_name: str, df_prices: pd.DataFrame
-) -> pd.Series:
+def _get_component_returns(component_name: str, df_prices: pd.DataFrame) -> pd.Series:
     """Resolve a named component to a return series."""
     symbol_map = {
         "S&P 500": "^GSPC",
@@ -75,9 +73,7 @@ def calculate_benchmark_returns(
         returns2 = _get_component_returns(component2 or "S&P 500", df_prices)
         w1 = weight1 / 100.0
         returns = w1 * returns1 + (1 - w1) * returns2
-        name = (
-            f"{int(weight1)}% {component1} + {int(100 - weight1)}% {component2}"
-        )
+        name = f"{int(weight1)}% {component1} + {int(100 - weight1)}% {component2}"
         return returns, name
 
     return df_prices.pct_change().mean(axis=1), "Equal Weight All Stocks"
@@ -109,9 +105,7 @@ def _reconstructed_sp500(
 
             all_constituents: set = set()
             for date in df_prices.index[::252]:
-                all_constituents.update(
-                    sp500.get_constituents_on_date(pd.Timestamp(date))
-                )
+                all_constituents.update(sp500.get_constituents_on_date(pd.Timestamp(date)))
             name = f"S&P 500 Reconstructed (EW, ~{len(all_constituents)} tickers)"
             return returns, name
 
