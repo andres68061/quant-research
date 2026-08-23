@@ -355,6 +355,271 @@ STRATEGIES: dict[str, StrategyMetadata] = {
             "Post-2005 US large-cap realization has been weak, similar to value.",
         ),
     ),
+    "earnings_surprise_pead": StrategyMetadata(
+        id="earnings_surprise_pead",
+        title="Post-earnings announcement drift (PEAD)",
+        description=(
+            "Long the largest positive earnings surprises, short the largest "
+            "negative. Ranked on ``sue_price_scaled`` — (actual EPS − consensus "
+            "estimate) divided by the pre-announcement share price. The signal is "
+            "held for 60 trading days after the announcement and then expires; "
+            "``days_since_earnings`` on the same panel slices the event window."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Prices do not fully adjust to an earnings surprise on the day it is "
+            "announced. Investors under-react to the information content of the "
+            "surprise, so returns keep drifting in the direction of the surprise "
+            "for roughly a quarter. Unlike most factors here this is an *event* "
+            "effect with a defined start and a defined decay, not a standing "
+            "characteristic of the firm."
+        ),
+        reference=(
+            "Ball & Brown (1968); Bernard & Thomas (1989) 'Post-Earnings-"
+            "Announcement Drift: Delayed Price Response or Risk Premium?', Journal "
+            "of Accounting Research 27; Livnat & Mendenhall (2006) for the "
+            "price-scaled SUE definition."
+        ),
+        expected_sharpe_range=(0.2, 0.8),
+        known_limitations=(
+            "The signal is event-timed while the shared cross-sectional runner "
+            "rebalances on a calendar. A calendar rebalance holds a stale mix of "
+            "fresh and 59-day-old surprises, which dilutes the effect — a proper "
+            "event-time backtest is still to be written.",
+            "Drift is strongest in small caps and in names with low analyst "
+            "coverage, which is exactly where the consensus estimate is least "
+            "reliable and trading costs are highest.",
+            "Consensus estimates carry their own bias: analysts walk numbers down "
+            "into the print, so a small 'beat' is often a managed expectation "
+            "rather than genuine news.",
+            "Coverage is 82% — estimates thin out before the mid-1990s and for "
+            "smaller names, and that gap is not random.",
+            "Widely known and heavily traded; the modern premium is a fraction of "
+            "the published one.",
+        ),
+    ),
+    "gross_profitability": StrategyMetadata(
+        id="gross_profitability",
+        title="Gross profitability (Novy-Marx)",
+        description=(
+            "Long highest gross profit / total assets, short lowest. Ranked on "
+            "``gross_profitability``. Gross profit is used deliberately in place of "
+            "net income or earnings — it sits above the accounting choices that "
+            "make bottom-line profitability noisy."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Gross profits scaled by assets is the cleanest accounting measure of "
+            "economic productivity. The further down the income statement you go, "
+            "the more the number is polluted by depreciation policy, one-off "
+            "charges and tax structure. Profitable firms outearn unprofitable ones "
+            "even though they look expensive on price ratios, which is why the "
+            "factor is roughly value-neutral and combines well with value."
+        ),
+        reference=(
+            "Novy-Marx (2013) 'The Other Side of Value: The Gross Profitability "
+            "Premium', JFE 108(1); related to Fama-French (2015) RMW."
+        ),
+        expected_sharpe_range=(0.2, 0.6),
+        known_limitations=(
+            "Meaningless for financials, which have no natural cost of revenue; "
+            "filter banks and insurers before ranking.",
+            "Vendor gross-profit definitions vary across sectors and eras; the "
+            "cross-section is more comparable within a sector than across.",
+            "Widely traded since publication — expect decay versus the paper.",
+        ),
+    ),
+    "accruals": StrategyMetadata(
+        id="accruals",
+        title="Low accruals (earnings quality)",
+        description=(
+            "Long lowest accruals, short highest. Accruals are (TTM net income - "
+            "TTM operating cash flow) / average total assets; ranked on "
+            "``neg_accruals`` so the shared descending ranker longs the "
+            "cash-backed-earnings side."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Earnings made of accruals are less persistent than earnings made of "
+            "cash, but investors fixate on the headline number and do not "
+            "discount the accrual component enough. The mispricing corrects as "
+            "the accruals reverse."
+        ),
+        reference=(
+            "Sloan (1996) 'Do Stock Prices Fully Reflect Information in Accruals "
+            "and Cash Flows About Future Earnings?', The Accounting Review 71(3)."
+        ),
+        expected_sharpe_range=(0.1, 0.5),
+        known_limitations=(
+            "The premium concentrated in small, illiquid names where it is "
+            "hardest to trade; large-cap realization is much weaker.",
+            "Substantially decayed after publication — one of the clearest "
+            "documented cases of post-publication decay (Green, Hand & Soliman 2011).",
+            "Requires cash-flow statement coverage, which is thinner than income "
+            "and balance sheet coverage in the pre-1990 raw layer.",
+        ),
+    ),
+    "piotroski_f": StrategyMetadata(
+        id="piotroski_f",
+        title="Piotroski F-score (financial strength)",
+        description=(
+            "Long high F-score, short low. Nine binary accounting tests covering "
+            "profitability, leverage/liquidity, and operating efficiency, summed "
+            "to a 0-9 score. Rows with fewer than 7 evaluable tests are withheld "
+            "rather than scored on partial information."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Among cheap stocks, most are cheap for good reason. A simple set of "
+            "fundamental health checks separates the financially strengthening "
+            "firms from the genuinely distressed, and the market is slow to "
+            "distinguish them because these names attract little analyst coverage."
+        ),
+        reference=(
+            "Piotroski (2000) 'Value Investing: The Use of Historical Financial "
+            "Statement Information to Separate Winners from Losers', Journal of "
+            "Accounting Research 38."
+        ),
+        expected_sharpe_range=(0.2, 0.7),
+        known_limitations=(
+            "The published result is conditional on a value screen — the score was "
+            "designed to be applied WITHIN the high book-to-market quintile, not "
+            "to the whole universe. Standalone results will look weaker.",
+            "A 0-9 integer produces large ties; the cross-section is coarse and "
+            "tier construction matters more than for continuous factors.",
+            "Scaling follows the paper (beginning-of-year assets), which differs "
+            "from vendor implementations that use contemporaneous assets.",
+            "Not meaningful for financials.",
+        ),
+    ),
+    "net_share_issuance": StrategyMetadata(
+        id="net_share_issuance",
+        title="Low net share issuance",
+        description=(
+            "Long share repurchasers, short issuers. Ranked on "
+            "``neg_net_share_issuance``, the negated log growth in diluted share "
+            "count over four quarters."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Managers issue equity when they believe it is overvalued and buy it "
+            "back when undervalued. Share count change is a direct, hard-to-fake "
+            "read on that private information, and it subsumes much of the "
+            "predictive power of individual issuance events."
+        ),
+        reference=(
+            "Pontiff & Woodgate (2008) 'Share Issuance and Cross-Sectional "
+            "Returns', Journal of Finance 63(2); Daniel & Titman (2006)."
+        ),
+        expected_sharpe_range=(0.2, 0.6),
+        known_limitations=(
+            "Diluted share count moves with option exercise and SBC, not only "
+            "with deliberate issuance or buybacks.",
+            "Splits are handled by the vendor's restated share counts; a vendor "
+            "restatement error shows up directly as a fake issuance signal.",
+            "Buyback-heavy mega-caps dominate the long leg in recent years, which "
+            "correlates the factor with quality and size.",
+        ),
+    ),
+    "net_operating_assets": StrategyMetadata(
+        id="net_operating_assets",
+        title="Low net operating assets",
+        description=(
+            "Long lowest net operating assets scaled by lagged total assets, short "
+            "highest. Ranked on ``neg_net_operating_assets``."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Net operating assets is the cumulative difference between accounting "
+            "earnings and free cash flow — a balance-sheet record of how much of "
+            "past profitability was accrual rather than cash. High levels signal "
+            "that past earnings were not cash-backed, and subsequent returns "
+            "disappoint as the accumulation unwinds."
+        ),
+        reference=(
+            "Hirshleifer, Hou, Teoh & Zhang (2004) 'Do Investors Overvalue Firms "
+            "with Bloated Balance Sheets?', Journal of Accounting and Economics 38."
+        ),
+        expected_sharpe_range=(0.1, 0.5),
+        known_limitations=(
+            "A level (not a change) measure, so it is highly persistent — turnover "
+            "is low but so is the rate of new information.",
+            "Sensitive to the operating/financial split, which is ambiguous for "
+            "firms with large investment portfolios.",
+            "Not meaningful for financials.",
+        ),
+    ),
+    "overnight_intraday_gap": StrategyMetadata(
+        id="overnight_intraday_gap",
+        title="Overnight vs intraday return split",
+        description=(
+            "Long stocks whose recent returns accrued overnight rather than "
+            "intraday. Ranked on ``overnight_intraday_gap`` — the 21-day sum of "
+            "close-to-open log returns minus the 21-day sum of open-to-close log "
+            "returns. Requires the OHLCV panel, not just closes."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "The overnight and intraday segments of the trading day are dominated "
+            "by different participants — retail and news-driven order flow at the "
+            "open versus institutional rebalancing during the session. US equity "
+            "returns have historically accrued almost entirely overnight, and the "
+            "split of a stock's recent return between the two segments carries "
+            "information about which type of demand is driving it."
+        ),
+        reference=(
+            "Lou, Polk & Skouras (2019) 'A Tug of War: Overnight Versus Intraday "
+            "Expected Returns', JFE 134(1); Berkman et al. (2012)."
+        ),
+        expected_sharpe_range=(0.0, 0.5),
+        known_limitations=(
+            "Depends on accurate opening prices, which are the noisiest field in "
+            "the vendor bar and are stale for thinly traded names.",
+            "The overnight premium is concentrated in the open auction; a strategy "
+            "trading at the close cannot capture it directly.",
+            "Highly sensitive to the split-adjustment being correct — an "
+            "unadjusted split appears as an enormous overnight return.",
+            "Effectively untested in this repo; treat the Sharpe range as a prior, "
+            "not evidence.",
+        ),
+    ),
+    "amihud_illiquidity": StrategyMetadata(
+        id="amihud_illiquidity",
+        title="Illiquidity premium (Amihud)",
+        description=(
+            "Long the most illiquid names, short the most liquid. Ranked on "
+            "``amihud_illiquidity``: 21-day average of |daily return| per dollar "
+            "of volume."
+        ),
+        kind=StrategyKind.FACTOR_CROSS_SECTION,
+        post_path="/run-backtest",
+        hypothesis=(
+            "Investors demand compensation for holding assets that are costly to "
+            "trade. Expected return rises with expected illiquidity, so the "
+            "hardest-to-trade names earn a premium in exchange for that friction."
+        ),
+        reference=(
+            "Amihud (2002) 'Illiquidity and Stock Returns: Cross-Section and "
+            "Time-Series Effects', Journal of Financial Markets 5(1)."
+        ),
+        expected_sharpe_range=(0.0, 0.5),
+        known_limitations=(
+            "This factor deliberately longs the names that are most expensive to "
+            "trade — it is the one strategy here where a naive cost assumption "
+            "will most overstate returns. Use the dollar-ADV cost schedule in "
+            "``core.data.liquidity``, not a flat bps figure.",
+            "Largely a size factor in disguise within a large-cap universe; the "
+            "premium needs the small-cap tail to show up at all.",
+            "Capacity-constrained by construction.",
+        ),
+    ),
     "value_quality": StrategyMetadata(
         id="value_quality",
         title="Value + quality composite",

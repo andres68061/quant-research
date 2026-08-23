@@ -5,10 +5,13 @@ import type {
   BacktestResponse,
   BenchmarkResponse,
   BootstrapResponse,
+  Cid1StudyResponse,
   CommoditiesListResponse,
   CommodityReturnsResponse,
   CorrelationResponse,
   DataCoverageResponse,
+  DataHealthSnapshot,
+  SymbolDetail,
   ExclusionSummaryResponse,
   FactorsResponse,
   FF5SeriesResponse,
@@ -21,6 +24,7 @@ import type {
   MLStrategyResponse,
   OptimizeRequest,
   OptimizeResponse,
+  PeadStudyResponse,
   PairsBacktestRequest,
   PairsBacktestResponse,
   PairsIndexBacktestRequest,
@@ -37,13 +41,25 @@ import type {
   ReplayFramesResponse,
   SeasonalityResponse,
   SectorBreakdownResponse,
+  SectorPerformanceResponse,
   SectorSummaryResponse,
   MultiRatioComparisonResponse,
   SimulateRequest,
   SimulateResponse,
   StockDetailResponse,
+  Top500HoldingsResponse,
+  Top500PerformanceResponse,
   WalkForwardOptimizeRequest,
   WalkForwardOptimizeResponse,
+  WatchdogStatus,
+  CompanyProfile,
+  ExplorerDataset,
+  ExplorerQueryResult,
+  ExplorerScreenRequest,
+  ExplorerSearchResult,
+  GlossaryResponse,
+  ResearchNote,
+  ResearchNotesIndex,
 } from "./types.ts";
 
 const BASE = "/api";
@@ -66,6 +82,11 @@ export const api = {
   listFactors: () => request<FactorsResponse>("/data/factors"),
 
   getDataCoverage: () => request<DataCoverageResponse>("/data-coverage"),
+
+  getDataHealth: () => request<DataHealthSnapshot>("/data-health"),
+
+  getSymbolDataDetail: (symbol: string) =>
+    request<SymbolDetail>(`/data-health/symbol/${encodeURIComponent(symbol)}`),
 
   reviewQuarantine: (params: {
     symbol: string;
@@ -287,6 +308,16 @@ export const api = {
 
   getSectorSummary: () => request<SectorSummaryResponse>("/sectors/summary"),
 
+  getPeadStudy: (params: { signal: string; horizonDays: number }) =>
+    request<PeadStudyResponse>(
+      `/backtest/events/pead-study?signal=${params.signal}&horizon_days=${params.horizonDays}`,
+    ),
+
+  getSectorPerformance: (params: { weighting: string; sp500Only: boolean; start: string }) =>
+    request<SectorPerformanceResponse>(
+      `/sectors/performance?weighting=${params.weighting}&sp500_only=${params.sp500Only}&start=${params.start}`,
+    ),
+
   getSectorBreakdown: (sector?: string) => {
     const sp = sector ? `?sector=${encodeURIComponent(sector)}` : "";
     return request<SectorBreakdownResponse>(`/sectors/breakdown${sp}`);
@@ -331,6 +362,19 @@ export const api = {
     return request<BenchmarkResponse>(`/benchmarks/returns?${sp}`);
   },
 
+  /* ── Simple Top-500 Index + Cid-1 study ─────────────────── */
+
+  getTop500Performance: (start = "2005-01-01", topN = 500) =>
+    request<Top500PerformanceResponse>(`/index/top500/performance?start=${start}&top_n=${topN}`),
+
+  getTop500Holdings: (date: string, start = "2005-01-01", topN = 500) =>
+    request<Top500HoldingsResponse>(
+      `/index/top500/holdings?date=${encodeURIComponent(date)}&start=${start}&top_n=${topN}`,
+    ),
+
+  getTop500Cid1Study: (start = "2005-01-01", topN = 500) =>
+    request<Cid1StudyResponse>(`/index/top500/cid1-study?start=${start}&top_n=${topN}`),
+
   /* ── Exclusions ──────────────────────────────────────────── */
 
   getExclusionSummary: (threshold: number, start?: string, end?: string) => {
@@ -346,4 +390,44 @@ export const api = {
     if (end) sp.set("end_date", end);
     return request<StockDetailResponse>(`/exclusions/detail/${encodeURIComponent(symbol)}?${sp}`);
   },
+
+  /* ── Watchdog ────────────────────────────────────────────── */
+
+  getWatchdogStatus: () => request<WatchdogStatus>("/watchdog"),
+
+  /* ── Data explorer ───────────────────────────────────────── */
+
+  getExplorerDatasets: () =>
+    request<{ datasets: ExplorerDataset[] }>("/explorer/datasets"),
+
+  searchCompanies: (q: string) =>
+    request<{ results: ExplorerSearchResult[] }>(
+      `/explorer/search?q=${encodeURIComponent(q)}`,
+    ),
+
+  getCompanyProfile: (symbol: string) =>
+    request<CompanyProfile>(`/explorer/company/${encodeURIComponent(symbol)}`),
+
+  runScreen: (params: ExplorerScreenRequest) =>
+    request<ExplorerQueryResult>("/explorer/screen", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+
+  runExplorerQuery: (sql: string, limit = 500) =>
+    request<ExplorerQueryResult>("/explorer/query", {
+      method: "POST",
+      body: JSON.stringify({ sql, limit }),
+    }),
+
+  /* ── Glossary ────────────────────────────────────────────── */
+
+  getGlossary: () => request<GlossaryResponse>("/glossary"),
+
+  /* ── Research notes ──────────────────────────────────────── */
+
+  listResearchNotes: () => request<ResearchNotesIndex>("/research-notes"),
+
+  getResearchNote: (id: string) =>
+    request<ResearchNote>(`/research-notes/${encodeURIComponent(id)}`),
 } as const;

@@ -6,7 +6,12 @@ from datetime import date, timedelta
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-from api.dependencies import get_dollar_adv, get_factors, get_prices
+from api.dependencies import (
+    get_dollar_adv,
+    get_factor_frame,
+    get_factor_store,
+    get_prices,
+)
 from api.schemas.metrics import EquityCurvePoint, PerformanceMetrics
 from api.schemas.strategy import BacktestRequest, InvestedCoverage, MLStrategyRequest
 from api.schemas.walkforward import ConfusionMatrixResult, FoldResult, WalkForwardResult
@@ -30,14 +35,17 @@ def run_backtest(req: BacktestRequest) -> dict:
     """Run a factor-based backtest and return metrics + equity curve."""
     global _last_backtest_returns
 
-    factors = get_factors()
+    store = get_factor_store()
     prices = get_prices()
-    if factors is None or prices is None:
+    if store is None or prices is None:
         raise HTTPException(status_code=503, detail="Data not loaded")
 
-    factor_col = req.factor_col or factors.columns[0]
-    if factor_col not in factors.columns:
+    available = store.available_factors
+    factor_col = req.factor_col or (available[0] if available else None)
+    if factor_col is None or factor_col not in store.column_to_panel:
         raise HTTPException(status_code=400, detail=f"Factor '{factor_col}' not found")
+    # One column (~43 MB) rather than every panel (~7 GB post-cutover).
+    factors = get_factor_frame(factor_col)
 
     start = (
         pd.Timestamp(req.start_date)

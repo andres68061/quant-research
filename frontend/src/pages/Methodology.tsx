@@ -3,7 +3,7 @@ import AppLayout from "@/components/layout/AppLayout.tsx";
 
 interface Section {
   title: string;
-  items: { label: string; tex: string; note?: string }[];
+  items: { label: string; tex: string; plain: string; note?: string }[];
 }
 
 const SECTIONS: Section[] = [
@@ -13,15 +13,21 @@ const SECTIONS: Section[] = [
       {
         label: "Simple return",
         tex: "R_t = \\frac{P_t - P_{t-1}}{P_{t-1}}",
+        plain:
+          "The percentage change from one price to the next. If a stock goes from $100 to $103, that is 0.03, or 3%.",
       },
       {
         label: "Log return",
         tex: "r_t = \\ln\\!\\left(\\frac{P_t}{P_{t-1}}\\right)",
+        plain:
+          "The same move expressed as a logarithm. The reason to bother: log returns add up across time, so a year's return is the sum of its days rather than a running product. Close to the simple return for small moves, and increasingly different for large ones.",
         note: "Log returns are additive over time: r_{[t_0,\\,t_n]} = \\sum_{i=1}^{n} r_i",
       },
       {
         label: "Excess return",
         tex: "R^e_t = R_t - R^f_t",
+        plain:
+          "Return above what cash would have paid. You are only rewarded for taking risk, so the risk-free rate is subtracted before judging any strategy.",
       },
     ],
   },
@@ -31,11 +37,15 @@ const SECTIONS: Section[] = [
       {
         label: "Cross-sectional rank signal",
         tex: "w_{i,t} = \\begin{cases} +1/N_L & \\text{if } \\operatorname{rank}(f_{i,t}) \\le N_L \\\\ -1/N_S & \\text{if } \\operatorname{rank}(f_{i,t}) > N - N_S \\\\ 0 & \\text{otherwise} \\end{cases}",
+        plain:
+          "Rank every stock by the factor on each rebalance date, then hold the top slice long and the bottom slice short, equally weighted within each leg. Everything in the middle gets zero. The two legs cancel most of the market's movement, so what is left is closer to the factor's own contribution.",
         note: "N_L = \\lfloor N \\cdot p_{\\text{top}} \\rfloor, \\; N_S = \\lfloor N \\cdot p_{\\text{bottom}} \\rfloor",
       },
       {
         label: "Rebalancing",
         tex: "\\text{Positions update at } t \\in \\mathcal{T}_{\\text{rebal}} \\subset \\{t_1, t_2, \\ldots\\}",
+        plain:
+          "Positions only change on scheduled dates — month-end by default. Between those dates the book is left alone, which is what keeps trading costs finite.",
       },
     ],
   },
@@ -45,22 +55,32 @@ const SECTIONS: Section[] = [
       {
         label: "Sharpe ratio",
         tex: "S = \\frac{\\mathbb{E}[R_p - R_f]}{\\sigma(R_p - R_f)} \\cdot \\sqrt{252}",
+        plain:
+          "Average excess return divided by its volatility, scaled to a year by the square root of 252 trading days. Return per unit of risk. Roughly: below 0.5 is weak, near 1.0 is good, above 2.0 in a backtest usually means a bug. Its blind spot is shape — it cannot tell 'often right by a little' from 'rarely right by a lot'.",
       },
       {
         label: "Sortino ratio",
         tex: "\\text{Sortino} = \\frac{\\mathbb{E}[R_p - R_f]}{\\sigma_d} \\cdot \\sqrt{252}, \\quad \\sigma_d = \\sqrt{\\frac{1}{N}\\sum_{r_t < 0} r_t^2}",
+        plain:
+          "Sharpe, but only counting downside moves in the denominator. Plain volatility punishes a strategy for large gains; this one does not.",
       },
       {
         label: "Maximum drawdown",
         tex: "\\text{MDD} = \\max_{t} \\left( \\frac{\\max_{s \\le t} V_s - V_t}{\\max_{s \\le t} V_s} \\right)",
+        plain:
+          "The worst peak-to-trough fall in cumulative value. How bad it got before recovering — usually the number that actually decides whether a strategy is holdable.",
       },
       {
         label: "Calmar ratio",
         tex: "\\text{Calmar} = \\frac{\\bar{R}_{\\text{ann}}}{|\\text{MDD}|}",
+        plain:
+          "Annual return divided by worst drawdown: return per unit of maximum pain, rather than per unit of volatility.",
       },
       {
         label: "PnL with transaction costs",
         tex: "\\text{PnL}_t = \\mathbf{w}_{t-1}^\\top \\mathbf{r}_t - c \\cdot \\| \\mathbf{w}_t - \\mathbf{w}_{t-1} \\|_1",
+        plain:
+          "Yesterday's positions times today's returns, minus the cost of whatever was traded to get there. The second term is why turnover matters: each unit of position change is charged c. A flat c flatters illiquid names badly — real costs scale with how much a stock trades.",
         note: "c = cost per unit turnover (e.g. 10 bps)",
       },
     ],
@@ -71,14 +91,20 @@ const SECTIONS: Section[] = [
       {
         label: "Expanding window split",
         tex: "\\mathcal{D}_{\\text{train}}^{(k)} = \\{t_0, \\ldots, t_0 + T_{\\text{init}} + k \\cdot T_{\\text{step}}\\}, \\quad \\mathcal{D}_{\\text{test}}^{(k)} = \\{t_{\\text{end}}^{(k)} + 1, \\ldots, t_{\\text{end}}^{(k)} + T_{\\text{test}}\\}",
+        plain:
+          "Train on a window, test on the period immediately after, then extend the window and repeat. Each test period is data the model has never seen, which is the entire point — a single train/test split can be a lucky window.",
       },
       {
         label: "Fold accuracy",
         tex: "\\text{Acc}^{(k)} = \\frac{1}{|\\mathcal{D}_{\\text{test}}^{(k)}|} \\sum_{t \\in \\mathcal{D}_{\\text{test}}^{(k)}} \\mathbb{1}[\\hat{y}_t = y_t]",
+        plain:
+          "Fraction of correct direction calls within one test fold. For a roughly balanced up/down target, 50% is the coin-flip baseline — an accuracy near 50% means no signal, whatever the strategy's returns look like.",
       },
       {
         label: "Overall accuracy",
         tex: "\\text{Acc} = \\frac{1}{K} \\sum_{k=1}^{K} \\text{Acc}^{(k)}",
+        plain:
+          "The average accuracy across all folds. Reported instead of a single number so one exceptional period cannot carry the result.",
         note: "K = number of walk-forward folds",
       },
     ],
@@ -89,19 +115,27 @@ const SECTIONS: Section[] = [
       {
         label: "Rolling Sortino slope",
         tex: "\\Delta S_x(t) = \\frac{S(t) - S(t-x)}{x}",
+        plain:
+          "How fast the rolling Sortino ratio is changing — its slope over x days. The idea being tested is that improving risk-adjusted performance persists, not just high performance.",
       },
       {
         label: "Strong momentum condition",
         tex: "\\Delta S_x(t) > \\Delta S_{30}(t - x)",
+        plain:
+          "The entry condition: the recent slope must beat the slope from the previous 30-day window. In words, performance is improving faster than it was before.",
         note: "Recent slope exceeds the baseline slope computed over the prior 30-day window",
       },
       {
         label: "Hit rate",
         tex: "Z = \\frac{\\#\\{t : \\Delta S_k(t+k) > 0 \\mid \\text{strong momentum at } t\\}}{\\#\\{t : \\text{strong momentum at } t\\}} \\times 100",
+        plain:
+          "Of all the times the entry condition fired, the percentage that were followed by a further improvement. This is a hit rate, so 50% is the no-skill baseline.",
       },
       {
         label: "Bootstrap p-value",
         tex: "p = \\frac{1}{B} \\sum_{b=1}^{B} \\mathbb{1}\\!\\left[|Z_b^* - \\bar{Z}^*| \\ge |Z_{\\text{obs}} - \\bar{Z}^*|\\right]",
+        plain:
+          "Shuffle the data many times to build up what the hit rate looks like when there is genuinely no signal, then ask how often pure chance beat the real result. A small p means chance rarely did.",
       },
     ],
   },
@@ -116,7 +150,9 @@ export default function Methodology() {
             Methodology &amp; Equations
           </h1>
           <p className="text-xs text-zinc-500 mt-1">
-            Mathematical definitions underlying the platform's strategies and metrics.
+            Every formula the platform uses, each with a plain-language reading beside it.
+            The notation is the precise statement; the paragraph is what it means and where
+            it misleads.
           </p>
         </header>
 
@@ -132,6 +168,9 @@ export default function Methodology() {
                     {item.label}
                   </div>
                   <TeX math={item.tex} display />
+                  <p className="text-[11px] text-zinc-400 leading-relaxed mt-1.5 pl-1 border-l border-zinc-800 pl-3">
+                    {item.plain}
+                  </p>
                   {item.note && (
                     <div className="text-[11px] text-zinc-600 mt-1 pl-1">
                       <TeX math={item.note} />

@@ -4,8 +4,14 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
-from api.dependencies import get_factors, get_prices, get_sectors
+from api.dependencies import (
+    get_factor_store,
+    get_prices,
+    get_sectors,
+    get_universe_disclosure,
+)
 from core.data.asset_classification import categorize_asset_type
+from core.data.factor_store import describe_factor_source
 
 router = APIRouter(prefix="/data", tags=["data"])
 
@@ -28,12 +34,17 @@ def list_assets() -> dict:
 @router.get("/factors")
 def list_factors() -> dict:
     """Return available factor columns."""
-    factors = get_factors()
-    if factors is None:
+    store = get_factor_store()
+    if store is None:
         raise HTTPException(status_code=503, detail="Factor data not loaded")
 
-    factor_cols = [c for c in factors.columns if c != "signal"]
-    return {"count": len(factor_cols), "factors": factor_cols}
+    factor_cols = [c for c in store.available_factors if c != "signal"]
+    return {
+        "count": len(factor_cols),
+        "factors": factor_cols,
+        "sources": describe_factor_source(store),
+        "universe": get_universe_disclosure(),
+    }
 
 
 @router.get("/prices")

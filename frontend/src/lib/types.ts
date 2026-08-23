@@ -858,3 +858,416 @@ export interface FF5SeriesResponse {
   first_date: string;
   last_date: string;
 }
+
+/* ── Simple Top-500 Index + Cid-1 study ─────────────────────── */
+
+export interface Top500RebalanceSummary {
+  date: string;
+  n_constituents: number;
+  turnover: number | null;
+  top_weight: number;
+  top10_weight_share: number;
+}
+
+export interface Top500PerformanceResponse {
+  dates: string[];
+  index_cumulative: number[];
+  benchmark_cumulative: number[] | null;
+  metrics: Record<string, number | null>;
+  benchmark_metrics: Record<string, number | null> | null;
+  correlation_vs_benchmark: number | null;
+  tracking_error_ann: number | null;
+  rebalances: Top500RebalanceSummary[];
+}
+
+export interface Top500HoldingRow {
+  symbol: string;
+  sector: string | null;
+  market_cap: number;
+  weight: number;
+  total_return: number | null;
+  cost_basis_pain: number | null;
+  cid1_ratio: number | null;
+  cid1_angle: number | null;
+}
+
+export interface Top500HoldingsResponse {
+  date: string;
+  window_days: number;
+  holdings: Top500HoldingRow[];
+}
+
+export interface Cid1StatSummary {
+  mean: number | null;
+  tstat: number | null;
+  pvalue: number | null;
+  n_obs: number;
+}
+
+export interface Cid1StudyDateRow {
+  date: string;
+  n_symbols: number;
+  ic: number | null;
+  persistence_vs_prev: number | null;
+  median_cid1_angle: number | null;
+  share_pain_free: number | null;
+  quantile_spread: number | null;
+}
+
+export interface Cid1SensitivityRow {
+  start_year: number;
+  n_quarters: number;
+  mean_ic: number | null;
+  ic_tstat: number | null;
+  mean_spread: number | null;
+  spread_tstat: number | null;
+}
+
+export interface Cid1StudyResponse {
+  per_date: Cid1StudyDateRow[];
+  quantile_avg_forward_returns: (number | null)[];
+  ic_summary: Cid1StatSummary;
+  persistence_summary: Cid1StatSummary;
+  quantile_spread_summary: Cid1StatSummary;
+  fama_macbeth_univariate: Cid1StatSummary;
+  fama_macbeth_multivariate: Record<string, Cid1StatSummary>;
+  start_year_sensitivity: Cid1SensitivityRow[];
+  config: Record<string, unknown>;
+}
+
+// ---------- Data health (GET /data-health) ----------
+
+export interface FunnelStage {
+  stage: string;
+  count: number;
+  scope: "vendor catalog" | "our universe" | "what we hold";
+  definition: string;
+  why_smaller: string | null;
+  note: string;
+}
+
+export interface RegistryCaveat {
+  id: string;
+  kind: "data" | "method";
+  severity: "high" | "medium" | "low";
+  title: string;
+  detail: string;
+  remediation: string | null;
+}
+
+export interface GlossaryTerm {
+  term: string;
+  definition: string;
+}
+
+export interface DataFlaw {
+  id: string;
+  severity: "high" | "medium" | "low";
+  title: string;
+  detail: string;
+}
+
+export interface DatasetCoverage {
+  files?: number;
+  universe_with_data?: number;
+  universe_empty_file?: number;
+  universe_missing_file?: number;
+  corrupt_files?: number;
+  status?: string;
+}
+
+export interface PanelEntry {
+  file: string;
+  status?: string;
+  rows?: number;
+  columns?: number;
+  symbols?: number | null;
+  modified?: string;
+  size_mb?: number;
+}
+
+export interface DelistEraCoverage {
+  delist_year: string;
+  names: number;
+  with_prices_pct: number;
+}
+
+export interface DataHealthSnapshot {
+  generated_at: string;
+  universe: {
+    total: number;
+    live: number;
+    delisted: number;
+    carried_over: number;
+    by_exchange: Record<string, number>;
+    market_cap_floor_usd: number;
+  };
+  funnel: FunnelStage[];
+  prices: {
+    fetch_outcomes: Record<string, number>;
+    failed_symbols: string[];
+    history_years: { median: number; p10: number; p90: number };
+    symbols_starting_by_1990: number;
+    last_date_max: string;
+  };
+  survivorship: {
+    delisted_total: number;
+    with_prices_pct: number;
+    by_delist_era: DelistEraCoverage[];
+    price_end_within_30d_of_delisting_pct: number;
+    missing_symbols_sample: string[];
+    missing_count: number;
+  };
+  calendar: {
+    canonical_trading_days?: number;
+    expanded_dates?: number;
+    non_trading_dates?: number;
+    weekend_dates?: number;
+    holiday_or_other_dates?: number;
+    sample?: string[];
+    status?: string;
+  };
+  publication_dates: {
+    sampled_symbols?: number;
+    sampled_rows?: number;
+    placeholder_accepted_date_pct?: number;
+    by_decade?: { decade: number; rows: number; placeholder_pct: number }[];
+    remediation?: string;
+    status?: string;
+  };
+  datasets: Record<string, DatasetCoverage>;
+  intraday: Record<
+    string,
+    { symbols: number; symbol_year_files: number; empty_symbol_years: number; year_range: string | null }
+  >;
+  panels: PanelEntry[];
+  flaws: DataFlaw[];
+  registry_caveats: RegistryCaveat[];
+  glossary: GlossaryTerm[];
+}
+
+export interface SymbolStatementInfo {
+  quarters: number;
+  first_period?: string;
+  last_period?: string;
+  placeholder_filing_dates_pct?: number;
+}
+
+export interface SymbolDetail {
+  symbol: string;
+  universe?: {
+    company_name: string | null;
+    exchange: string | null;
+    sector: string | null;
+    is_delisted: boolean | null;
+    ipo_date: string | null;
+    delisted_date: string | null;
+    market_cap: number | null;
+  };
+  prices?: { rows: number; first: string | null; last: string | null; has_ohlc: boolean };
+  statements: Record<string, SymbolStatementInfo | null>;
+  market_caps_rows: number | null;
+  datasets: Record<string, number | null>;
+  intraday: Record<string, { years: string[]; rows: number }>;
+}
+
+// ---------- Sector performance (GET /sectors/performance) ----------
+
+export interface SectorSeriesPoint {
+  date: string;
+  level: number;
+}
+
+export interface SectorPerformanceEntry {
+  sector: string;
+  ann_return_pct: number;
+  members_latest: number;
+  series: SectorSeriesPoint[];
+}
+
+export interface SectorMethodology {
+  rebalance: string;
+  membership: string;
+  returns: string;
+  min_members_per_day: number;
+  universe_labeled_symbols: number;
+}
+
+export interface SectorPerformanceResponse {
+  weighting: "cap" | "equal";
+  sp500_membership_filter: boolean;
+  start: string;
+  granularity: string;
+  methodology: SectorMethodology;
+  sectors: SectorPerformanceEntry[];
+  caveats: RegistryCaveat[];
+}
+
+// ---------- PEAD event study (GET /backtest/events/pead-study) ----------
+
+export interface PeadQuantilePath {
+  quantile: string;
+  car_pct: number[];
+}
+
+export interface PeadStudyResponse {
+  signal: string;
+  horizon_days: number;
+  n_quantiles: number;
+  n_events: number;
+  event_counts: Record<string, number>;
+  first_event: string;
+  last_event: string;
+  spread_t_stat: number;
+  spread_final_pct: number;
+  quantile_paths: PeadQuantilePath[];
+  event_days: number[];
+  caveats: RegistryCaveat[];
+}
+
+/* ── Watchdog ─────────────────────────────────────────────── */
+
+export interface WatchdogCheck {
+  name: string;
+  status: "ok" | "warning" | "error";
+  detail: string;
+  facts: Record<string, unknown>;
+}
+
+export interface WatchdogStatus {
+  status: "ok" | "warning" | "error" | "unknown";
+  generated_at: string | null;
+  n_errors: number;
+  n_warnings: number;
+  deep?: boolean;
+  checks: WatchdogCheck[];
+  summary: string;
+}
+
+/* ── Data explorer ────────────────────────────────────────── */
+
+export interface ExplorerDataset {
+  name: string;
+  description: string;
+  grain: string;
+  family: "factor" | "reference";
+  columns: string[];
+  n_columns: number;
+}
+
+export interface ExplorerSearchResult {
+  symbol: string;
+  company_name: string | null;
+  exchange: string | null;
+  sector: string | null;
+  industry: string | null;
+  is_delisted: boolean | null;
+}
+
+export interface CompanyFactorValue {
+  family: string;
+  factor: string;
+  value: number;
+  as_of: string | null;
+}
+
+export interface CompanyPricePoint {
+  date: string;
+  adj_close: number;
+}
+
+export interface CompanyProfile {
+  symbol: string;
+  identity: Record<string, unknown>;
+  classification: Record<string, unknown> | null;
+  identifiers: Record<string, unknown> | null;
+  index_membership: Record<string, unknown>[];
+  factors: CompanyFactorValue[];
+  prices: CompanyPricePoint[];
+}
+
+export interface ExplorerFilterSpec {
+  column: string;
+  operator: string;
+  value: unknown;
+  value2?: unknown;
+}
+
+export interface ExplorerScreenRequest {
+  columns: string[];
+  filters: ExplorerFilterSpec[];
+  panels?: string[];
+  as_of?: string;
+  order_by?: string;
+  descending?: boolean;
+  limit?: number;
+  preview_only?: boolean;
+}
+
+export interface ExplorerQueryResult {
+  sql: string;
+  columns: string[];
+  rows: Record<string, unknown>[];
+  row_count: number;
+  truncated: boolean;
+  elapsed_ms?: number;
+  dtypes?: Record<string, string>;
+}
+
+/* ── Glossary ─────────────────────────────────────────────── */
+
+export interface GlossaryRegistryTerm {
+  term: string;
+  category: string;
+  definition: string;
+  see_also: string[];
+}
+
+export interface GlossaryResponse {
+  categories: { id: string; label: string }[];
+  terms: GlossaryRegistryTerm[];
+}
+
+/* ── Research notes ───────────────────────────────────────── */
+
+export interface ResearchResultRow {
+  variant: string;
+  gross_sharpe: number | null;
+  net_sharpe: number | null;
+  net_annual_return: number | null;
+  t_stat: number | null;
+  hit_rate: number | null;
+  max_drawdown: number | null;
+  note: string | null;
+  is_control: boolean;
+  is_headline: boolean;
+}
+
+export interface ResearchNoteSummary {
+  id: string;
+  title: string;
+  run_date: string;
+  verdict: "validated" | "interesting" | "no_edge" | "real_not_tradable";
+  verdict_label: string;
+  one_liner: string;
+}
+
+export interface ResearchNote extends ResearchNoteSummary {
+  question: string;
+  hypothesis: string;
+  reference: string;
+  method: string;
+  results: ResearchResultRow[];
+  control_reading: string;
+  what_it_means: string;
+  caveats: string[];
+  reproduce: string;
+  decade_table: string[][];
+  glossary_terms: string[];
+  logged_in: string;
+}
+
+export interface ResearchNotesIndex {
+  notes: ResearchNoteSummary[];
+  verdicts: { id: string; label: string }[];
+}

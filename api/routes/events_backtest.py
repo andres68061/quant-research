@@ -7,14 +7,17 @@ Exposes :func:`core.backtest.events.simulator.simulate_equal_weight_rebalances` 
 from __future__ import annotations
 
 import logging
+from functools import lru_cache
 from typing import Any
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from api.schemas.events_backtest import EventIn, EventSimulateRequest, EventSimulateResponse
 from core.backtest.events import Event, EventType, simulate_equal_weight_rebalances
+from core.data.universe_filters import load_non_operating_symbols
 from core.exceptions import DataSchemaError
+from core.research.caveats import SURFACE_PEAD, as_dicts, caveats_for_surface
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +63,78 @@ def _prices_from_rows(rows: list[dict[str, Any]]) -> pd.DataFrame:
     if df.isna().any().any():
         raise DataSchemaError("price_rows contain invalid or missing numeric values")
     return df
+
+
+@lru_cache(maxsize=4)
+def _cached_pead_study(
+    signal_col: str, horizon_days: int, n_quantiles: int, min_price: float
+) -> dict:
+    """PEAD study over all stored announcements (~70k events; ~2s compute, cached)."""
+    from pathlib import Path
+
+    from api.dependencies import get_prices
+    from config.settings import PROJECT_ROOT
+    from core.backtest.event_study import extract_events_from_surprise_panel, run_event_study
+
+    prices = get_prices()
+    if prices is None:
+        raise HTTPException(status_code=503, detail="Price panel not loaded")
+    panel_path = Path(PROJECT_ROOT) / "data" / "factors" / "factors_earnings_surprise.parquet"
+    if not panel_path.exists():
+        raise HTTPException(status_code=503, detail="Run scripts/build_event_factors.py first")
+
+    surprise_panel = pd.read_parquet(panel_path, columns=[signal_col, "days_since_earnings"])
+    events = extract_events_from_surprise_panel(surprise_panel, signal_col=signal_col)
+    # A pre-merger SPAC has no earnings to be surprised by.
+    excluded = load_non_operating_symbols()
+    events = events[~events["symbol"].isin(excluded)]
+    result = run_event_study(
+        events,
+        prices,
+        horizon_days=horizon_days,
+        n_quantiles=n_quantiles,
+        min_price=min_price,
+    )
+
+    car_paths = result["car_paths"]
+    return {
+        "signal": signal_col,
+        "horizon_days": horizon_days,
+        "n_quantiles": n_quantiles,
+        "min_price": min_price,
+        "universe": (
+            "full canonical panel, non-operating vehicles excluded, "
+            f"returns require price >= ${min_price:.2f} and |ret| <= 300%"
+        ),
+        "n_events": int(sum(result["event_counts"].values())),
+        "event_counts": result["event_counts"],
+        "first_event": str(events["event_date"].min().date()),
+        "last_event": str(events["event_date"].max().date()),
+        "spread_t_stat": round(result["spread_t_stat"], 2),
+        "spread_final_pct": round(float(result["spread_path"].iloc[-1]) * 100, 3),
+        "quantile_paths": [
+            {
+                "quantile": column,
+                "car_pct": [round(float(v) * 100, 4) for v in car_paths[column]],
+            }
+            for column in car_paths.columns
+        ],
+        "event_days": [int(d) for d in car_paths.index],
+        "caveats": as_dicts(caveats_for_surface(SURFACE_PEAD)),
+    }
+
+
+@router.get("/pead-study")
+def pead_study(
+    signal: str = Query(
+        "sue_price_scaled", pattern="^(sue_price_scaled|sue_std_scaled|revenue_surprise_pct)$"
+    ),
+    horizon_days: int = Query(60, ge=10, le=120),
+    n_quantiles: int = Query(5, ge=3, le=10),
+    min_price: float = Query(1.0, ge=0.0, le=50.0),
+) -> dict:
+    """Event-time PEAD study: average abnormal drift after earnings, by surprise quantile."""
+    return _cached_pead_study(signal, horizon_days, n_quantiles, min_price)
 
 
 @router.post("/simulate", response_model=EventSimulateResponse)

@@ -20,6 +20,12 @@ class PerformanceMetrics(BaseModel):
     cid1_ratio: float = 0.0
     typical_period_return: float = 0.0
     cid2_ratio: float = 0.0
+    # Shape-of-the-edge: how the return arrived, not just how much per unit risk.
+    hit_rate: float = 0.0
+    win_loss_ratio: float = 0.0
+    profit_factor: float = 0.0
+    best_period: float = 0.0
+    worst_period: float = 0.0
     n_periods: int
     information_ratio: Optional[float] = None
     beta: Optional[float] = None

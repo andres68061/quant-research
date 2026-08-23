@@ -186,25 +186,20 @@ def create_signals_from_factor(
     valid_df = pd.DataFrame({factor_col: factor_series[valid]})
 
     if universe_filter is not None:
-        dates = valid_df.index.get_level_values("date").unique()
-        mask_parts = []
-        for dt in dates:
+        # One positional pass. The previous implementation did a .loc[date]
+        # lookup and built a MultiIndex per trading day, then concatenated and
+        # ran .isin over the whole panel — tolerable at 774 symbols, ~100s at
+        # 6,400 (post-ADR-0013). groupby(...).indices gives the row positions
+        # for every date in a single pass, so each date costs one isin over its
+        # own rows and nothing is rebuilt.
+        symbols_all = valid_df.index.get_level_values("symbol")
+        keep_mask = np.zeros(len(valid_df), dtype=bool)
+        for dt, positions in valid_df.groupby(level="date").indices.items():
             eligible = universe_filter(dt)
-            dt_slice = valid_df.loc[dt]
-            symbols_in = dt_slice.index.get_level_values("symbol")
-            keep = symbols_in.isin(eligible)
-            idx = dt_slice.index[keep]
-            mask_parts.append(
-                pd.MultiIndex.from_arrays(
-                    [[dt] * len(idx), idx.get_level_values("symbol")],
-                    names=["date", "symbol"],
-                )
-            )
-        if mask_parts:
-            eligible_idx = mask_parts[0].append(mask_parts[1:])
-            valid_df = valid_df.loc[valid_df.index.isin(eligible_idx)]
-        else:
-            valid_df = valid_df.iloc[:0]
+            if not eligible:
+                continue
+            keep_mask[positions] = symbols_all[positions].isin(eligible)
+        valid_df = valid_df[keep_mask]
 
     grp = valid_df.groupby(level="date")[factor_col]
     counts = grp.transform("count")

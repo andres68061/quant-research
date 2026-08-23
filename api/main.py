@@ -19,14 +19,19 @@ from api.routes import (
     commodities,
     data,
     data_coverage,
+    data_health,
     events_backtest,
     exclusions,
+    explorer,
     fama_french,
     fred,
+    glossary,
     health,
+    index_top500,
     measures_lab,
     metrics,
     momentum,
+    notes,
     pairs,
     pairs_index,
     pairs_persistent,
@@ -37,6 +42,7 @@ from api.routes import (
     strategies,
     strategy,
     walkforward,
+    watchdog,
 )
 
 logging.basicConfig(
@@ -77,6 +83,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(data.router)
 app.include_router(data_coverage.router)
+app.include_router(data_health.router)
 app.include_router(fama_french.router)
 app.include_router(strategy.router)
 app.include_router(pairs.router)
@@ -94,6 +101,11 @@ app.include_router(fred.router)
 app.include_router(sectors.router)
 app.include_router(simulation.router)
 app.include_router(measures_lab.router)
+app.include_router(index_top500.router)
 app.include_router(events_backtest.router)
 app.include_router(exclusions.router)
 app.include_router(benchmarks.router)
+app.include_router(watchdog.router)
+app.include_router(explorer.router)
+app.include_router(glossary.router)
+app.include_router(notes.router)

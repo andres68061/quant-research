@@ -2,10 +2,16 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import DataCoverage from "./pages/DataCoverage.tsx";
+import DataHealth from "@/pages/DataHealth.tsx";
+import PeadStudy from "@/pages/PeadStudy.tsx";
 import EconomicIndicators from "./pages/EconomicIndicators.tsx";
 import Portfolio from "./pages/Portfolio.tsx";
 import ExcludedStocks from "./pages/ExcludedStocks.tsx";
+import Explorer from "@/pages/Explorer.tsx";
+import Glossary from "@/pages/Glossary.tsx";
+import ResearchNotes from "@/pages/ResearchNotes.tsx";
 import FamaFrench from "./pages/FamaFrench.tsx";
+import IndexTop500 from "./pages/IndexTop500.tsx";
 import LinearAlgebra from "./pages/LinearAlgebra.tsx";
 import MetalsAnalytics from "./pages/MetalsAnalytics.tsx";
 import Methodology from "./pages/Methodology.tsx";
@@ -54,11 +60,17 @@ export default function App() {
         <Route path="/portfolio" element={<AnimatedPage><Portfolio /></AnimatedPage>} />
         <Route path="/etf-optimizer" element={<Navigate to="/portfolio" replace />} />
         <Route path="/manual-portfolio" element={<Navigate to="/portfolio" replace />} />
+        <Route path="/index-top500" element={<AnimatedPage><IndexTop500 /></AnimatedPage>} />
         <Route path="/metals" element={<AnimatedPage><MetalsAnalytics /></AnimatedPage>} />
         <Route path="/economic" element={<AnimatedPage><EconomicIndicators /></AnimatedPage>} />
         <Route path="/sectors" element={<AnimatedPage><SectorBreakdown /></AnimatedPage>} />
         <Route path="/excluded-stocks" element={<AnimatedPage><ExcludedStocks /></AnimatedPage>} />
+        <Route path="/explorer" element={<AnimatedPage><Explorer /></AnimatedPage>} />
         <Route path="/data-coverage" element={<AnimatedPage><DataCoverage /></AnimatedPage>} />
+        <Route path="/data-health" element={<AnimatedPage><DataHealth /></AnimatedPage>} />
+        <Route path="/pead" element={<AnimatedPage><PeadStudy /></AnimatedPage>} />
+        <Route path="/research-notes" element={<AnimatedPage><ResearchNotes /></AnimatedPage>} />
+        <Route path="/glossary" element={<AnimatedPage><Glossary /></AnimatedPage>} />
         <Route path="/methodology" element={<AnimatedPage><Methodology /></AnimatedPage>} />
         <Route path="/fama-french" element={<AnimatedPage><FamaFrench /></AnimatedPage>} />
         <Route path="/sharpe-limitations" element={<AnimatedPage><SharpeRatioLimitations /></AnimatedPage>} />

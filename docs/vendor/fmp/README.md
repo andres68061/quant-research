@@ -30,12 +30,42 @@ verify against the live docs page or probe the endpoint.
 | Premium $69/mo | 750/min | 30 years | +UK/Canada, full fundamentals+ratios, intraday, technicals, calendars, custom DCF |
 | Ultimate $139/mo | 3,000/min | Full | +Global, transcripts, ETF/MF holdings, 13F, 1-min intraday, bulk/batch |
 
-Note: bulk endpoints (`docs/vendor/fmp/bulk.md`) generally require Ultimate.
+> **This marketing table does not match observed behaviour.** Our Premium key
+> returns 200 for 1-minute intraday, technical indicators, COT and Senate trades —
+> all listed above as Ultimate-only. Trust the probe, not the tier chart.
+
+## What our key actually allows (probed)
+
+On **2026-08-18**, every documented example was called: 263 examples covering
+230 unique paths, plus one corrected retest for a documentation example missing
+a required parameter. **176 paths returned HTTP 200; 54 returned HTTP 402.**
+This is path-level evidence, not an inference from endpoint families.
+
+`scripts/probe_fmp_entitlements.py` remains the smaller representative smoke
+test. Run it after any subscription change and update `docs/DATA_INVENTORY.md`
+§6:
+
+```bash
+/opt/anaconda3/envs/quant/bin/python scripts/probe_fmp_entitlements.py
+```
+
+The restricted paths include transcript directory/content, exchange and
+asset-class batch quotes, latest/TTM statements, point-in-time market snapshots,
+several ETF/fund datasets, all Form 13F and ESG paths, and every bulk endpoint.
+Because bulk is unavailable, universe-wide downloads are per-symbol and
+rate-limit bound.
+
+## Full endpoint catalog
+
+[ENDPOINT_CATALOG.md](ENDPOINT_CATALOG.md) is the single-file list of every
+documented stable-API path (230 unique), with the HTTP result observed for each
+path on 2026-08-18.
 
 ## Category files
 
 | File | Contents |
 |---|---|
+| [ENDPOINT_CATALOG.md](ENDPOINT_CATALOG.md) | Full catalog: every path, description, entitled vs higher-tier |
 | [search-and-directory.md](search-and-directory.md) | Symbol/name/CIK/CUSIP/ISIN search, screener, symbol lists, exchanges/sectors |
 | [company-information.md](company-information.md) | Profile, market cap (incl. historical), float, peers, delisted companies, M&A, executives |
 | [quotes.md](quotes.md) | Real-time quotes, batch quotes, aftermarket, price change |

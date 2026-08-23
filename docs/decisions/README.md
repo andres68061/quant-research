@@ -57,3 +57,9 @@ replacement, same rule as the failed-strategies log.
 - [0006](0006-flat-on-min-stocks-with-coverage-disclosure.md) — Go flat when min_stocks fails; disclose invested coverage
 - [0007](0007-evidence-based-lifecycle-truncation.md) — Enforce lifecycle bounds only when backed by evidence
 - [0008](0008-initial-formation-at-first-signal.md) — Form the initial portfolio at the first actionable signal
+- [0009](0009-cross-sectional-cid1-boundary-convention.md) — Cross-sectional Cid-1: fixed trailing window, +inf at pain = 0, atan2 for ranking
+- [0010](0010-vendor-metric-point-in-time-classification.md) — Classify every vendor dataset by point-in-time status before use
+- [0011](0011-piotroski-beginning-of-year-asset-scaling.md) — Scale Piotroski F-score flows by beginning-of-year assets
+- [0012](0012-fallback-publication-lag-for-placeholder-filing-dates.md) — Substitute a 45-day filing lag when acceptedDate is a placeholder
+- [0013](0013-canonical-panel-cutover-to-expanded-universe.md) — Cut the canonical panel over from 774 S&P names to the full US universe
+- [0014](0014-lazy-factor-loading-and-api-universe-policy.md) — Load factor columns lazily; give the API an explicit universe policy

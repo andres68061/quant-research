@@ -7,7 +7,12 @@ from typing import Optional
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
-from api.dependencies import get_dollar_adv, get_factors, get_prices
+from api.dependencies import (
+    get_dollar_adv,
+    get_factor_frame,
+    get_factor_store,
+    get_prices,
+)
 from api.schemas.strategy import InvestedCoverage
 from core.backtest.portfolio import sp500_universe_filter
 from core.replay.precompute import precompute_backtest_frames
@@ -39,14 +44,16 @@ def get_replay_frames(
     drawdown, rolling Sortino, position from long/short headcounts, and
     invested-coverage disclosure for flat (cash) stretches.
     """
-    factors = get_factors()
+    store = get_factor_store()
     prices = get_prices()
-    if factors is None or prices is None:
+    if store is None or prices is None:
         raise HTTPException(status_code=503, detail="Data not loaded")
 
-    factor_col = factor or factors.columns[0]
-    if factor_col not in factors.columns:
+    available = store.available_factors
+    factor_col = factor or (available[0] if available else None)
+    if factor_col is None or factor_col not in store.column_to_panel:
         raise HTTPException(status_code=400, detail=f"Factor '{factor_col}' not found")
+    factors = get_factor_frame(factor_col)
 
     start = (
         pd.Timestamp(start_date)

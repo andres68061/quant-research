@@ -16,15 +16,15 @@ so a delisted company's last filing does not live forever.
 from __future__ import annotations
 
 import logging
+from typing import Optional, Sequence
 
 import numpy as np
 import pandas as pd
 
+from core.data.factors.statement_metrics import build_statement_metrics
 from core.exceptions import DataSchemaError
 
 logger = logging.getLogger(__name__)
-
-TTM_QUARTERS = 4
 # ~13 months of trading days: one missed annual cycle kills the signal.
 MAX_STALENESS_TRADING_DAYS = 273
 
@@ -72,42 +72,19 @@ def extract_pit_metrics(
     if income_statements.empty or balance_sheets.empty:
         return pd.DataFrame(columns=[*PIT_METRIC_COLUMNS, "reference_date"])
 
-    income = income_statements.sort_values("date").copy()
-    income["net_income_ttm"] = income["netIncome"].rolling(TTM_QUARTERS).sum()
-    income["revenue_ttm"] = income["revenue"].rolling(TTM_QUARTERS).sum()
-    income_metrics = income.set_index("date")[
-        ["acceptedDate", "net_income_ttm", "revenue_ttm", "weightedAverageShsOutDil"]
-    ].rename(columns={"weightedAverageShsOutDil": "shares_diluted"})
+    metrics = build_statement_metrics(income_statements, balance_sheets)
+    if metrics.empty:
+        return pd.DataFrame(columns=[*PIT_METRIC_COLUMNS, "reference_date"])
 
-    balance = balance_sheets.sort_values("date").copy()
-    balance["asset_growth_yoy"] = (
-        balance["totalAssets"] / balance["totalAssets"].shift(TTM_QUARTERS) - 1.0
-    )
-    balance_metrics = balance.set_index("date")[
-        ["acceptedDate", "totalStockholdersEquity", "totalAssets", "asset_growth_yoy"]
-    ].rename(columns={"totalStockholdersEquity": "book_equity", "totalAssets": "total_assets"})
-
-    # Join on reference_date (fiscal period end); publication is the LATER of
-    # the two filings so no metric is visible before both statements exist.
-    merged = income_metrics.join(balance_metrics, how="inner", lsuffix="", rsuffix="_bal")
-    merged["publication_date"] = (
-        merged[["acceptedDate", "acceptedDate_bal"]].max(axis=1).dt.normalize()
-    )
-    merged["reference_date"] = merged.index
-
-    result = (
-        merged.reset_index(drop=True)
-        .set_index("publication_date")[[*PIT_METRIC_COLUMNS, "reference_date"]]
-        .sort_index()
-    )
-    # If two filings publish the same day (amendments), keep the later period.
-    return result[~result.index.duplicated(keep="last")]
+    metrics["asset_growth_yoy"] = metrics["total_assets"] / metrics["total_assets_lag4"] - 1.0
+    return metrics[[*PIT_METRIC_COLUMNS, "reference_date"]]
 
 
 def build_pit_fundamentals_panel(
     per_symbol_metrics: dict[str, pd.DataFrame],
     trading_index: pd.DatetimeIndex,
     max_staleness_days: int = MAX_STALENESS_TRADING_DAYS,
+    metric_columns: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
     """
     Assemble per-symbol publication-dated metrics into a tradable panel.
@@ -116,22 +93,36 @@ def build_pit_fundamentals_panel(
     publication date and forward-fills until the next filing (capped).
 
     Args:
-        per_symbol_metrics: ``{symbol: extract_pit_metrics(...) output}``.
+        per_symbol_metrics: ``{symbol: publication-date-indexed metric frame}``,
+            e.g. the output of :func:`extract_pit_metrics` or
+            :func:`core.data.factors.statement_metrics.build_statement_metrics`.
         trading_index: Target trading calendar (tz-aware, from the price panel).
         max_staleness_days: Forward-fill cap in trading days.
+        metric_columns: Columns to dailyize. Defaults to every column of the first
+            non-empty frame except ``reference_date``. Dailyization dominates the
+            cost of this pipeline, so pass an explicit subset when only a few
+            metrics need daily resolution.
 
     Returns:
-        MultiIndex (date, symbol) DataFrame with ``PIT_METRIC_COLUMNS``.
+        MultiIndex (date, symbol) DataFrame with the selected metric columns.
 
     Example:
         >>> panel = build_pit_fundamentals_panel({"AAPL": aapl_metrics}, prices.index)
         ... # doctest: +SKIP
     """
     tz = trading_index.tz
+    populated = {s: m for s, m in per_symbol_metrics.items() if not m.empty}
+    if metric_columns is None:
+        first = next(iter(populated.values()), None)
+        metric_columns = (
+            [c for c in first.columns if c != "reference_date"]
+            if first is not None
+            else list(PIT_METRIC_COLUMNS)
+        )
+    metric_columns = list(metric_columns)
+
     symbol_frames = []
-    for symbol, metrics in per_symbol_metrics.items():
-        if metrics.empty:
-            continue
+    for symbol, metrics in populated.items():
         publication = metrics.index
         if tz is not None and publication.tz is None:
             publication = publication.tz_localize(tz)
@@ -143,7 +134,7 @@ def build_pit_fundamentals_panel(
         visible = metrics.iloc[np.flatnonzero(valid)]
         visible_dates = trading_index[positions[valid]]
 
-        symbol_metrics = visible[PIT_METRIC_COLUMNS].copy()
+        symbol_metrics = visible[metric_columns].copy()
         symbol_metrics.index = visible_dates
         # Same visible day for consecutive filings: keep the latest.
         symbol_metrics = symbol_metrics[~symbol_metrics.index.duplicated(keep="last")]

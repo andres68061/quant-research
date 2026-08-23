@@ -1,7 +1,9 @@
-# Quant platform — scheduled data updates
+# Quant platform — scheduled data updates and monitoring
 # Restore with: crontab scripts/crontab.txt
 #
-# All jobs run daily at 6 PM (after US market close).
+# Update jobs run daily at 6 PM (after US market close).
+# The watchdog runs several times a day, because the failure it exists to catch
+# is a job that STOPS running — which produces no error and no log line.
 # Logs land in <repo>/logs/<job>.log.
 #
 # Python interpreter: conda env "quant"
@@ -15,3 +17,13 @@
 
 # 3. Shares outstanding + historical market caps (yfinance, free)
 10 18 * * * cd /Users/andres/Downloads/Cursor/quant && /opt/anaconda3/envs/quant/bin/python scripts/fetch_shares_and_market_caps.py >> logs/market_caps_update.log 2>&1
+
+# 4. Watchdog — fast checks (panels present, not collapsed, jobs still firing).
+#    Every 4 hours. Cheap: parquet footers and file mtimes only, no data scan.
+#    On error it fires a macOS notification and the app shows a banner.
+0 */4 * * * cd /Users/andres/Downloads/Cursor/quant && /opt/anaconda3/envs/quant/bin/python scripts/run_watchdog.py >> logs/watchdog.log 2>&1
+
+# 5. Watchdog — deep check (scans panel values for structural violations).
+#    Once daily at 6:40 PM, i.e. AFTER the update jobs above have landed, so it
+#    validates what they just wrote rather than yesterday's artifacts.
+40 18 * * * cd /Users/andres/Downloads/Cursor/quant && /opt/anaconda3/envs/quant/bin/python scripts/run_watchdog.py --deep >> logs/watchdog.log 2>&1

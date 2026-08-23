@@ -432,6 +432,96 @@ def calculate_information_ratio(
     return float(ir)
 
 
+def calculate_hit_rate(returns: pd.Series) -> float:
+    """
+    Fraction of periods with a positive return.
+
+    Sharpe answers "how much return per unit of risk"; it says nothing about
+    *how* that return arrived. A strategy that wins 3 days in 10 with large
+    payoffs and one that wins 7 in 10 with small ones can share a Sharpe while
+    being completely different things to hold, to size, and to keep faith in
+    during a drawdown.
+
+    Args:
+        returns: Periodic returns.
+
+    Returns:
+        Hit rate in [0, 1]; 0.0 for an empty series.
+    """
+    clean = returns.dropna()
+    if clean.empty:
+        return 0.0
+    return float((clean > 0).mean())
+
+
+def calculate_win_loss_ratio(returns: pd.Series) -> float:
+    """
+    Average winning period divided by the average losing period (absolute).
+
+    The natural companion to hit rate: together they say whether the edge comes
+    from being right often or from being right big. A 35% hit rate is fine if
+    the wins are 3x the losses, and fatal if they are the same size.
+
+    Args:
+        returns: Periodic returns.
+
+    Returns:
+        Ratio of mean win to mean absolute loss; ``inf`` when there are no
+        losing periods, 0.0 when there are no winning ones.
+    """
+    clean = returns.dropna()
+    wins = clean[clean > 0]
+    losses = clean[clean < 0]
+    if wins.empty:
+        return 0.0
+    if losses.empty:
+        return float("inf")
+    return float(wins.mean() / abs(losses.mean()))
+
+
+def calculate_profit_factor(returns: pd.Series) -> float:
+    """
+    Gross gains divided by gross losses.
+
+    Above 1.0 the strategy made money; the size of the excess says how much
+    cushion it has before costs or slippage erase it. Unlike Sharpe this is
+    unaffected by volatility clustering.
+
+    Args:
+        returns: Periodic returns.
+
+    Returns:
+        Profit factor; ``inf`` when there are no losses, 0.0 when no gains.
+    """
+    clean = returns.dropna()
+    gains = clean[clean > 0].sum()
+    losses = abs(clean[clean < 0].sum())
+    if gains == 0:
+        return 0.0
+    if losses == 0:
+        return float("inf")
+    return float(gains / losses)
+
+
+def calculate_best_worst_period(returns: pd.Series) -> tuple[float, float]:
+    """
+    Best and worst single-period returns.
+
+    Cheap tail check: a Sharpe driven by one enormous day is not a strategy, and
+    this is the fastest way to see it.
+
+    Args:
+        returns: Periodic returns.
+
+    Returns:
+        ``(best, worst)``; ``(0.0, 0.0)`` for an empty series.
+    """
+    clean = returns.dropna()
+    if clean.empty:
+        return 0.0, 0.0
+    return float(clean.max()), float(clean.min())
+
+
 def calculate_performance_metrics(
     returns: pd.Series,
     benchmark_returns: Optional[pd.Series] = None,
@@ -482,6 +572,11 @@ def calculate_performance_metrics(
             "cvar_95": 0.0,
             "cvar_99": 0.0,
             "time_underwater_days": 0,
+            "hit_rate": 0.0,
+            "win_loss_ratio": 0.0,
+            "profit_factor": 0.0,
+            "best_period": 0.0,
+            "worst_period": 0.0,
         }
         if loss_probability_horizons is not None:
             for horizon_days in loss_probability_horizons:
@@ -526,6 +621,15 @@ def calculate_performance_metrics(
         "cvar_99": float(cvar_99),
         "time_underwater_days": int(time_underwater_days),
         "n_periods": int(len(returns_clean)),
+        # Shape-of-the-edge metrics. Sharpe compresses a return distribution to
+        # one number and hides whether the edge is "often right" or "rarely right,
+        # hugely right" — which determines sizing, drawdown tolerance, and how
+        # much slippage the strategy can absorb.
+        "hit_rate": calculate_hit_rate(returns_clean),
+        "win_loss_ratio": calculate_win_loss_ratio(returns_clean),
+        "profit_factor": calculate_profit_factor(returns_clean),
+        "best_period": calculate_best_worst_period(returns_clean)[0],
+        "worst_period": calculate_best_worst_period(returns_clean)[1],
     }
 
     if loss_probability_horizons is not None:

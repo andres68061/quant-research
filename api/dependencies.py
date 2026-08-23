@@ -10,11 +10,15 @@ from typing import Optional
 import pandas as pd
 
 from config.settings import PROJECT_ROOT
+from core.data.api_universe import select_api_symbols
+from core.data.factor_store import FactorStore
 from core.data.quality import QUARANTINE_PATH, load_quarantined_symbols
 
 logger = logging.getLogger(__name__)
 
 _factors: Optional[pd.DataFrame] = None
+_factor_store: Optional[FactorStore] = None
+_universe_disclosure: dict = {}
 _prices: Optional[pd.DataFrame] = None
 _sectors: Optional[pd.DataFrame] = None
 _dollar_adv: Optional[pd.DataFrame] = None
@@ -23,7 +27,7 @@ _quarantined: set[str] = set()
 
 def load_data() -> None:
     """Load core datasets into module-level caches, excluding quarantined symbols."""
-    global _factors, _prices, _sectors, _dollar_adv, _quarantined
+    global _factors, _factor_store, _prices, _sectors, _dollar_adv, _quarantined
 
     data_dir = PROJECT_ROOT / "data"
     factors_all_path = data_dir / "factors" / "factors_all.parquet"
@@ -37,45 +41,45 @@ def load_data() -> None:
     if _quarantined:
         logger.info("Quarantine list: excluding %d symbols from loaded data", len(_quarantined))
 
-    if factors_path.exists():
-        _factors = pd.read_parquet(factors_path)
-        fundamentals_path = data_dir / "factors" / "factors_fundamental.parquet"
-        if fundamentals_path.exists():
-            fundamental_factors = pd.read_parquet(fundamentals_path)
-            sectors_path = data_dir / "sectors" / "sector_classifications.parquet"
-            if (
-                "earnings_yield" in fundamental_factors.columns
-                and "roe" in fundamental_factors.columns
-                and (
-                    "value_quality_sn" not in fundamental_factors.columns
-                    or "value_quality" not in fundamental_factors.columns
-                )
-                and sectors_path.exists()
-            ):
-                from core.signals.sector_neutral import attach_value_quality_columns
-
-                symbol_to_sector = pd.read_parquet(sectors_path).set_index("symbol")["sector"]
-                fundamental_factors = attach_value_quality_columns(
-                    fundamental_factors, symbol_to_sector
-                )
-            overlap = [c for c in fundamental_factors.columns if c in _factors.columns]
-            _factors = _factors.drop(columns=overlap, errors="ignore").join(
-                fundamental_factors, how="left"
-            )
-        if _quarantined:
-            symbol_level = _factors.index.get_level_values("symbol")
-            _factors = _factors[~symbol_level.isin(_quarantined)]
-        logger.info("Loaded factors: %s columns=%s", _factors.shape, list(_factors.columns))
-    else:
+    # NOTE: the factor panels are deliberately NOT loaded eagerly here.
+    # Post-cutover they total ~7 GB (26.7M-row price factors + ~21M-row
+    # fundamentals), and no consumer needs the wide frame — every route wants
+    # either the list of factor names or one column. FactorStore (built below,
+    # after prices define the universe) reads metadata now and columns on demand.
+    # Cross-sectional composites (value_quality, *_sn) are attached by
+    # scripts/build_fundamentals_panel.py at build time, not here: computing a
+    # cross-sectional z-score during a load is both slow and silently dependent
+    # on whichever universe happened to be loaded. See ADR 0014.
+    if not factors_path.exists():
         logger.warning("Factors file not found: %s", factors_path)
 
     if prices_path.exists():
-        _prices = pd.read_parquet(prices_path)
+        full_panel = pd.read_parquet(prices_path)
         if _quarantined:
-            _prices = _prices.drop(columns=[s for s in _quarantined if s in _prices.columns])
-        logger.info("Loaded prices: %s", _prices.shape)
+            full_panel = full_panel.drop(
+                columns=[s for s in _quarantined if s in full_panel.columns]
+            )
+        # ADR 0013: the canonical panel is now the whole US market (~8,900
+        # symbols). Loading all of it plus every factor panel costs ~7 GB, so the
+        # API loads a policy-selected subset and DISCLOSES which one.
+        selected, _universe_disclosure_local = select_api_symbols(full_panel)
+        _universe_disclosure.clear()
+        _universe_disclosure.update(_universe_disclosure_local)
+        _prices = full_panel[[c for c in selected if c in full_panel.columns]]
+        del full_panel
+        logger.info(
+            "Loaded prices under %r policy: %s (from %s panel symbols)",
+            _universe_disclosure.get("policy"),
+            _prices.shape,
+            _universe_disclosure.get("panel_symbols"),
+        )
     else:
         logger.warning("Prices file not found: %s", prices_path)
+
+    _factor_store = FactorStore(
+        data_dir / "factors",
+        symbols=set(_prices.columns) if _prices is not None else None,
+    )
 
     if sectors_path.exists():
         _sectors = pd.read_parquet(sectors_path)
@@ -94,7 +98,43 @@ def load_data() -> None:
 
 
 def get_factors() -> Optional[pd.DataFrame]:
+    """
+    The eagerly-loaded factor frame, when one is available.
+
+    Prefer :func:`get_factor_frame` for backtests: it reads a single column on
+    demand (~43 MB) instead of holding every panel in memory (~7 GB post-cutover).
+    This getter remains for callers that genuinely need the wide frame.
+    """
     return _factors
+
+
+def get_factor_store() -> Optional[FactorStore]:
+    """Lazy per-column access to every factor panel."""
+    return _factor_store
+
+
+def get_factor_frame(factor_col: str) -> pd.DataFrame:
+    """
+    Load one factor as a ``(date, symbol)`` single-column frame.
+
+    Args:
+        factor_col: Factor name from :meth:`FactorStore.available_factors`.
+
+    Returns:
+        One-column DataFrame ready for the cross-section runner.
+
+    Raises:
+        RuntimeError: If no factor store was loaded.
+        KeyError: If the factor is unknown.
+    """
+    if _factor_store is None:
+        raise RuntimeError("Factor store not loaded")
+    return _factor_store.load_factor(factor_col)
+
+
+def get_universe_disclosure() -> dict:
+    """Which universe policy the API loaded, with per-step counts and the reason."""
+    return dict(_universe_disclosure)
 
 
 def get_prices() -> Optional[pd.DataFrame]:

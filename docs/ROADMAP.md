@@ -205,8 +205,189 @@ of the generic per-backtest metrics dict.
   This was previously undisclosed; distinct from the already-fixed
   factor-lookahead issue in `docs/PORTFOLIO_SIMULATION_FIXES_APPLIED.md`.
 
+## PEAD validated on the expanded universe (2026-08-13) — the first positive result
+
+`scripts/experiment_pead_by_size.py`, 267,780 announcements, 1992-2026, event-time
+(day 0 excluded), quintiles by price-scaled SUE within each calendar quarter,
+non-operating vehicles excluded, returns require price >= $1 and |ret| <= 300%.
+
+| Bucket | Events | Spread @20d | Spread @60d | t |
+|---|---:|---:|---:|---:|
+| all | 267,780 | +0.96% | **+1.70%** | **10.05** |
+| small | 23,243 | +0.95% | **+1.53%** | **3.60** |
+| mid | 23,197 | +0.39% | +0.51% | 1.69 |
+| large | 23,289 | +0.57% | +1.14% | 3.94 |
+
+Small > mid and small > large, matching the literature's size prediction, and
+the magnitudes (1-2% per quarter) are consistent with modern post-decay estimates
+rather than the 2-4% of the 1980s papers.
+
+**Two changes made this visible**, and the second matters more than the first:
+4x more events, and **bad-print rejection**. Before it, the same study returned
+`-inf` CAR paths — the panel contains daily "returns" up to +101,599,900% from
+un-adjusted reverse splits, and one of those in a cross-sectional mean destroys
+every symbol's abnormal return for that date. See `core/data/returns.py`.
+
+**Answered 2026-08-14: the effect is real, the obvious strategy is not.**
+Steps 1 and 2 below are done — `core/strategies/pead.py` builds the overlapping
+book and charges liquidity-scaled costs. Result: long/short goes from Sharpe
++0.70 under flat 10 bps to **−0.11** under real costs; restricting to liquid
+names halves the gross edge. Full table in `FAILED_STRATEGIES_LOG.md`.
+
+Still open:
+1. ~~Cost model~~ — done (ADV-scaled).
+2. ~~Tradable form~~ — done (overlapping book).
+3. **Robustness.** Vary the $1 floor and the 300% bad-print bound; the result
+   must not depend on either.
+4. **Higher-conviction construction.** Every rescue tried so far reduces cost by
+   reducing edge proportionally. Untried: trade only the most extreme surprises
+   (a fixed small book rather than every qualifying announcement), or enter on
+   the open instead of the close.
+
+## Cutover landed (2026-08-13) — what it broke and what it enables
+
+The canonical panel is now **8,910 symbols** (ADR 0013). Membership became a
+label (`data/universe/index_membership.parquet`, 1,255 intervals). Four things
+broke and were fixed, all of which are worth knowing about before the next
+widening:
+
+1. **Single-pass panel builds do not fit in memory** at 8,900 symbols. Price
+   factors, fundamentals and event factors all now batch and append via
+   `ParquetWriter`; the fundamentals canonical path switches to batching above
+   1,200 symbols and computes cross-sectional composites in a cheap second pass
+   (`factors_composites.parquet`).
+2. **The API needed ~7 GB.** Fixed by lazy per-column factor loading
+   (`core/data/factor_store.py`) plus an explicit, disclosed universe policy
+   (`API_UNIVERSE`, default `research` = 6,369 symbols). ADR 0014. Startup is
+   now ~3 s at ~1.5 GB.
+3. **The universe filter was quadratic-ish**: a per-date `.loc` + MultiIndex
+   append made one backtest take ~100 s at the new width. Rewritten as a single
+   positional pass (~35% faster end to end, bit-identical output, pinned by
+   `tests/test_universe_filter_perf.py`).
+4. **20% of the universe is shells/SPACs** — see the flaw registry. Every
+   cross-sectional screen must exclude them
+   (`core.data.universe_filters.build_universe_filter`).
+
+## Screen results are in (2026-08-11) — what survived and what's next
+
+The systematic screen ran: **28 factors, uniform pipeline, zero Šidák survivors**
+(`docs/research/factor_screen_20260811.md`; negatives logged in the failure log).
+The PEAD event study also ran: **t=1.5 on large caps, not significant**. Both are
+now permanent surfaces: `scripts/screen_factor_library.py`, `/pead` page,
+`GET /backtest/events/pead-study`.
+
+Forward-looking items that survive contact with the data:
+
+1. **`neg_net_operating_assets`** — the one factor with stable decade Sharpes
+   (0.27 / 0.53 / 0.65, t=2.16). Below the corrected threshold, but the only
+   candidate whose profile isn't decay-shaped. Worth: sector-neutral variant,
+   costs sensitivity, and the imputed-dates exclusion re-run.
+2. **PEAD on the expanded universe** — the raw earnings data now covers ~6,800
+   symbols; build the surprise panel against `prices_fmp.parquet` and re-run the
+   event study on the small-cap tail where the literature puts the effect.
+3. **Piotroski as specified** — standalone it is negative (−0.33); the paper
+   applies it WITHIN the high book-to-market quintile. Test the conditional
+   version before declaring it dead.
+4. **The panel cutover decision** (774 → 8,908) — prerequisite for 2.
+
+## Superseded — validate the newly available factors (2026-08-07)
+
+The FMP footprint went from 10 endpoints to 26, the fundamental factor library
+from 8 columns to 37, and the universe from 774 to 9,011 symbols. **None of the
+new factors has been backtested.** They are computed, coverage-checked, and
+registered — that is all. Treat every `expected_sharpe_range` in the registry as
+a prior from the literature, not as evidence from this repo.
+
+Work in this order:
+
+1. **Post-earnings announcement drift (PEAD)** — the genuinely new strategy
+   family, not a variation on an existing factor. The **signal now exists**:
+   `factors_earnings_surprise.parquet` carries three SUE definitions plus
+   `days_since_earnings`, announcement-dated, held 60 trading days (82% coverage).
+   What is still missing is the **event-time backtest**. The shared
+   cross-sectional runner rebalances on a calendar, so it would hold a stale mix
+   of fresh and 59-day-old surprises and dilute exactly the effect being
+   measured. Build the event-study harness first (align on announcement, measure
+   cumulative abnormal return over the drift window), then decide whether a
+   tradable calendar-rebalanced version survives costs.
+
+2. **Screen the 29 new fundamental factors properly.** Running 29 factors and
+   reporting the best one is exactly the multiple-testing trap ADR 0003 exists
+   for — apply the Šidák correction, and report the whole cross-section of
+   results, not the winner. Per CLAUDE.md, walk-forward at least annually.
+
+3. **Re-run the existing factors on the expanded universe.** 774 → ~9,000 names
+   is the first time there is real cross-sectional dispersion. Several factors
+   (accruals, illiquidity, Piotroski) are documented as living in the small-cap
+   tail and may show up for the first time. Note that the quarantine rules in
+   `data/quality/` and the dollar-ADV filters will be doing much heavier lifting
+   — small-cap bad prints are more common than large-cap ones.
+
+4. **Microstructure factors** — `overnight_intraday_gap` is untested and depends
+   on opening prices, the noisiest field in the vendor bar. Verify the split
+   adjustment before trusting any result.
+
+5. **Screen the 42 vendor metrics** in `factors_vendor_metrics.parquet`. The
+   filing-date join is done (ADR 0010) so they are now point-in-time and safe to
+   use, but none has been tested. Several — ROIC, cash conversion cycle, income
+   quality — are genuinely distinct from anything in §3a rather than
+   re-parameterisations, so they are worth a look. Same multiple-testing
+   discipline as item 2.
+
+6. **Re-check pre-2000 results with `publication_date_imputed` excluded.** 21.5%
+   of statement rows had a placeholder filing date and now carry a conservative
+   45-day lag instead (ADR 0012). A factor that only works on imputed history is
+   an artifact of that choice, not a finding.
+
+Whatever comes out of 1–4 goes to `FAILED_STRATEGIES_LOG.md` or ships — see the
+`strategy-experiment-log` skill.
+
 ## Recently shipped
 
+- **FMP footprint expansion + fundamental factor library (2026-08-07)** —
+  probed entitlements empirically (`scripts/probe_fmp_entitlements.py`; the
+  complete 2026-08-18 sweep found 176/230 paths working and records all 54
+  HTTP-402 paths in `docs/vendor/fmp/ENDPOINT_CATALOG.md`); dataset registry
+  with mandatory point-in-time classification (`core/data/fmp/datasets.py`, 16
+  per-symbol datasets, ADR 0010); mined the raw statements from 6 derived fields
+  to 37 factor columns (`statement_metrics.py`, `fundamental_factors.py`,
+  `quality_scores.py`) with Piotroski and Altman reconciled against the vendor's
+  own scores (ADR 0011 fixed a beginning-of-year scaling bug the reconciliation
+  exposed); surfaced the OHLC fields that were on disk but unused
+  (`ohlcv.parquet`, 10 microstructure factors); survivorship-free 9,011-symbol
+  universe table (4,568 live + 4,371 delisted); resumable/atomic backfill
+  tooling with per-symbol fetch windows (−37% calls) and an intraday fetcher
+  that respects the endpoint's bar cap. 8 new registry entries.
+
+  Also: earnings-surprise (SUE/PEAD) factors from announcement-dated data, and a
+  filing-date join that makes the vendor ratio datasets point-in-time — measured
+  at a 34-day leak on AAPL before the fix (ADR 0010). Reconciliation against the
+  vendor's own scores validated Altman Z (n=684, corr 0.98) and showed Piotroski
+  agrees in distribution and rank but not per-name, because we use TTM quarterly
+  where the paper uses annual (ADR 0011). Measuring the publication lag exposed
+  that 21.5% of statement rows carry a placeholder `acceptedDate` equal to the
+  period end — a ~35 day lookahead now replaced by a conservative 45-day lag and
+  flagged per row (ADR 0012). **No new factor has been validated — see "Up next"
+  above.**
+
+- **Simple Top-500 index + Cid-1 relevance study (2026-07-30)** — quarterly
+  top-500-by-market-cap cap-weighted index ("S&P without the committee"):
+  `core/index/top500.py`, `core/metrics/cross_section.py` (per-stock
+  trailing Cid-1, ADR-0009), `core/index/cid1_study.py` (persistence / IC /
+  Fama-MacBeth / quintile sort, Newey-West), `GET /index/top500/*`,
+  `/index-top500` page. Index result 2005→2026 (gross, dividend-adjusted
+  prices vs ^GSPC price index): +13.3% ann, Sharpe 0.70, corr 0.998,
+  TE 1.18%, quarterly one-sided turnover 1.4%. Cid-1 experiment outcome
+  is **negative** — logged in `FAILED_STRATEGIES_LOG.md`, never a
+  selection criterion.
+- **Market-cap panel integrity fix (2026-07-30)** — found
+  `data/market_caps/historical_market_caps.parquet` was never rebuilt from
+  the raw FMP layer (legacy values: 3Com $4.5T in 2008, MCI $1.6e16;
+  Citigroup 2004 2× overstated). Rebuilt via
+  `scripts/fetch_fmp_market_caps.py --build-only` (backup:
+  `data/backups/historical_market_caps_backup_20260730_pre_raw_rebuild.parquet`).
+  Downstream `log_market_cap` factor values will silently improve on next
+  `factors_all` rebuild.
 - **Long/short pairs stat-arb index (rolling multi-pair basket)** — walk-forward
   Gatev-SSD basket formation/re-formation, no lookahead;
   `core/strategies/pairs_index.py`, `POST /run-pairs-index-backtest`,

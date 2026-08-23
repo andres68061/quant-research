@@ -20,6 +20,7 @@ Usage:
 import argparse
 import logging
 import sys
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -29,12 +30,15 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core.data.fmp.fundamentals import STATEMENT_ENDPOINTS, fetch_quarterly_statement
+from core.data.fmp.storage import load_universe_symbols, safe_filename, write_atomic
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("fetch_fmp_fundamentals")
 
 RAW_FUNDAMENTALS_DIR = ROOT / "data" / "raw" / "fmp" / "fundamentals"
 PRICES_PANEL = ROOT / "data" / "factors" / "prices.parquet"
+
+_PROGRESS_EVERY = 50
 
 
 def load_universe() -> list[str]:
@@ -44,10 +48,13 @@ def load_universe() -> list[str]:
 
 
 def fetch_all(symbols: list[str], refresh: bool) -> None:
+    """Fetch all three statements per symbol, skipping files already downloaded."""
     n_done = n_skipped = n_empty = n_failed = 0
+    started = time.monotonic()
+
     for i, symbol in enumerate(symbols, 1):
         for statement in STATEMENT_ENDPOINTS:
-            out_path = RAW_FUNDAMENTALS_DIR / statement / f"{symbol}.parquet"
+            out_path = RAW_FUNDAMENTALS_DIR / statement / f"{safe_filename(symbol)}.parquet"
             if out_path.exists() and not refresh:
                 n_skipped += 1
                 continue
@@ -58,21 +65,24 @@ def fetch_all(symbols: list[str], refresh: bool) -> None:
                 n_failed += 1
                 continue
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            statements.to_parquet(out_path)
+            write_atomic(statements, out_path)
             if statements.empty:
                 n_empty += 1
             else:
                 n_done += 1
-        if i % 25 == 0 or i == len(symbols):
+        if i % _PROGRESS_EVERY == 0 or i == len(symbols):
+            attempted = n_done + n_empty + n_failed
+            rate = attempted / max(time.monotonic() - started, 1e-9)
+            remaining = (len(symbols) - i) * len(STATEMENT_ENDPOINTS) / rate / 60.0 if rate else 0.0
             logger.info(
-                "[%d/%d] files ok=%d skipped=%d empty=%d failed=%d (last: %s)",
+                "[%d/%d] files ok=%d skipped=%d empty=%d failed=%d (~%.0f min left)",
                 i,
                 len(symbols),
                 n_done,
                 n_skipped,
                 n_empty,
                 n_failed,
-                symbol,
+                remaining,
             )
     logger.info("DONE ok=%d skipped=%d empty=%d failed=%d", n_done, n_skipped, n_empty, n_failed)
 
@@ -80,10 +90,17 @@ def fetch_all(symbols: list[str], refresh: bool) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fetch FMP quarterly statements")
     parser.add_argument("--symbols", type=str, default=None, help="Comma-separated subset")
+    parser.add_argument("--universe-file", type=Path, default=None, help="Universe parquet")
     parser.add_argument("--refresh", action="store_true", help="Refetch even if file exists")
     args = parser.parse_args()
 
-    symbols = args.symbols.split(",") if args.symbols else load_universe()
+    if args.symbols:
+        symbols = args.symbols.split(",")
+    elif args.universe_file:
+        symbols = load_universe_symbols(args.universe_file)
+    else:
+        symbols = load_universe()
+    logger.info("Fetching statements for %d symbols", len(symbols))
     fetch_all(symbols, refresh=args.refresh)
 
 

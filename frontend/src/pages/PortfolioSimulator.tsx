@@ -8,11 +8,13 @@ import SignalBadge from "@/components/cards/SignalBadge.tsx";
 import EquityCurve from "@/components/charts/EquityCurve.tsx";
 import ReplayControls from "@/components/controls/ReplayControls.tsx";
 import RunButton from "@/components/controls/RunButton.tsx";
+import TestCounter from "@/components/controls/TestCounter.tsx";
 import AppLayout from "@/components/layout/AppLayout.tsx";
 import BottomPanel from "@/components/layout/BottomPanel.tsx";
 import LeftSidebar from "@/components/layout/LeftSidebar.tsx";
 import RightSidebar from "@/components/layout/RightSidebar.tsx";
 import { api } from "@/lib/api.ts";
+import { countTest } from "@/lib/testCounter.ts";
 import type {
   AllVarResult,
   BacktestDiagnostics,
@@ -40,6 +42,7 @@ export default function PortfolioSimulator() {
   const [rebalFreq, setRebalFreq] = useState("ME");
   const [tcost, setTcost] = useState(10);
   const [topPct, setTopPct] = useState(20);
+  const [bottomPct, setBottomPct] = useState(20);
   const [longOnly, setLongOnly] = useState(false);
   const [survivorshipFree, setSurvivorshipFree] = useState(true);
 
@@ -57,6 +60,8 @@ export default function PortfolioSimulator() {
 
   const backtest = useMutation({
     mutationFn: api.runBacktest,
+    // Every completed run counts toward the session's multiple-testing bar.
+    onSuccess: countTest,
   });
 
   const assetsQuery = useQuery({ queryKey: ["assets"], queryFn: api.listAssets });
@@ -78,7 +83,7 @@ export default function PortfolioSimulator() {
         rebalance_freq: rebalFreq,
         transaction_cost_bps: tcost,
         top_pct: topPct / 100,
-        bottom_pct: topPct / 100,
+        bottom_pct: longOnly ? 0 : bottomPct / 100,
         long_only: longOnly,
         start_date: startDate,
         end_date: endDate,
@@ -114,7 +119,7 @@ export default function PortfolioSimulator() {
       rebalance_freq: rebalFreq,
       transaction_cost_bps: tcost,
       top_pct: topPct / 100,
-      bottom_pct: topPct / 100,
+      bottom_pct: longOnly ? 0 : bottomPct / 100,
       long_only: longOnly,
       start_date: startDate,
       end_date: endDate,
@@ -177,7 +182,7 @@ export default function PortfolioSimulator() {
             />
           </Field>
 
-          <Field label={`Top/Bottom ${topPct}%`}>
+          <Field label={`Long top ${topPct}%`}>
             <input
               type="range"
               min={5}
@@ -185,7 +190,19 @@ export default function PortfolioSimulator() {
               value={topPct}
               onChange={(e) => setTopPct(Number(e.target.value))}
               disabled={loading}
-              className="w-full accent-blue-500"
+              className="w-full accent-emerald-500"
+            />
+          </Field>
+
+          <Field label={longOnly ? "Short leg disabled" : `Short bottom ${bottomPct}%`}>
+            <input
+              type="range"
+              min={0}
+              max={50}
+              value={longOnly ? 0 : bottomPct}
+              onChange={(e) => setBottomPct(Number(e.target.value))}
+              disabled={loading || longOnly}
+              className="w-full accent-red-500 disabled:opacity-40"
             />
           </Field>
 
@@ -238,6 +255,8 @@ export default function PortfolioSimulator() {
             <RunButton onClick={handleRun} loading={backtest.isPending} label="Run Backtest" />
             <RunButton onClick={handleLoadReplay} loading={replayMut.isPending} label="Replay" />
           </div>
+
+          <TestCounter />
 
           {(backtest.isError || replayMut.isError) && (
             <div className="text-[10px] text-red-400 bg-red-950/50 border border-red-900 rounded px-2 py-1">

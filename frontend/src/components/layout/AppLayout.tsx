@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import TopBar from "./TopBar.tsx";
+import WatchdogBanner from "./WatchdogBanner.tsx";
 
 interface Props {
   left?: ReactNode;
@@ -13,6 +14,7 @@ export default function AppLayout({ left, right, bottom, children }: Props) {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <TopBar />
+      <WatchdogBanner />
       <div className="flex flex-1 min-h-0">
         {left}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">

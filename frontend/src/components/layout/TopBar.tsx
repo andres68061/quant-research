@@ -24,16 +24,22 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Analytics",
     items: [
+      { to: "/explorer", label: "Explorer" },
+      { to: "/index-top500", label: "Simple 500" },
+      { to: "/pead", label: "PEAD" },
       { to: "/metals", label: "Commodities" },
       { to: "/economic", label: "Economic" },
       { to: "/sectors", label: "Sectors" },
       { to: "/excluded-stocks", label: "Excluded" },
       { to: "/data-coverage", label: "Data Coverage" },
+      { to: "/data-health", label: "Data Health" },
     ],
   },
   {
     label: "Reference",
     items: [
+      { to: "/research-notes", label: "Research Notes" },
+      { to: "/glossary", label: "Glossary" },
       { to: "/methodology", label: "Methodology" },
       { to: "/fama-french", label: "Fama-French" },
       { to: "/sharpe-limitations", label: "Sharpe Limits" },
