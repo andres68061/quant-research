@@ -7,6 +7,28 @@ import pandas as pd
 import pytest
 
 from core.backtest.portfolio import create_signals_from_factor, sp500_universe_filter
+from core.data.sp500_constituents import resolve_sp500_historical_csv
+from core.exceptions import ConfigError
+
+
+def _constituents_csv_available() -> bool:
+    """Whether the historical S&P 500 constituents CSV is on disk.
+
+    The CSV lives under the gitignored ``data/`` tree, so it is absent on a
+    fresh checkout (CI included). The tests below assert against real
+    membership counts and cannot be rewritten against a fixture without
+    losing what they check.
+    """
+    try:
+        return resolve_sp500_historical_csv().is_file()
+    except ConfigError:
+        return False
+
+
+needs_constituents_csv = pytest.mark.skipif(
+    not _constituents_csv_available(),
+    reason="S&P 500 historical constituents CSV not present (gitignored data/)",
+)
 
 
 @pytest.fixture()
@@ -74,6 +96,7 @@ class TestCreateSignalsWithFilter:
         assert (signals["signal"] == 0).all()
 
 
+@needs_constituents_csv
 class TestSP500UniverseFilter:
     def test_loads_and_returns_callable(self) -> None:
         uf = sp500_universe_filter()
