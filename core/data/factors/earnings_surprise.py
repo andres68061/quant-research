@@ -56,6 +56,29 @@ SURPRISE_COLUMNS: tuple[str, ...] = (
 _REQUIRED_FIELDS = {"date", "epsActual", "epsEstimated"}
 
 
+_EPOCH = pd.Timestamp("1970-01-01")
+
+
+def _epoch_day_ordinal(dates: pd.DatetimeIndex) -> pd.Index:
+    """
+    Whole days from the epoch, independent of the index's datetime resolution.
+
+    ``DatetimeIndex.astype("int64")`` exposes the underlying integer
+    representation, whose unit is nanoseconds on pandas 2.x but microseconds on
+    pandas 3.0 — so dividing it by a nanoseconds-per-day constant silently
+    collapses every date onto the same ordinal. Differencing against a fixed
+    timestamp yields days under either resolution.
+
+    Args:
+        dates: Tz-aware or tz-naive datetime index.
+
+    Returns:
+        Integer index of whole days since 1970-01-01.
+    """
+    naive = dates.tz_localize(None) if dates.tz is not None else dates
+    return (naive.normalize() - _EPOCH).days
+
+
 def compute_announcement_surprises(
     earnings: pd.DataFrame,
     close_prices: pd.Series,
@@ -140,9 +163,7 @@ def compute_announcement_surprises(
 
     # Days since the epoch, so the daily panel can derive days-since-announcement
     # after forward-filling (needed to slice PEAD event windows).
-    result["announcement_ordinal"] = (
-        announced.index.tz_localize(None).astype("int64") // (10**9 * 86400)
-    ).astype("float64")
+    result["announcement_ordinal"] = _epoch_day_ordinal(announced.index).astype("float64")
 
     return result.replace([np.inf, -np.inf], np.nan)[list(SURPRISE_COLUMNS)]
 
@@ -166,7 +187,7 @@ def add_days_since_announcement(panel: pd.DataFrame) -> pd.DataFrame:
         return panel
 
     dates = panel.index.get_level_values("date")
-    date_ordinal = dates.tz_localize(None).astype("int64") // (10**9 * 86400)
+    date_ordinal = _epoch_day_ordinal(dates)
     result = panel.copy()
     result["days_since_earnings"] = (
         date_ordinal - result["announcement_ordinal"].to_numpy()
