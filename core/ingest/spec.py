@@ -42,6 +42,26 @@ class Partition(str, Enum):
     BATCH_SYMBOLS = "batch_symbols"
 
 
+class Subject(str, Enum):
+    """Whose data the rows of a response describe.
+
+    ``stock-peers`` is the reason this exists: a request for ``LUV`` returns
+    ``CRS, JBHT, JOBY`` — the peers *of* LUV, not LUV. The tie between the file
+    and the company it was requested for lives in the request key, so a reader
+    that assumes ``symbol`` identifies the subject would attribute one company's
+    peer set to another.
+    """
+
+    REQUEST_KEY = "request_key"
+    """Rows describe the entity that was requested; a ``symbol`` column should
+    match the request key, and a mismatch means the vendor returned the wrong
+    company's data."""
+
+    RELATED = "related"
+    """Rows describe entities related to the requested one. Only the request key
+    identifies the subject."""
+
+
 class Payload(str, Enum):
     """Wire format of a successful response."""
 
@@ -64,6 +84,8 @@ class EndpointSpec:
         date_columns: Columns parsed to datetime64 on load.
         primary_date: Column to sort ascending by; None for snapshots.
         payload: Wire format; BINARY payloads are stored verbatim, not as parquet.
+        subject: Whether rows describe the requested entity or entities related
+            to it. Drives the identity check at ingestion.
         batch_size: Symbols per call when partition is BATCH_SYMBOLS.
         priority: Wave number. Lower runs first; the driver groups by this so the
             highest-value data lands before a long tail that may take hours.
@@ -91,6 +113,7 @@ class EndpointSpec:
     date_columns: tuple[str, ...] = ()
     primary_date: Optional[str] = None
     payload: Payload = Payload.JSON
+    subject: Subject = Subject.REQUEST_KEY
     batch_size: int = 100
     priority: int = 3
     derivable: bool = False

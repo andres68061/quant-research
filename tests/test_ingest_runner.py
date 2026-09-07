@@ -36,6 +36,7 @@ from core.ingest.journal import (
 )
 from core.ingest.ratelimit import TokenBucket
 from core.ingest.runner import (
+    REQUEST_KEY_COLUMN,
     RETRYABLE_STATUS,
     FetchResult,
     IngestRunner,
@@ -43,7 +44,14 @@ from core.ingest.runner import (
     existing_output,
     store_payload,
 )
-from core.ingest.spec import EndpointSpec, Partition, Payload, Task
+from core.ingest.spec import (
+    PERIOD_END_ONLY,
+    EndpointSpec,
+    Partition,
+    Payload,
+    Subject,
+    Task,
+)
 
 
 class RecordingFetch:
@@ -526,3 +534,80 @@ def test_run_summary_completed_is_zero_for_an_empty_run() -> None:
     assert summary.completed == 0
     assert summary.counts == {}
     assert summary.interrupted is False
+
+
+# --- payload identity -------------------------------------------------------
+# The framework binds data to a company by the request key, so the question
+# "could this file hold the wrong company's earnings?" must have a mechanical
+# answer, not a hopeful one.
+
+
+def _identity_spec(subject: Subject = Subject.REQUEST_KEY) -> EndpointSpec:
+    return EndpointSpec(
+        name="ratios",
+        endpoint="ratios",
+        partition=Partition.PER_SYMBOL,
+        pit_status=PERIOD_END_ONLY,
+        subject=subject,
+    )
+
+
+def test_store_payload_stamps_the_request_key_onto_every_row(
+    raw_root: Path, journal: IngestJournal, bucket: TokenBucket
+) -> None:
+    """The company a file was fetched for must survive concatenation."""
+    spec = _identity_spec()
+    fetch = RecordingFetch([FetchResult(200, rows=[{"value": 1}, {"value": 2}])])
+    ingest = _runner(fetch, raw_root, journal, bucket)
+
+    result = ingest.run_task(Task("ratios", "AAPL", {"symbol": "AAPL"}), spec)
+
+    assert result.status == STATUS_OK
+    stored = pd.read_parquet(raw_root / "ratios" / "AAPL.parquet")
+    assert list(stored[REQUEST_KEY_COLUMN]) == ["AAPL", "AAPL"]
+
+
+def test_run_task_flags_a_payload_naming_a_different_company(
+    raw_root: Path, journal: IngestJournal, bucket: TokenBucket
+) -> None:
+    """A response for the wrong company is recorded, not silently stored clean."""
+    spec = _identity_spec()
+    fetch = RecordingFetch([FetchResult(200, rows=[{"symbol": "MSFT", "value": 1}])])
+    ingest = _runner(fetch, raw_root, journal, bucket)
+
+    result = ingest.run_task(Task("ratios", "AAPL", {"symbol": "AAPL"}), spec)
+
+    assert result.status == STATUS_OK
+    assert result.error is not None
+    assert "identity mismatch" in result.error
+    assert "AAPL" in result.error and "MSFT" in result.error
+
+
+def test_run_task_does_not_flag_related_subject_endpoints(
+    raw_root: Path, journal: IngestJournal, bucket: TokenBucket
+) -> None:
+    """stock-peers returns other companies by design; that is not a mismatch."""
+    spec = _identity_spec(subject=Subject.RELATED)
+    fetch = RecordingFetch([FetchResult(200, rows=[{"symbol": "CRS"}, {"symbol": "JBHT"}])])
+    ingest = _runner(fetch, raw_root, journal, bucket)
+
+    result = ingest.run_task(Task("ratios", "LUV", {"symbol": "LUV"}), spec)
+
+    assert result.status == STATUS_OK
+    assert result.error is None
+    stored = pd.read_parquet(raw_root / "ratios" / "LUV.parquet")
+    # The subject is recoverable even though no row names LUV.
+    assert set(stored[REQUEST_KEY_COLUMN]) == {"LUV"}
+
+
+def test_run_task_accepts_a_payload_whose_symbol_matches_the_key(
+    raw_root: Path, journal: IngestJournal, bucket: TokenBucket
+) -> None:
+    spec = _identity_spec()
+    fetch = RecordingFetch([FetchResult(200, rows=[{"symbol": "AAPL", "value": 1}])])
+    ingest = _runner(fetch, raw_root, journal, bucket)
+
+    result = ingest.run_task(Task("ratios", "AAPL", {"symbol": "AAPL"}), spec)
+
+    assert result.status == STATUS_OK
+    assert result.error is None

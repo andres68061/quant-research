@@ -35,17 +35,42 @@ log() { echo "$(date -u +%FT%TZ) [daemon] $*"; }
 
 beat() { printf '%s\n' "$(date -u +%FT%TZ) $*" > "$HEARTBEAT"; }
 
-# Wait out any ingester already running, whoever started it.
+# Exclusive supervisor lock, held for this whole run.
+#
+# Checking "is an ingester running?" is not enough: between two waves there is a
+# window with no ingester, and a second supervisor starting in that window would
+# run its own waves alongside this one at twice the intended call rate. mkdir is
+# atomic on every filesystem we care about, so it is the lock primitive here
+# (macOS ships no flock binary).
+#
+# Exiting non-zero when the lock is held is deliberate: launchd's KeepAlive then
+# retries after ThrottleInterval, so it takes over cleanly whenever the current
+# supervisor finishes or dies, instead of giving up permanently.
+LOCKDIR="$REPO/data/quality/ingest_supervisor.lock"
+if ! mkdir "$LOCKDIR" 2>/dev/null; then
+    holder=$(cat "$LOCKDIR/pid" 2>/dev/null)
+    if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then
+        log "supervisor pid $holder already holds the lock; exiting for a later retry"
+        exit 1
+    fi
+    log "clearing a stale lock left by pid ${holder:-unknown}"
+    rm -rf "$LOCKDIR"
+    mkdir "$LOCKDIR" 2>/dev/null || { log "could not acquire lock; retrying later"; exit 1; }
+fi
+echo "$$" > "$LOCKDIR/pid"
+trap 'rm -rf "$LOCKDIR"' EXIT INT TERM
+
+# An ingester may still be running from a supervisor that died without cleaning
+# up. Wait it out rather than competing with it.
 waited=0
 while pgrep -f "ingest_fmp.py" > /dev/null; do
     if [ "$waited" -eq 0 ]; then
-        log "another ingest_fmp.py is running; waiting for it to finish"
-        beat "waiting for an existing ingester"
+        log "an orphaned ingest_fmp.py is running; waiting for it to finish"
+        beat "waiting for an orphaned ingester"
     fi
     waited=$((waited + 1))
-    # Give up after 24h so a wedged process cannot block ingestion forever.
     if [ "$waited" -gt 2880 ]; then
-        log "existing ingester still running after 24h; exiting non-zero so launchd retries"
+        log "orphaned ingester still running after 24h; exiting non-zero so launchd retries"
         exit 1
     fi
     sleep 30

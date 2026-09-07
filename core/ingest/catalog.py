@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from core.exceptions import ConfigError
-from core.ingest.spec import EndpointSpec, Partition, Payload
+from core.ingest.spec import EndpointSpec, Partition, Payload, Subject
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,7 @@ def build_specs(manifest: dict[str, Any]) -> list[EndpointSpec]:
         try:
             partition = Partition(entry["partition"])
             payload = Payload(entry.get("payload", "json"))
+            subject = Subject(entry.get("subject", "request_key"))
         except (KeyError, ValueError) as exc:
             raise ConfigError(f"{name}: bad partition/payload: {exc}") from exc
         try:
@@ -87,6 +88,7 @@ def build_specs(manifest: dict[str, Any]) -> list[EndpointSpec]:
                     date_columns=tuple(entry.get("date_columns", ())),
                     primary_date=entry.get("primary_date"),
                     payload=payload,
+                    subject=subject,
                     batch_size=entry.get("batch_size", 100),
                     priority=entry.get("priority", 3),
                     derivable=entry.get("derivable", False),

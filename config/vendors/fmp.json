@@ -577,7 +577,8 @@
    "partition": "global",
    "pit_status": "point_in_time",
    "priority": 1,
-   "category": "Company Search"
+   "category": "Company Search",
+   "subject": "related"
   },
   {
    "name": "search_exchange_variants",
@@ -588,7 +589,8 @@
    "category": "Company Search",
    "date_columns": [
     "ipoDate"
-   ]
+   ],
+   "subject": "related"
   },
   {
    "name": "search_isin",
@@ -596,7 +598,8 @@
    "partition": "global",
    "pit_status": "point_in_time",
    "priority": 1,
-   "category": "Company Search"
+   "category": "Company Search",
+   "subject": "related"
   },
   {
    "name": "search_name",
@@ -607,7 +610,8 @@
    "category": "Company Search",
    "params": {
     "query": "A"
-   }
+   },
+   "subject": "related"
   },
   {
    "name": "search_symbol",
@@ -618,7 +622,8 @@
    "category": "Company Search",
    "params": {
     "query": "A"
-   }
+   },
+   "subject": "related"
   },
   {
    "name": "sec_filings_8k",
@@ -645,7 +650,8 @@
    "category": "Sec Filings",
    "params": {
     "company": "Apple"
-   }
+   },
+   "subject": "related"
   },
   {
    "name": "sec_filings_financials",
@@ -1120,7 +1126,8 @@
    "partition": "per_symbol",
    "pit_status": "snapshot",
    "priority": 2,
-   "category": "Sec Filings"
+   "category": "Sec Filings",
+   "subject": "related"
   },
   {
    "name": "insider_trading",
@@ -1319,7 +1326,8 @@
    "partition": "per_symbol",
    "pit_status": "snapshot",
    "priority": 2,
-   "category": "Sec Filings"
+   "category": "Sec Filings",
+   "subject": "related"
   },
   {
    "name": "sec_profile",
@@ -1374,7 +1382,8 @@
    "partition": "per_symbol",
    "pit_status": "snapshot",
    "priority": 2,
-   "category": "Company Information"
+   "category": "Company Information",
+   "subject": "related"
   },
   {
    "name": "aftermarket_quote",
@@ -1446,7 +1455,8 @@
    "partition": "per_name",
    "pit_status": "snapshot",
    "priority": 3,
-   "category": "Fundraisers"
+   "category": "Fundraisers",
+   "subject": "related"
   },
   {
    "name": "custom_discounted_cash_flow",
@@ -1623,7 +1633,8 @@
    "partition": "per_name",
    "pit_status": "snapshot",
    "priority": 3,
-   "category": "Senate"
+   "category": "Senate",
+   "subject": "related"
   },
   {
    "name": "insider_trading_reporting_name",
@@ -1652,7 +1663,8 @@
     "acceptedDate",
     "transactionDate"
    ],
-   "primary_date": "transactionDate"
+   "primary_date": "transactionDate",
+   "subject": "related"
   },
   {
    "name": "news_press_releases",
@@ -1719,7 +1731,8 @@
    "partition": "per_cik",
    "pit_status": "snapshot",
    "priority": 3,
-   "category": "Company Search"
+   "category": "Company Search",
+   "subject": "related"
   },
   {
    "name": "sec_filings_company_search_cik",
@@ -1756,7 +1769,8 @@
    "partition": "per_name",
    "pit_status": "snapshot",
    "priority": 3,
-   "category": "Senate"
+   "category": "Senate",
+   "subject": "related"
   },
   {
    "name": "stock_price_change",

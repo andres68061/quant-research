@@ -42,7 +42,13 @@ from core.ingest.journal import (
     TaskResult,
 )
 from core.ingest.ratelimit import TokenBucket
-from core.ingest.spec import EndpointSpec, Payload, Task
+from core.ingest.spec import EndpointSpec, Payload, Subject, Task
+
+# Reserved column stamped onto every stored row, naming the partition key the
+# request was made with. Without it the only record of which company a file was
+# fetched for is its filename, which is lost the moment files are concatenated
+# into a panel.
+REQUEST_KEY_COLUMN = "_request_key"
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +113,37 @@ class RunSummary:
 FetchCallable = Callable[[str, dict[str, Any]], FetchResult]
 
 
-def store_payload(result: FetchResult, spec: EndpointSpec, path: Path) -> tuple[int, int]:
+def check_identity(frame: pd.DataFrame, spec: EndpointSpec, key: str) -> Optional[str]:
+    """
+    Confirm a payload describes the entity it was requested for.
+
+    Only meaningful for specs whose subject is the request key. A response whose
+    ``symbol`` column names a different company is the failure this exists to
+    catch: it would otherwise be stored under the requested ticker and silently
+    attribute one company's fundamentals to another.
+
+    Args:
+        frame: Parsed payload.
+        spec: Owning endpoint spec.
+        key: Partition key the request was made with.
+
+    Returns:
+        A description of the mismatch, or None when the payload checks out or
+        the check does not apply.
+    """
+    if spec.subject is not Subject.REQUEST_KEY:
+        return None
+    if frame.empty or "symbol" not in frame.columns:
+        return None
+    found = {str(value) for value in frame["symbol"].dropna().unique()}
+    if not found or key in found:
+        return None
+    return f"identity mismatch: requested {key!r}, payload contains {sorted(found)[:3]}"
+
+
+def store_payload(
+    result: FetchResult, spec: EndpointSpec, path: Path, key: str = ""
+) -> tuple[int, int]:
     """
     Persist one payload atomically and report what was written.
 
@@ -119,6 +155,9 @@ def store_payload(result: FetchResult, spec: EndpointSpec, path: Path) -> tuple[
         result: Successful fetch result.
         spec: Owning endpoint spec.
         path: Destination path without a suffix decision applied.
+        key: Partition key the request was made with; stamped onto every row as
+            :data:`REQUEST_KEY_COLUMN` so the association survives concatenation
+            into a panel, where the filename is gone.
 
     Returns:
         ``(n_rows, n_bytes)`` actually written.
@@ -141,6 +180,8 @@ def store_payload(result: FetchResult, spec: EndpointSpec, path: Path) -> tuple[
                 frame[column] = pd.to_datetime(frame[column], errors="coerce")
         if spec.primary_date and spec.primary_date in frame.columns:
             frame = frame.sort_values(spec.primary_date).reset_index(drop=True)
+        if key:
+            frame[REQUEST_KEY_COLUMN] = key
         target = Path(f"{path}.parquet")
         temporary = Path(f"{target}.tmp")
         frame.to_parquet(temporary)
@@ -150,7 +191,8 @@ def store_payload(result: FetchResult, spec: EndpointSpec, path: Path) -> tuple[
         logger.debug("parquet write failed for %s (%s); storing JSON", path.name, exc)
         target = Path(f"{path}.json.gz")
         temporary = Path(f"{target}.tmp")
-        temporary.write_bytes(gzip.compress(json.dumps(rows).encode()))
+        stamped = [{**row, REQUEST_KEY_COLUMN: key} for row in rows] if key else rows
+        temporary.write_bytes(gzip.compress(json.dumps(stamped, default=str).encode()))
         os.replace(temporary, target)
         return len(rows), target.stat().st_size
 
@@ -281,7 +323,24 @@ class IngestRunner:
                         time.monotonic() - started,
                         attempt,
                     )
-                n_rows, n_bytes = store_payload(result, spec, self._raw_root / spec.name / task.key)
+                mismatch = check_identity(pd.DataFrame(rows), spec, task.key)
+                if mismatch:
+                    # Keep the payload — it is real data and discarding it would
+                    # lose the evidence — but record the mismatch so the run
+                    # report surfaces it, instead of a panel builder silently
+                    # attributing one company's data to another.
+                    logger.error("%s/%s: %s", spec.name, task.key, mismatch)
+                n_rows, n_bytes = store_payload(
+                    result, spec, self._raw_root / spec.name / task.key, task.key
+                )
+                notes = [
+                    note
+                    for note in (
+                        "partial: page walk ended early" if result.partial else None,
+                        mismatch,
+                    )
+                    if note
+                ]
                 return TaskResult(
                     spec.name,
                     task.key,
@@ -291,6 +350,7 @@ class IngestRunner:
                     n_bytes,
                     time.monotonic() - started,
                     attempt,
+                    error="; ".join(notes) or None,
                 )
 
             last_error = result.error or f"HTTP {result.status_code}"
