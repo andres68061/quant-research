@@ -1,0 +1,2023 @@
+{
+ "vendor": "fmp",
+ "base_url": "https://financialmodelingprep.com/stable",
+ "rate_limit_per_minute": 600,
+ "raw_root": "data/raw/fmp",
+ "probed_on": "2026-08-24",
+ "notes": "Generated from a live probe of every endpoint in docs/vendor/fmp/ENDPOINT_CATALOG.md. Regenerate with scripts/probe_fmp_shapes.py when the vendor surface changes.",
+ "endpoints": [
+  {
+   "name": "actively_trading_list",
+   "endpoint": "actively-trading-list",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Stock Directory",
+   "paginate": true,
+   "page_size": 1000,
+   "max_pages": 2000
+  },
+  {
+   "name": "all_exchange_market_hours",
+   "endpoint": "all-exchange-market-hours",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Market Hours"
+  },
+  {
+   "name": "all_industry_classification",
+   "endpoint": "all-industry-classification",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Sec Filings",
+   "paginate": true,
+   "page_size": 1000,
+   "max_pages": 2000
+  },
+  {
+   "name": "available_countries",
+   "endpoint": "available-countries",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Stock Directory"
+  },
+  {
+   "name": "available_exchanges",
+   "endpoint": "available-exchanges",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Stock Directory"
+  },
+  {
+   "name": "available_industries",
+   "endpoint": "available-industries",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Stock Directory"
+  },
+  {
+   "name": "available_sectors",
+   "endpoint": "available-sectors",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Stock Directory"
+  },
+  {
+   "name": "biggest_gainers",
+   "endpoint": "biggest-gainers",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Market Performance"
+  },
+  {
+   "name": "biggest_losers",
+   "endpoint": "biggest-losers",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Market Performance"
+  },
+  {
+   "name": "cik_list",
+   "endpoint": "cik-list",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Stock Directory",
+   "paginate": true,
+   "page_size": 1000,
+   "max_pages": 2000
+  },
+  {
+   "name": "commitment_of_traders_analysis",
+   "endpoint": "commitment-of-traders-analysis",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Commitment Of Traders",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "commitment_of_traders_list",
+   "endpoint": "commitment-of-traders-list",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Commitment Of Traders"
+  },
+  {
+   "name": "commitment_of_traders_report",
+   "endpoint": "commitment-of-traders-report",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Commitment Of Traders"
+  },
+  {
+   "name": "commodities_list",
+   "endpoint": "commodities-list",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Commodity"
+  },
+  {
+   "name": "company_screener",
+   "endpoint": "company-screener",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Company Search",
+   "paginate": true,
+   "page_size": 1000,
+   "max_pages": 2000
+  },
+  {
+   "name": "crowdfunding_offerings_latest",
+   "endpoint": "crowdfunding-offerings-latest",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Fundraisers",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "acceptedDate",
+    "date",
+    "filingDate"
+   ],
+   "primary_date": "date",
+   "max_pages": 2000
+  },
+  {
+   "name": "cryptocurrency_list",
+   "endpoint": "cryptocurrency-list",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Crypto"
+  },
+  {
+   "name": "delisted_companies",
+   "endpoint": "delisted-companies",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Company Information",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "ipoDate"
+   ],
+   "max_pages": 2000
+  },
+  {
+   "name": "dividends_calendar",
+   "endpoint": "dividends-calendar",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Earnings, Dividends, Splits",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "date",
+    "declarationDate",
+    "paymentDate",
+    "recordDate"
+   ],
+   "primary_date": "date",
+   "max_pages": 2000
+  },
+  {
+   "name": "dowjones_constituent",
+   "endpoint": "dowjones-constituent",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Indexes"
+  },
+  {
+   "name": "earnings_calendar",
+   "endpoint": "earnings-calendar",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Earnings, Dividends, Splits",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "max_pages": 2000
+  },
+  {
+   "name": "economic_calendar",
+   "endpoint": "economic-calendar",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Economics",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "etf_list",
+   "endpoint": "etf-list",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Stock Directory",
+   "paginate": true,
+   "page_size": 1000,
+   "max_pages": 2000
+  },
+  {
+   "name": "executive_compensation_benchmark",
+   "endpoint": "executive-compensation-benchmark",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Company Information",
+   "paginate": true,
+   "page_size": 1000,
+   "max_pages": 2000
+  },
+  {
+   "name": "financial_statement_symbol_list",
+   "endpoint": "financial-statement-symbol-list",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Stock Directory",
+   "paginate": true,
+   "page_size": 1000,
+   "max_pages": 2000
+  },
+  {
+   "name": "fmp_articles",
+   "endpoint": "fmp-articles",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "News",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "max_pages": 2000
+  },
+  {
+   "name": "forex_list",
+   "endpoint": "forex-list",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Forex"
+  },
+  {
+   "name": "fundraising_latest",
+   "endpoint": "fundraising-latest",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Fundraisers",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "acceptedDate",
+    "date",
+    "filingDate"
+   ],
+   "primary_date": "date",
+   "max_pages": 2000
+  },
+  {
+   "name": "historical_dowjones_constituent",
+   "endpoint": "historical-dowjones-constituent",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Indexes",
+   "date_columns": [
+    "date",
+    "dateAdded"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "historical_nasdaq_constituent",
+   "endpoint": "historical-nasdaq-constituent",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Indexes",
+   "date_columns": [
+    "date",
+    "dateAdded"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "historical_sp500_constituent",
+   "endpoint": "historical-sp500-constituent",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Indexes",
+   "date_columns": [
+    "date",
+    "dateAdded"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "house_latest",
+   "endpoint": "house-latest",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Senate",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "transactionDate"
+   ],
+   "primary_date": "transactionDate",
+   "max_pages": 2000
+  },
+  {
+   "name": "index_list",
+   "endpoint": "index-list",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Indexes"
+  },
+  {
+   "name": "insider_trading_latest",
+   "endpoint": "insider-trading/latest",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Insider Trades",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "filingDate",
+    "transactionDate"
+   ],
+   "primary_date": "filingDate",
+   "max_pages": 2000
+  },
+  {
+   "name": "ipos_calendar",
+   "endpoint": "ipos-calendar",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Earnings, Dividends, Splits",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "ipos_disclosure",
+   "endpoint": "ipos-disclosure",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Earnings, Dividends, Splits",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "acceptedDate",
+    "filingDate"
+   ],
+   "primary_date": "filingDate",
+   "max_pages": 2000
+  },
+  {
+   "name": "ipos_prospectus",
+   "endpoint": "ipos-prospectus",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Earnings, Dividends, Splits",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "acceptedDate",
+    "filingDate",
+    "ipoDate"
+   ],
+   "primary_date": "filingDate",
+   "max_pages": 2000
+  },
+  {
+   "name": "key_executives",
+   "endpoint": "key-executives",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Company Information"
+  },
+  {
+   "name": "market_risk_premium",
+   "endpoint": "market-risk-premium",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Economics"
+  },
+  {
+   "name": "mergers_acquisitions_latest",
+   "endpoint": "mergers-acquisitions-latest",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Company Information",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "acceptedDate",
+    "transactionDate"
+   ],
+   "primary_date": "transactionDate",
+   "max_pages": 2000
+  },
+  {
+   "name": "most_actives",
+   "endpoint": "most-actives",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Market Performance"
+  },
+  {
+   "name": "nasdaq_constituent",
+   "endpoint": "nasdaq-constituent",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Indexes"
+  },
+  {
+   "name": "news_crypto",
+   "endpoint": "news/crypto",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "News",
+   "date_columns": [
+    "publishedDate"
+   ],
+   "primary_date": "publishedDate"
+  },
+  {
+   "name": "news_crypto_latest",
+   "endpoint": "news/crypto-latest",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "News",
+   "date_columns": [
+    "publishedDate"
+   ],
+   "primary_date": "publishedDate"
+  },
+  {
+   "name": "news_forex",
+   "endpoint": "news/forex",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "News",
+   "date_columns": [
+    "publishedDate"
+   ],
+   "primary_date": "publishedDate"
+  },
+  {
+   "name": "news_forex_latest",
+   "endpoint": "news/forex-latest",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "News",
+   "date_columns": [
+    "publishedDate"
+   ],
+   "primary_date": "publishedDate"
+  },
+  {
+   "name": "news_general_latest",
+   "endpoint": "news/general-latest",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "News",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "publishedDate"
+   ],
+   "primary_date": "publishedDate",
+   "max_pages": 2000
+  },
+  {
+   "name": "news_press_releases_latest",
+   "endpoint": "news/press-releases-latest",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "News",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "publishedDate"
+   ],
+   "primary_date": "publishedDate",
+   "max_pages": 2000
+  },
+  {
+   "name": "news_stock_latest",
+   "endpoint": "news/stock-latest",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "News",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "publishedDate"
+   ],
+   "primary_date": "publishedDate",
+   "max_pages": 2000
+  },
+  {
+   "name": "search_cusip",
+   "endpoint": "search-cusip",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Company Search"
+  },
+  {
+   "name": "search_exchange_variants",
+   "endpoint": "search-exchange-variants",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Company Search",
+   "date_columns": [
+    "ipoDate"
+   ]
+  },
+  {
+   "name": "search_isin",
+   "endpoint": "search-isin",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Company Search"
+  },
+  {
+   "name": "search_name",
+   "endpoint": "search-name",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Company Search",
+   "params": {
+    "query": "A"
+   }
+  },
+  {
+   "name": "search_symbol",
+   "endpoint": "search-symbol",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Company Search",
+   "params": {
+    "query": "A"
+   }
+  },
+  {
+   "name": "sec_filings_8k",
+   "endpoint": "sec-filings-8k",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Sec Filings",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "acceptedDate",
+    "filingDate"
+   ],
+   "primary_date": "filingDate",
+   "max_pages": 2000
+  },
+  {
+   "name": "sec_filings_company_search_name",
+   "endpoint": "sec-filings-company-search/name",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Sec Filings",
+   "params": {
+    "company": "Apple"
+   }
+  },
+  {
+   "name": "sec_filings_financials",
+   "endpoint": "sec-filings-financials",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Sec Filings",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "acceptedDate",
+    "filingDate"
+   ],
+   "primary_date": "filingDate",
+   "max_pages": 2000
+  },
+  {
+   "name": "sec_filings_search_form_type",
+   "endpoint": "sec-filings-search/form-type",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Sec Filings",
+   "params": {
+    "formType": "10-K"
+   }
+  },
+  {
+   "name": "senate_latest",
+   "endpoint": "senate-latest",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Senate",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "transactionDate"
+   ],
+   "primary_date": "transactionDate",
+   "max_pages": 2000
+  },
+  {
+   "name": "shares_float_all",
+   "endpoint": "shares-float-all",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Company Information",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "max_pages": 2000
+  },
+  {
+   "name": "sp500_constituent",
+   "endpoint": "sp500-constituent",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Indexes"
+  },
+  {
+   "name": "splits_calendar",
+   "endpoint": "splits-calendar",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Earnings, Dividends, Splits",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "standard_industrial_classification_list",
+   "endpoint": "standard-industrial-classification-list",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Sec Filings"
+  },
+  {
+   "name": "stock_list",
+   "endpoint": "stock-list",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Stock Directory",
+   "paginate": true,
+   "page_size": 1000,
+   "max_pages": 2000
+  },
+  {
+   "name": "symbol_change",
+   "endpoint": "symbol-change",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Stock Directory",
+   "paginate": true,
+   "page_size": 1000,
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "max_pages": 2000
+  },
+  {
+   "name": "treasury_rates",
+   "endpoint": "treasury-rates",
+   "partition": "global",
+   "pit_status": "point_in_time",
+   "priority": 1,
+   "category": "Economics",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "acquisition_of_beneficial_ownership",
+   "endpoint": "acquisition-of-beneficial-ownership",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 2,
+   "category": "Insider Trades",
+   "date_columns": [
+    "acceptedDate",
+    "filingDate"
+   ],
+   "primary_date": "filingDate"
+  },
+  {
+   "name": "balance_sheet_statement",
+   "endpoint": "balance-sheet-statement",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "acceptedDate",
+    "date",
+    "filingDate"
+   ],
+   "primary_date": "date",
+   "params": {
+    "period": "quarter",
+    "limit": 400
+   }
+  },
+  {
+   "name": "balance_sheet_statement_as_reported",
+   "endpoint": "balance-sheet-statement-as-reported",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "balance_sheet_statement_growth",
+   "endpoint": "balance-sheet-statement-growth",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "params": {
+    "period": "quarter",
+    "limit": 400
+   }
+  },
+  {
+   "name": "cash_flow_statement",
+   "endpoint": "cash-flow-statement",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "acceptedDate",
+    "date",
+    "filingDate"
+   ],
+   "primary_date": "date",
+   "params": {
+    "period": "quarter",
+    "limit": 400
+   }
+  },
+  {
+   "name": "cash_flow_statement_as_reported",
+   "endpoint": "cash-flow-statement-as-reported",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "cash_flow_statement_growth",
+   "endpoint": "cash-flow-statement-growth",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "params": {
+    "period": "quarter",
+    "limit": 400
+   }
+  },
+  {
+   "name": "company_notes",
+   "endpoint": "company-notes",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Company Information"
+  },
+  {
+   "name": "discounted_cash_flow",
+   "endpoint": "discounted-cash-flow",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Discounted Cash Flow",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "dividends",
+   "endpoint": "dividends",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 2,
+   "category": "Earnings, Dividends, Splits",
+   "date_columns": [
+    "date",
+    "declarationDate",
+    "paymentDate",
+    "recordDate"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "earnings",
+   "endpoint": "earnings",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 2,
+   "category": "Earnings, Dividends, Splits",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "employee_count",
+   "endpoint": "employee-count",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 2,
+   "category": "Company Information",
+   "date_columns": [
+    "acceptanceTime",
+    "filingDate",
+    "periodOfReport"
+   ],
+   "primary_date": "filingDate"
+  },
+  {
+   "name": "enterprise_values",
+   "endpoint": "enterprise-values",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "params": {
+    "period": "quarter",
+    "limit": 400
+   }
+  },
+  {
+   "name": "financial_growth",
+   "endpoint": "financial-growth",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "params": {
+    "period": "quarter",
+    "limit": 400
+   }
+  },
+  {
+   "name": "financial_reports_dates",
+   "endpoint": "financial-reports-dates",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Statements"
+  },
+  {
+   "name": "financial_scores",
+   "endpoint": "financial-scores",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Statements"
+  },
+  {
+   "name": "financial_statement_full_as_reported",
+   "endpoint": "financial-statement-full-as-reported",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "governance_executive_compensation",
+   "endpoint": "governance-executive-compensation",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Company Information",
+   "date_columns": [
+    "acceptedDate",
+    "filingDate"
+   ],
+   "primary_date": "filingDate"
+  },
+  {
+   "name": "grades_consensus",
+   "endpoint": "grades-consensus",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Analyst"
+  },
+  {
+   "name": "grades_historical",
+   "endpoint": "grades-historical",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 2,
+   "category": "Analyst",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "historical_employee_count",
+   "endpoint": "historical-employee-count",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 2,
+   "category": "Company Information",
+   "date_columns": [
+    "acceptanceTime",
+    "filingDate",
+    "periodOfReport"
+   ],
+   "primary_date": "filingDate"
+  },
+  {
+   "name": "historical_market_capitalization",
+   "endpoint": "historical-market-capitalization",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 2,
+   "category": "Company Information",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "notes": "Distinct from data/raw/fmp/market_caps, which holds yfinance market caps."
+  },
+  {
+   "name": "house_trades",
+   "endpoint": "house-trades",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 2,
+   "category": "Senate",
+   "date_columns": [
+    "transactionDate"
+   ],
+   "primary_date": "transactionDate"
+  },
+  {
+   "name": "income_statement",
+   "endpoint": "income-statement",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "acceptedDate",
+    "date",
+    "filingDate"
+   ],
+   "primary_date": "date",
+   "params": {
+    "period": "quarter",
+    "limit": 400
+   }
+  },
+  {
+   "name": "income_statement_as_reported",
+   "endpoint": "income-statement-as-reported",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "income_statement_growth",
+   "endpoint": "income-statement-growth",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "params": {
+    "period": "quarter",
+    "limit": 400
+   }
+  },
+  {
+   "name": "industry_classification_search",
+   "endpoint": "industry-classification-search",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Sec Filings"
+  },
+  {
+   "name": "insider_trading",
+   "endpoint": "insider-trading/search",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 2,
+   "category": "Insider Trades",
+   "paginate": true,
+   "page_size": 100,
+   "date_columns": [
+    "filingDate",
+    "transactionDate"
+   ],
+   "primary_date": "filingDate",
+   "max_pages": 2000
+  },
+  {
+   "name": "insider_trading_statistics",
+   "endpoint": "insider-trading/statistics",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Insider Trades"
+  },
+  {
+   "name": "insider_trading_transaction_type",
+   "endpoint": "insider-trading-transaction-type",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Insider Trades"
+  },
+  {
+   "name": "key_metrics",
+   "endpoint": "key-metrics",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "params": {
+    "period": "quarter",
+    "limit": 400
+   }
+  },
+  {
+   "name": "key_metrics_ttm",
+   "endpoint": "key-metrics-ttm",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Statements"
+  },
+  {
+   "name": "levered_discounted_cash_flow",
+   "endpoint": "levered-discounted-cash-flow",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Discounted Cash Flow",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "market_capitalization",
+   "endpoint": "market-capitalization",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Company Information",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "owner_earnings",
+   "endpoint": "owner-earnings",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "params": {
+    "period": "quarter",
+    "limit": 400
+   }
+  },
+  {
+   "name": "price_target_consensus",
+   "endpoint": "price-target-consensus",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Analyst"
+  },
+  {
+   "name": "price_target_summary",
+   "endpoint": "price-target-summary",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Analyst"
+  },
+  {
+   "name": "profiles",
+   "endpoint": "profile",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Company Information",
+   "date_columns": [
+    "ipoDate"
+   ]
+  },
+  {
+   "name": "ratings_historical",
+   "endpoint": "ratings-historical",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 2,
+   "category": "Analyst",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "ratios",
+   "endpoint": "ratios",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "params": {
+    "period": "quarter",
+    "limit": 400
+   }
+  },
+  {
+   "name": "ratios_ttm",
+   "endpoint": "ratios-ttm",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Statements"
+  },
+  {
+   "name": "revenue_geographic_segmentation",
+   "endpoint": "revenue-geographic-segmentation",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "params": {
+    "period": "quarter",
+    "limit": 400
+   }
+  },
+  {
+   "name": "revenue_product_segmentation",
+   "endpoint": "revenue-product-segmentation",
+   "partition": "per_symbol",
+   "pit_status": "period_end_only",
+   "priority": 2,
+   "category": "Statements",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "params": {
+    "period": "quarter",
+    "limit": 400
+   }
+  },
+  {
+   "name": "sec_filings_company_search_symbol",
+   "endpoint": "sec-filings-company-search/symbol",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Sec Filings"
+  },
+  {
+   "name": "sec_profile",
+   "endpoint": "sec-profile",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Sec Filings",
+   "date_columns": [
+    "ipoDate"
+   ]
+  },
+  {
+   "name": "senate_trades",
+   "endpoint": "senate-trades",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 2,
+   "category": "Senate",
+   "date_columns": [
+    "transactionDate"
+   ],
+   "primary_date": "transactionDate"
+  },
+  {
+   "name": "shares_float",
+   "endpoint": "shares-float",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Company Information",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "splits",
+   "endpoint": "splits",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 2,
+   "category": "Earnings, Dividends, Splits",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "stock_peers",
+   "endpoint": "stock-peers",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 2,
+   "category": "Company Information"
+  },
+  {
+   "name": "aftermarket_quote",
+   "endpoint": "aftermarket-quote",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Quote"
+  },
+  {
+   "name": "aftermarket_trade",
+   "endpoint": "aftermarket-trade",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Quote"
+  },
+  {
+   "name": "analyst_estimates",
+   "endpoint": "analyst-estimates",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Analyst",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "params": {
+    "period": "annual",
+    "limit": 100
+   }
+  },
+  {
+   "name": "batch_aftermarket_quote",
+   "endpoint": "batch-aftermarket-quote",
+   "partition": "batch_symbols",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Quote"
+  },
+  {
+   "name": "batch_aftermarket_trade",
+   "endpoint": "batch-aftermarket-trade",
+   "partition": "batch_symbols",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Quote"
+  },
+  {
+   "name": "batch_quote",
+   "endpoint": "batch-quote",
+   "partition": "batch_symbols",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Quote"
+  },
+  {
+   "name": "batch_quote_short",
+   "endpoint": "batch-quote-short",
+   "partition": "batch_symbols",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Quote"
+  },
+  {
+   "name": "crowdfunding_offerings_search",
+   "endpoint": "crowdfunding-offerings-search",
+   "partition": "per_name",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Fundraisers"
+  },
+  {
+   "name": "custom_discounted_cash_flow",
+   "endpoint": "custom-discounted-cash-flow",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Discounted Cash Flow"
+  },
+  {
+   "name": "custom_levered_discounted_cash_flow",
+   "endpoint": "custom-levered-discounted-cash-flow",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Discounted Cash Flow"
+  },
+  {
+   "name": "economic_indicators",
+   "endpoint": "economic-indicators",
+   "partition": "per_name",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Economics"
+  },
+  {
+   "name": "etf_country_weightings",
+   "endpoint": "etf/country-weightings",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Etf And Mutual Funds"
+  },
+  {
+   "name": "etf_info",
+   "endpoint": "etf/info",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Etf And Mutual Funds"
+  },
+  {
+   "name": "etf_sector_weightings",
+   "endpoint": "etf/sector-weightings",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Etf And Mutual Funds"
+  },
+  {
+   "name": "exchange_market_hours",
+   "endpoint": "exchange-market-hours",
+   "partition": "per_exchange",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Market Hours"
+  },
+  {
+   "name": "financial_reports_json",
+   "endpoint": "financial-reports-json",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Statements",
+   "params": {
+    "year": 2024,
+    "period": "FY"
+   }
+  },
+  {
+   "name": "financial_reports_xlsx",
+   "endpoint": "financial-reports-xlsx",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Statements",
+   "params": {
+    "year": 2024,
+    "period": "FY"
+   },
+   "payload": "binary"
+  },
+  {
+   "name": "fundraising",
+   "endpoint": "fundraising",
+   "partition": "per_cik",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Fundraisers"
+  },
+  {
+   "name": "fundraising_search",
+   "endpoint": "fundraising-search",
+   "partition": "per_name",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Fundraisers",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "grades",
+   "endpoint": "grades",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Analyst",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "historical_industry_pe",
+   "endpoint": "historical-industry-pe",
+   "partition": "per_industry",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Market Performance",
+   "params": {
+    "exchange": "NASDAQ"
+   }
+  },
+  {
+   "name": "historical_industry_performance",
+   "endpoint": "historical-industry-performance",
+   "partition": "per_industry",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Market Performance",
+   "params": {
+    "exchange": "NASDAQ"
+   }
+  },
+  {
+   "name": "historical_sector_pe",
+   "endpoint": "historical-sector-pe",
+   "partition": "per_sector",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Market Performance",
+   "params": {
+    "exchange": "NASDAQ"
+   }
+  },
+  {
+   "name": "historical_sector_performance",
+   "endpoint": "historical-sector-performance",
+   "partition": "per_sector",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Market Performance",
+   "params": {
+    "exchange": "NASDAQ"
+   }
+  },
+  {
+   "name": "holidays_by_exchange",
+   "endpoint": "holidays-by-exchange",
+   "partition": "per_exchange",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Market Hours",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "house_trades_by_name",
+   "endpoint": "house-trades-by-name",
+   "partition": "per_name",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Senate"
+  },
+  {
+   "name": "insider_trading_reporting_name",
+   "endpoint": "insider-trading/reporting-name",
+   "partition": "per_name",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Insider Trades"
+  },
+  {
+   "name": "market_capitalization_batch",
+   "endpoint": "market-capitalization-batch",
+   "partition": "batch_symbols",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Company Information"
+  },
+  {
+   "name": "mergers_acquisitions_search",
+   "endpoint": "mergers-acquisitions-search",
+   "partition": "per_name",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Company Information",
+   "date_columns": [
+    "acceptedDate",
+    "transactionDate"
+   ],
+   "primary_date": "transactionDate"
+  },
+  {
+   "name": "news_press_releases",
+   "endpoint": "news/press-releases",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 3,
+   "category": "News",
+   "date_columns": [
+    "publishedDate"
+   ],
+   "primary_date": "publishedDate"
+  },
+  {
+   "name": "news_stock",
+   "endpoint": "news/stock",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 3,
+   "category": "News",
+   "date_columns": [
+    "publishedDate"
+   ],
+   "primary_date": "publishedDate"
+  },
+  {
+   "name": "profile_cik",
+   "endpoint": "profile-cik",
+   "partition": "per_cik",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Company Information",
+   "date_columns": [
+    "ipoDate"
+   ]
+  },
+  {
+   "name": "quote",
+   "endpoint": "quote",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Quote"
+  },
+  {
+   "name": "quote_short",
+   "endpoint": "quote-short",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Quote"
+  },
+  {
+   "name": "ratings_snapshot",
+   "endpoint": "ratings-snapshot",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Analyst"
+  },
+  {
+   "name": "search_cik",
+   "endpoint": "search-cik",
+   "partition": "per_cik",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Company Search"
+  },
+  {
+   "name": "sec_filings_company_search_cik",
+   "endpoint": "sec-filings-company-search/cik",
+   "partition": "per_cik",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Sec Filings"
+  },
+  {
+   "name": "sec_filings_search_cik",
+   "endpoint": "sec-filings-search/cik",
+   "partition": "per_cik",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Sec Filings"
+  },
+  {
+   "name": "sec_filings_search_symbol",
+   "endpoint": "sec-filings-search/symbol",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Sec Filings",
+   "date_columns": [
+    "acceptedDate",
+    "filingDate"
+   ],
+   "primary_date": "filingDate"
+  },
+  {
+   "name": "senate_trades_by_name",
+   "endpoint": "senate-trades-by-name",
+   "partition": "per_name",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Senate"
+  },
+  {
+   "name": "stock_price_change",
+   "endpoint": "stock-price-change",
+   "partition": "per_symbol",
+   "pit_status": "snapshot",
+   "priority": 3,
+   "category": "Quote"
+  },
+  {
+   "name": "historical_price_eod_dividend_adjusted",
+   "endpoint": "historical-price-eod/dividend-adjusted",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 4,
+   "category": "Charts",
+   "date_chunk_years": 10,
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "historical_price_eod_full",
+   "endpoint": "historical-price-eod/full",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 4,
+   "category": "Charts",
+   "date_chunk_years": 10,
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "historical_price_eod_light",
+   "endpoint": "historical-price-eod/light",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 4,
+   "category": "Charts",
+   "date_chunk_years": 10,
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "historical_price_eod_non_split_adjusted",
+   "endpoint": "historical-price-eod/non-split-adjusted",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 4,
+   "category": "Charts",
+   "date_chunk_years": 10,
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "technical_indicators_adx",
+   "endpoint": "technical-indicators/adx",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 5,
+   "category": "Technical Indicators",
+   "params": {
+    "periodLength": 10,
+    "timeframe": "1day"
+   },
+   "derivable": true
+  },
+  {
+   "name": "technical_indicators_dema",
+   "endpoint": "technical-indicators/dema",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 5,
+   "category": "Technical Indicators",
+   "params": {
+    "periodLength": 10,
+    "timeframe": "1day"
+   },
+   "derivable": true
+  },
+  {
+   "name": "technical_indicators_ema",
+   "endpoint": "technical-indicators/ema",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 5,
+   "category": "Technical Indicators",
+   "params": {
+    "periodLength": 10,
+    "timeframe": "1day"
+   },
+   "derivable": true
+  },
+  {
+   "name": "technical_indicators_rsi",
+   "endpoint": "technical-indicators/rsi",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 5,
+   "category": "Technical Indicators",
+   "params": {
+    "periodLength": 10,
+    "timeframe": "1day"
+   },
+   "derivable": true
+  },
+  {
+   "name": "technical_indicators_sma",
+   "endpoint": "technical-indicators/sma",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 5,
+   "category": "Technical Indicators",
+   "params": {
+    "periodLength": 10,
+    "timeframe": "1day"
+   },
+   "derivable": true
+  },
+  {
+   "name": "technical_indicators_standarddeviation",
+   "endpoint": "technical-indicators/standarddeviation",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 5,
+   "category": "Technical Indicators",
+   "params": {
+    "periodLength": 10,
+    "timeframe": "1day"
+   },
+   "derivable": true
+  },
+  {
+   "name": "technical_indicators_tema",
+   "endpoint": "technical-indicators/tema",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 5,
+   "category": "Technical Indicators",
+   "params": {
+    "periodLength": 10,
+    "timeframe": "1day"
+   },
+   "derivable": true
+  },
+  {
+   "name": "technical_indicators_williams",
+   "endpoint": "technical-indicators/williams",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 5,
+   "category": "Technical Indicators",
+   "params": {
+    "periodLength": 10,
+    "timeframe": "1day"
+   },
+   "derivable": true
+  },
+  {
+   "name": "technical_indicators_wma",
+   "endpoint": "technical-indicators/wma",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 5,
+   "category": "Technical Indicators",
+   "params": {
+    "periodLength": 10,
+    "timeframe": "1day"
+   },
+   "derivable": true
+  },
+  {
+   "name": "historical_chart_15min",
+   "endpoint": "historical-chart/15min",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 6,
+   "category": "Charts",
+   "date_chunk_years": 1,
+   "history_start": "2020-01-01",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "historical_chart_1hour",
+   "endpoint": "historical-chart/1hour",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 6,
+   "category": "Charts",
+   "date_chunk_years": 1,
+   "history_start": "2020-01-01",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "historical_chart_1min",
+   "endpoint": "historical-chart/1min",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 6,
+   "category": "Charts",
+   "date_chunk_years": 1,
+   "history_start": "2020-01-01",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "historical_chart_30min",
+   "endpoint": "historical-chart/30min",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 6,
+   "category": "Charts",
+   "date_chunk_years": 1,
+   "history_start": "2020-01-01",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "historical_chart_4hour",
+   "endpoint": "historical-chart/4hour",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 6,
+   "category": "Charts",
+   "date_chunk_years": 1,
+   "history_start": "2020-01-01",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  },
+  {
+   "name": "historical_chart_5min",
+   "endpoint": "historical-chart/5min",
+   "partition": "per_symbol",
+   "pit_status": "point_in_time",
+   "priority": 6,
+   "category": "Charts",
+   "date_chunk_years": 1,
+   "history_start": "2020-01-01",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date"
+  }
+ ]
+}

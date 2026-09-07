@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.quant.fmp-ingest</string>
+
+    <!-- launchd owns this process, so it is not a child of any terminal or
+         editor session and survives the session that installed it. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/andres/Downloads/Cursor/quant/scripts/ingest_daemon.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/andres/Downloads/Cursor/quant</string>
+
+    <!-- Start as soon as the agent is loaded, and again at login. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Restart only on a non-zero exit. The daemon returns 0 when every wave is
+         complete, so a successful full ingestion stops instead of looping. -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- Wait 5 minutes between restarts so a persistent failure (expired API key,
+         no network) cannot spin. -->
+    <key>ThrottleInterval</key>
+    <integer>300</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/andres/Downloads/Cursor/quant/logs/ingest_daemon.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/andres/Downloads/Cursor/quant/logs/ingest_daemon.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>INGEST_WAVES</key>
+        <string>1 2 3 4</string>
+        <key>INGEST_RATE</key>
+        <string>600</string>
+        <key>INGEST_WORKERS</key>
+        <string>16</string>
+    </dict>
+
+    <!-- Ingestion is I/O-bound; keep it off the foreground scheduler. -->
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>Nice</key>
+    <integer>5</integer>
+</dict>
+</plist>

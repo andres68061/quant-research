@@ -239,6 +239,69 @@ this table). Adding a dataset means adding one registry entry, not a new script.
 Cost: one call per symbol per dataset (no bulk on our plan). The 16 datasets across
 774 symbols is ~12,400 calls, ~70 minutes.
 
+### Framework-ingested FMP raw layer (`data/raw/fmp/{endpoint_name}/{partition_key}.parquet`)
+
+Produced by the vendor-agnostic ingestion framework: manifest
+[`config/vendors/fmp.json`](../config/vendors/fmp.json) (175 endpoints), engine
+[`core/ingest/`](../core/ingest/), driver
+[`scripts/ingest_fmp.py`](../scripts/ingest_fmp.py), unattended multi-wave wrapper
+[`scripts/run_full_ingestion.sh`](../scripts/run_full_ingestion.sh), and pre-flight
+check [`scripts/validate_fmp_manifest.py`](../scripts/validate_fmp_manifest.py)
+(one call per endpoint; lists specs that return HTTP 200 with no rows, which is how
+FMP reports a missing required parameter). Adding an endpoint means adding one JSON
+object to the manifest, not writing a script. Full operator runbook:
+**[`docs/INGESTION.md`](INGESTION.md)**; FMP specifics (probe provenance, wave
+rationale, entitlements): [`docs/vendor/fmp/INGESTION.md`](vendor/fmp/INGESTION.md);
+the reasoning and rejected alternatives:
+[ADR 0016](decisions/0016-vendor-agnostic-ingestion-framework.md).
+
+| Path element | Values |
+|---|---|
+| `{endpoint_name}` | The manifest `name` field — `earnings`, `cik_list`, `historical_price_eod_full`. This is the storage identity; renaming it in the manifest orphans everything downloaded under the old name. |
+| `{partition_key}` | The symbol (`AAPL`), CIK, sector, industry or exchange; `_all` for endpoints that take no key; `batch_00007` for batched-symbol endpoints; `AAPL__1985_1994` for a date-chunked window. |
+| suffix | `.parquet` normally; `.json.gz` when nested vendor JSON does not survive a DataFrame round-trip; `.bin` for binary payloads (`financial_reports_xlsx`). |
+
+One file per task is the checkpoint: writes are atomic (temp file + `os.replace`),
+completion is file existence, so an interrupted multi-hour run resumes by re-running
+the same command and costs zero API calls for what already landed. A vendor "no rows"
+answer is stored as an **empty** parquet file so it is recorded once and never re-asked.
+
+**Audit trail** (outside the raw layer, with the other data-quality artifacts):
+
+| Path | Contents |
+|---|---|
+| `data/quality/ingest_journal.db` | SQLite. `runs(run_id, vendor, started_at, finished_at, argv, n_tasks)` and `tasks(run_id, spec_name, partition_key, status, http_code, n_rows, n_bytes, duration_s, attempts, error, recorded_at)` — one row per task. Status is `ok`, `empty` (vendor genuinely has no rows for this key — information, not a failure), `skipped` (file already present) or `failed`. |
+| `data/quality/ingest_reports/{run_id}.txt` | Text report per finished run: outcome totals, per-endpoint counts, endpoints failing more often than succeeding, and failures grouped by HTTP status. |
+
+Query the journal read-only (`sqlite3 -readonly data/quality/ingest_journal.db`) so a
+query never contends with a run in progress. Example queries — "which endpoints failed
+most", "which symbols have no earnings and why", "what did the last run cost" — are in
+[`docs/INGESTION.md` §9](INGESTION.md#9-reading-the-journal-with-sql).
+
+**Cost.** All 18 FMP bulk endpoints return HTTP 402 on this plan (§6), so every
+universe-wide pull is per-symbol across the 9,011 symbols in
+`data/universe/security_master.parquet`. Task counts are measured by
+`scripts/ingest_fmp.py --wave N --dry-run` (which makes no HTTP calls); wall clocks
+other than wave 1 are estimated as tasks ÷ 600 calls/min and are floors, because a
+paginated task makes one call per page.
+
+| Wave | Contents | Tasks | Wall clock |
+|---:|---|---:|---|
+| 1 | Global reference row sets and calendars | 66 | 5.0 min measured |
+| 2 | Core per-symbol history (statements, ratios, events, analyst, insider) | 441,539 | ~12.3 h estimated |
+| 3 | Per-symbol and per-key snapshots | 162,653 | ~4.5 h estimated |
+| 4 | End-of-day price variants, date-chunked | 180,220 | ~5.0 h estimated |
+| 5 | Vendor technical indicators (`derivable`, excluded from wave defaults) | 81,099 | ~2.3 h estimated |
+| 6 | Intraday charts (opt in explicitly) | 378,462 | ~10.5 h estimated |
+| all | Everything including intraday | 1,244,039 | ~34.6 h estimated |
+
+**Two storage generations coexist under `data/raw/fmp/`.** The older per-dataset
+fetchers wrote `prices/`, `fundamentals/`, `market_caps/`, `universe/`,
+`constituents/`, `intraday/` and `commodities/` (documented above); the framework
+writes one directory per manifest endpoint name. Both are live and the derived-layer
+builders still read the older paths — consolidating them is a separate decision
+(ADR 0016, "Consequences").
+
 ### Index membership labels (`data/universe/index_membership.parquet`)
 
 Built by [`scripts/build_index_membership.py`](../scripts/build_index_membership.py) from
@@ -287,7 +350,7 @@ At **backtest time**, `create_signals_from_factor` accepts an optional `universe
 |--------|------------|--------|
 | **yfinance** | Price panels, batch scripts, `scripts/fetch_shares_and_market_caps.py` (shares + market caps) | No API key; subject to Yahoo rate limits and symbol coverage |
 | **FRED / fredapi** | Macro defaults, metals tests, [`api/routes/fred.py`](../api/routes/fred.py) | Needs `FRED_API_KEY` where applicable |
-| **Financial Modeling Prep (FMP)** | `core/data/fmp/` (client + per-dataset fetchers), `scripts/fetch_fmp_*.py` | Needs `FMP_API_KEY`. **Premium plan — bulk endpoints are NOT entitled**; every download is per-symbol. See [§6 FMP entitlements](#6-fmp-plan-entitlements-probed) |
+| **Financial Modeling Prep (FMP)** | `core/data/fmp/` (client + per-dataset fetchers), `scripts/fetch_fmp_*.py`; **and** the manifest-driven framework `core/ingest/` + `scripts/ingest_fmp.py` (see [DATA_INVENTORY §1](#framework-ingested-fmp-raw-layer-datarawfmpendpoint_namepartition_keyparquet) and [`docs/INGESTION.md`](INGESTION.md)) | Needs `FMP_API_KEY`. **Premium plan — bulk endpoints are NOT entitled**; every download is per-symbol. See [§6 FMP entitlements](#6-fmp-plan-entitlements-probed) |
 | **Banxico** | [`api/routes/banxico.py`](../api/routes/banxico.py) | MX macro series |
 | **Commodity feeds** | [`core/data/commodities.py`](../core/data/commodities.py) | Fetch/cache helpers for commodity analytics |
 | **Kenneth French data library** | [`core/data/factors/fama_french.py`](../core/data/factors/fama_french.py), `scripts/backfill_all.py`, `scripts/update_daily.py` | FF5 daily via `pandas_datareader`; no API key; public data |
@@ -334,6 +397,7 @@ Python interpreter for all jobs: `/opt/anaconda3/envs/quant/bin/python`.
 - FMP fundamentals — requires paid `FMP_API_KEY`; skip if no subscription.
 - `scripts/backfill_expanded_universe.py` — the multi-hour expanded-universe backfill (below).
 - `scripts/fetch_fmp_intraday.py` — intraday bars; cost-gated, see below.
+- `scripts/ingest_fmp.py` — the manifest-driven FMP ingestion waves. `scripts/crontab.txt` carries a **commented-out** block showing the intended cadence (wave 1 nightly at 18:20, because the global reference and calendar row sets change daily and cost ~5 minutes; wave 2 weekly on Sunday at 02:00, because per-symbol filings change roughly quarterly and a cold wave-2 run is ~12.3 hours). Enable it deliberately, not by default — see [`docs/INGESTION.md`](INGESTION.md).
 
 ### Long-running backfills (resumable)
 

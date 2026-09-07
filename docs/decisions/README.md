@@ -63,3 +63,5 @@ replacement, same rule as the failed-strategies log.
 - [0012](0012-fallback-publication-lag-for-placeholder-filing-dates.md) — Substitute a 45-day filing lag when acceptedDate is a placeholder
 - [0013](0013-canonical-panel-cutover-to-expanded-universe.md) — Cut the canonical panel over from 774 S&P names to the full US universe
 - [0014](0014-lazy-factor-loading-and-api-universe-policy.md) — Load factor columns lazily; give the API an explicit universe policy
+- [0015](0015-permanent-security-identifiers.md) — Permanent security identifiers (`qid`), separate from issuer identity
+- [0016](0016-vendor-agnostic-ingestion-framework.md) — Replace per-dataset fetch scripts with a declarative manifest and a shared runner
