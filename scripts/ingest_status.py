@@ -58,14 +58,21 @@ def main() -> int:
         )
         done = sum(counts.values())
         elapsed = (finished or time.time()) - started
-        rate = done / elapsed * 60 if elapsed > 0 else 0.0
+        # Skips are file-existence checks, not vendor calls. Counting them in the
+        # rate inflates it by orders of magnitude at the start of a resumed run
+        # and makes the estimate meaningless, so pace on fetched tasks only.
+        fetched = done - counts.get("skipped", 0)
+        rate = fetched / elapsed * 60 if elapsed > 0 else 0.0
         remaining = (n_tasks or 0) - done
         eta_minutes = remaining / rate if rate > 0 else float("nan")
 
         state = "finished" if finished else "RUNNING"
         print(f"run       : {run_id} ({state})")
         print(f"progress  : {done:,} / {n_tasks or 0:,} tasks  ({done / max(n_tasks or 1, 1):.1%})")
-        print(f"rate      : {rate:.0f} tasks/min   eta {eta_minutes / 60:.1f} h")
+        print(
+            f"rate      : {rate:.0f} fetches/min (skips excluded)   "
+            f"eta {eta_minutes / 60:.1f} h for {remaining:,} remaining"
+        )
         print("outcomes  : " + ", ".join(f"{k}={v:,}" for k, v in sorted(counts.items())))
 
         failures = connection.execute(
