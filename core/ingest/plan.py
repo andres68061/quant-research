@@ -44,6 +44,18 @@ def expand_spec(spec: EndpointSpec, keys: Mapping[object, Sequence[str]]) -> lis
         does not abort a whole run.
     """
     if spec.partition is Partition.GLOBAL:
+        if spec.date_chunk_years:
+            # Some global endpoints are windowed rather than keyed: they require
+            # from/to and answer HTTP 400 without them.
+            end = pd.Timestamp.now().strftime("%Y-%m-%d")
+            return [
+                Task(
+                    spec.name,
+                    f"{start[:4]}_{stop[:4]}",
+                    {**spec.params, "from": start, "to": stop},
+                )
+                for start, stop in date_windows(spec.history_start, end, spec.date_chunk_years)
+            ]
         return [Task(spec.name, GLOBAL_KEY, dict(spec.params))]
 
     source = spec.key_source or spec.partition

@@ -678,7 +678,12 @@
    "category": "Sec Filings",
    "params": {
     "formType": "10-K"
-   }
+   },
+   "date_chunk_years": 1,
+   "history_start": "2010-01-01",
+   "paginate": true,
+   "page_size": 100,
+   "notes": "Requires from/to; returns HTTP 400 without them."
   },
   {
    "name": "senate_latest",

@@ -36,6 +36,15 @@ mkdir -p logs data/quality
 
 log() { echo "$(date -u +%FT%TZ) [daemon] $*"; }
 
+# Match only a real Python process running the ingester, never this script, a
+# pgrep, or a shell command that merely mentions the name. A bare
+# `pgrep -f ingest_fmp.py` matches any `grep ingest_fmp.py` a human or a status
+# check happens to run, which once left the supervisor waiting on a process that
+# did not exist.
+running_ingester() {
+    pgrep -f "bin/python.*scripts/ingest_fmp\.py" | grep -v "^$$\$"
+}
+
 beat() { printf '%s\n' "$(date -u +%FT%TZ) $*" > "$HEARTBEAT"; }
 
 # Exclusive supervisor lock, held for this whole run.
@@ -66,7 +75,7 @@ trap 'rm -rf "$LOCKDIR"' EXIT INT TERM
 # An ingester may still be running from a supervisor that died without cleaning
 # up. Wait it out rather than competing with it.
 waited=0
-while pgrep -f "ingest_fmp.py" > /dev/null; do
+while running_ingester > /dev/null; do
     if [ "$waited" -eq 0 ]; then
         log "an orphaned ingest_fmp.py is running; waiting for it to finish"
         beat "waiting for an orphaned ingester"
