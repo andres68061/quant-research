@@ -15,6 +15,9 @@
 #     of a later wave is more useful than none, and the journal records exactly
 #     what was missed.
 #   - It writes a heartbeat so progress can be checked without attaching to it.
+#   - It holds a power assertion while fetching. A laptop that sleeps stops
+#     ingesting: one run lost 17 of 25.6 wall-clock hours to idle sleep while
+#     averaging a healthy 568 calls/min whenever it was actually awake.
 #
 # Exit codes matter to launchd: 0 means "all waves are complete, do not restart",
 # non-zero means "something failed, restart me after ThrottleInterval".
@@ -82,7 +85,12 @@ failures=0
 for wave in $WAVES; do
     log "=== wave $wave starting ==="
     beat "wave $wave running"
-    "$PYTHON" scripts/ingest_fmp.py \
+    # caffeinate holds the assertion only for as long as the ingester runs, so a
+    # finished or crashed wave cannot leave the machine permanently awake.
+    #   -i no idle sleep   -m no disk sleep   -s no sleep while on AC power
+    # On battery a closed lid still sleeps: keep the machine plugged in for an
+    # unattended overnight backfill.
+    caffeinate -ims "$PYTHON" scripts/ingest_fmp.py \
         --wave "$wave" \
         --rate "$RATE" \
         --workers "$WORKERS" \
