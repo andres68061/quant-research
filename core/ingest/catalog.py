@@ -89,6 +89,7 @@ def build_specs(manifest: dict[str, Any]) -> list[EndpointSpec]:
                     primary_date=entry.get("primary_date"),
                     payload=payload,
                     subject=subject,
+                    key_source=entry.get("key_source"),
                     batch_size=entry.get("batch_size", 100),
                     priority=entry.get("priority", 3),
                     derivable=entry.get("derivable", False),

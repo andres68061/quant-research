@@ -29,14 +29,14 @@ def safe_key(raw: str) -> str:
     return raw.translate(_KEY_TRANSLATIONS)
 
 
-def expand_spec(spec: EndpointSpec, keys: Mapping[Partition, Sequence[str]]) -> list[Task]:
+def expand_spec(spec: EndpointSpec, keys: Mapping[object, Sequence[str]]) -> list[Task]:
     """
     Turn one spec into its tasks.
 
     Args:
         spec: Endpoint to expand.
-        keys: Available partition keys by partition type — symbols, CIKs,
-            sectors, and so on.
+        keys: Available key lists, looked up by the spec's ``key_source`` when it
+            declares one and by its partition otherwise.
 
     Returns:
         Tasks in a stable order. Empty when the spec's partition has no keys
@@ -46,9 +46,14 @@ def expand_spec(spec: EndpointSpec, keys: Mapping[Partition, Sequence[str]]) -> 
     if spec.partition is Partition.GLOBAL:
         return [Task(spec.name, GLOBAL_KEY, dict(spec.params))]
 
-    available = keys.get(spec.partition, ())
+    source = spec.key_source or spec.partition
+    available = keys.get(source, ())
     if not available:
-        logger.warning("no keys available for %s (%s); skipping", spec.name, spec.partition.value)
+        logger.warning(
+            "no keys available for %s (source=%s); skipping",
+            spec.name,
+            spec.key_source or spec.partition.value,
+        )
         return []
 
     if spec.partition is Partition.BATCH_SYMBOLS:
@@ -119,7 +124,7 @@ _PARAM_FOR_PARTITION: dict[Partition, str] = {
 
 def plan_run(
     specs: Iterable[EndpointSpec],
-    keys: Mapping[Partition, Sequence[str]],
+    keys: Mapping[object, Sequence[str]],
 ) -> list[Task]:
     """
     Expand many specs, preserving the order they were given in.

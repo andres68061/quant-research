@@ -48,6 +48,13 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from core.data.fmp.keys import (
+    ECONOMIC_INDICATORS,
+    insider_reporting_names,
+    issuer_names,
+    legislator_names,
+    universe_ciks,
+)
 from core.data.fmp.transport import make_fetcher
 from core.ingest.catalog import build_specs, load_manifest, select_specs
 from core.ingest.journal import IngestJournal
@@ -65,7 +72,7 @@ SECURITY_MASTER = ROOT / "data" / "universe" / "security_master.parquet"
 REPORT_DIR = ROOT / "data" / "quality" / "ingest_reports"
 
 
-def resolve_keys(raw_root: Path, symbols_override: list[str] | None) -> dict[Partition, list[str]]:
+def resolve_keys(raw_root: Path, symbols_override: list[str] | None) -> dict[object, list[str]]:
     """
     Collect the partition keys each endpoint family needs.
 
@@ -108,9 +115,26 @@ def resolve_keys(raw_root: Path, symbols_override: list[str] | None) -> dict[Par
     keys[Partition.PER_SECTOR] = column_from("available_sectors", "sector")
     keys[Partition.PER_INDUSTRY] = column_from("available_industries", "industry")
     keys[Partition.PER_EXCHANGE] = column_from("available_exchanges", "exchange")
-    ciks = column_from("cik_list", "cik")
-    keys[Partition.PER_CIK] = ciks[:5000]
+
+    # CIK- and name-keyed endpoints take their keys from wave-1 downloads, so
+    # they fill in as earlier waves land rather than being hard-coded. CIKs are
+    # scoped to our own universe: FMP lists 491,000 registrants, and running the
+    # five per-CIK endpoints across all of them would be 2.45 million requests.
+    keys[Partition.PER_CIK] = universe_ciks(raw_root)
+
+    # Name-keyed endpoints do NOT share one pool: economic-indicators takes 21
+    # economic series, the by-name trade endpoints take legislators, the search
+    # endpoints take company names. Pooling them would spend 12,000 requests per
+    # endpoint on names that cannot match. Each spec names its own source.
     keys[Partition.PER_NAME] = []
+    keys["economic_indicators"] = list(ECONOMIC_INDICATORS)
+    keys["legislators"] = legislator_names(raw_root)
+    keys["issuer_names"] = issuer_names(raw_root)
+    keys["insider_names"] = insider_reporting_names(raw_root)
+
+    for source, values in keys.items():
+        label = source.value if isinstance(source, Partition) else str(source)
+        logger.info("%-20s %d keys", label, len(values))
     return keys
 
 

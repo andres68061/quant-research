@@ -1450,15 +1450,6 @@
    "category": "Quote"
   },
   {
-   "name": "crowdfunding_offerings_search",
-   "endpoint": "crowdfunding-offerings-search",
-   "partition": "per_name",
-   "pit_status": "snapshot",
-   "priority": 3,
-   "category": "Fundraisers",
-   "subject": "related"
-  },
-  {
    "name": "custom_discounted_cash_flow",
    "endpoint": "custom-discounted-cash-flow",
    "partition": "per_symbol",
@@ -1480,7 +1471,8 @@
    "partition": "per_name",
    "pit_status": "snapshot",
    "priority": 3,
-   "category": "Economics"
+   "category": "Economics",
+   "key_source": "economic_indicators"
   },
   {
    "name": "etf_country_weightings",
@@ -1546,18 +1538,6 @@
    "pit_status": "snapshot",
    "priority": 3,
    "category": "Fundraisers"
-  },
-  {
-   "name": "fundraising_search",
-   "endpoint": "fundraising-search",
-   "partition": "per_name",
-   "pit_status": "snapshot",
-   "priority": 3,
-   "category": "Fundraisers",
-   "date_columns": [
-    "date"
-   ],
-   "primary_date": "date"
   },
   {
    "name": "grades",
@@ -1634,15 +1614,8 @@
    "pit_status": "snapshot",
    "priority": 3,
    "category": "Senate",
-   "subject": "related"
-  },
-  {
-   "name": "insider_trading_reporting_name",
-   "endpoint": "insider-trading/reporting-name",
-   "partition": "per_name",
-   "pit_status": "snapshot",
-   "priority": 3,
-   "category": "Insider Trades"
+   "subject": "related",
+   "key_source": "legislators"
   },
   {
    "name": "market_capitalization_batch",
@@ -1651,20 +1624,6 @@
    "pit_status": "snapshot",
    "priority": 3,
    "category": "Company Information"
-  },
-  {
-   "name": "mergers_acquisitions_search",
-   "endpoint": "mergers-acquisitions-search",
-   "partition": "per_name",
-   "pit_status": "snapshot",
-   "priority": 3,
-   "category": "Company Information",
-   "date_columns": [
-    "acceptedDate",
-    "transactionDate"
-   ],
-   "primary_date": "transactionDate",
-   "subject": "related"
   },
   {
    "name": "news_press_releases",
@@ -1770,7 +1729,8 @@
    "pit_status": "snapshot",
    "priority": 3,
    "category": "Senate",
-   "subject": "related"
+   "subject": "related",
+   "key_source": "legislators"
   },
   {
    "name": "stock_price_change",
@@ -1831,6 +1791,53 @@
     "date"
    ],
    "primary_date": "date"
+  },
+  {
+   "name": "crowdfunding_offerings_search",
+   "endpoint": "crowdfunding-offerings-search",
+   "partition": "per_name",
+   "pit_status": "snapshot",
+   "priority": 5,
+   "category": "Fundraisers",
+   "subject": "related",
+   "key_source": "issuer_names"
+  },
+  {
+   "name": "fundraising_search",
+   "endpoint": "fundraising-search",
+   "partition": "per_name",
+   "pit_status": "snapshot",
+   "priority": 5,
+   "category": "Fundraisers",
+   "date_columns": [
+    "date"
+   ],
+   "primary_date": "date",
+   "key_source": "issuer_names"
+  },
+  {
+   "name": "insider_trading_reporting_name",
+   "endpoint": "insider-trading/reporting-name",
+   "partition": "per_name",
+   "pit_status": "snapshot",
+   "priority": 5,
+   "category": "Insider Trades",
+   "key_source": "insider_names"
+  },
+  {
+   "name": "mergers_acquisitions_search",
+   "endpoint": "mergers-acquisitions-search",
+   "partition": "per_name",
+   "pit_status": "snapshot",
+   "priority": 5,
+   "category": "Company Information",
+   "date_columns": [
+    "acceptedDate",
+    "transactionDate"
+   ],
+   "primary_date": "transactionDate",
+   "subject": "related",
+   "key_source": "issuer_names"
   },
   {
    "name": "technical_indicators_adx",

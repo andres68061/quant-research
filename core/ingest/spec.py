@@ -86,6 +86,12 @@ class EndpointSpec:
         payload: Wire format; BINARY payloads are stored verbatim, not as parquet.
         subject: Whether rows describe the requested entity or entities related
             to it. Drives the identity check at ingestion.
+        key_source: Named key list to expand over, when the partition alone does
+            not identify it. Several endpoints share the ``per_name`` partition
+            while taking completely different names — ``economic-indicators``
+            takes 21 economic series, the by-name trade endpoints take
+            legislators, the search endpoints take company names — and pooling
+            them would spend thousands of requests that cannot match.
         batch_size: Symbols per call when partition is BATCH_SYMBOLS.
         priority: Wave number. Lower runs first; the driver groups by this so the
             highest-value data lands before a long tail that may take hours.
@@ -114,6 +120,7 @@ class EndpointSpec:
     primary_date: Optional[str] = None
     payload: Payload = Payload.JSON
     subject: Subject = Subject.REQUEST_KEY
+    key_source: Optional[str] = None
     batch_size: int = 100
     priority: int = 3
     derivable: bool = False
