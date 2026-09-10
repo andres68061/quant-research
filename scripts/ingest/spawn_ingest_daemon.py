@@ -31,7 +31,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DAEMON = ROOT / "scripts" / "ingest_daemon.sh"
+DAEMON = ROOT / "scripts" / "ingest" / "ingest_daemon.sh"
 LOG = ROOT / "runtime" / "logs" / "ingest_daemon.log"
 
 

@@ -277,7 +277,7 @@ def refresh_fundamentals_if_due(max_age_days: int = 7) -> bool:
     fetch = subprocess.run(
         [
             "/opt/anaconda3/envs/quant/bin/python",
-            str(ROOT / "scripts" / "fetch_fmp_fundamentals.py"),
+            str(ROOT / "scripts" / "ingest" / "fetch_fmp_fundamentals.py"),
             "--refresh",
         ],
         cwd=str(ROOT),
@@ -289,7 +289,7 @@ def refresh_fundamentals_if_due(max_age_days: int = 7) -> bool:
     build = subprocess.run(
         [
             "/opt/anaconda3/envs/quant/bin/python",
-            str(ROOT / "scripts" / "build_fundamentals_panel.py"),
+            str(ROOT / "scripts" / "build" / "build_fundamentals_panel.py"),
         ],
         cwd=str(ROOT),
         check=False,
@@ -322,7 +322,7 @@ def refresh_market_caps_if_due(max_age_days: int = 7) -> bool:
     result = subprocess.run(
         [
             "/opt/anaconda3/envs/quant/bin/python",
-            str(ROOT / "scripts" / "fetch_fmp_market_caps.py"),
+            str(ROOT / "scripts" / "ingest" / "fetch_fmp_market_caps.py"),
         ],
         cwd=str(ROOT),
         check=False,
@@ -348,7 +348,7 @@ def refresh_sp500_membership_if_due(max_age_days: int = 7) -> bool:
     result = subprocess.run(
         [
             "/opt/anaconda3/envs/quant/bin/python",
-            str(ROOT / "scripts" / "refresh_sp500_constituents.py"),
+            str(ROOT / "scripts" / "ingest" / "refresh_sp500_constituents.py"),
         ],
         cwd=str(ROOT),
         check=False,
@@ -398,7 +398,7 @@ def refresh_lifecycle_if_due(prices_updated: bool, max_age_days: int = 30) -> bo
         )
         return False
 
-    script = str(ROOT / "scripts" / "build_symbol_lifecycle.py")
+    script = str(ROOT / "scripts" / "build" / "build_symbol_lifecycle.py")
     if windows_stale:
         print("⏳ Refreshing symbol lifecycle windows from FMP (monthly) + applying...")
         cmd = ["/opt/anaconda3/envs/quant/bin/python", script, "--apply"]
