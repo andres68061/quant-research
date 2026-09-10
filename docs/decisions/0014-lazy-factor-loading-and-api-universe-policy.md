@@ -28,7 +28,7 @@ backtest. Nothing reads the full 37-column frame.
 
 Two changes, addressing two different problems.
 
-**1. Factor columns load lazily (`core/data/factor_store.py`).**
+**1. Factor columns load lazily (`core/data/store/factor_store.py`).**
 `FactorStore` scans parquet *metadata* at startup to map factor name -> owning
 panel (free), and reads a single column on demand — 43 MB measured, 0.4 s, with
 an 8-entry LRU for repeat requests. Routes that ranked on `factors[factor_col]`
@@ -37,7 +37,7 @@ columns, calls `load_factors([...])`. The cache is a module-level function, not 
 cached method, because an `lru_cache` on a method keys on `self` and would pin
 every store instance for the process lifetime.
 
-**2. The API loads a policy-selected universe (`core/data/api_universe.py`),
+**2. The API loads a policy-selected universe (`core/data/universe/api_universe.py`),
 and says which one.** `API_UNIVERSE` selects:
 
 - `research` (default) — operating companies with >= 300 trading days of history.

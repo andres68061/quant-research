@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
-from core.data.commodities import COMMODITIES_CONFIG, CommodityDataFetcher
+from core.data.vendors.commodities import COMMODITIES_CONFIG, CommodityDataFetcher
 from core.metrics.performance import calculate_sortino_ratio
 
 logger = logging.getLogger(__name__)

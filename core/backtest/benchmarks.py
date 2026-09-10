@@ -85,7 +85,7 @@ def _reconstructed_sp500(
 ) -> Tuple[pd.Series, str]:
     """Build a point-in-time reconstructed S&P 500 benchmark."""
     try:
-        from core.data.sp500_constituents import SP500Constituents
+        from core.data.universe.sp500_constituents import SP500Constituents
 
         sp500 = SP500Constituents()
         sp500.load()
@@ -110,7 +110,7 @@ def _reconstructed_sp500(
             return returns, name
 
         # Cap-weighted path
-        from core.data.market_caps import MarketCapCalculator
+        from core.data.factors.market_caps import MarketCapCalculator
 
         calc = MarketCapCalculator()
         market_caps = calc.load_market_caps()

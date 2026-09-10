@@ -1,6 +1,6 @@
 """Data explorer endpoints: catalog, company lookup, structured screen, raw query.
 
-Thin handlers over :mod:`core.data.explorer`. All query construction, validation
+Thin handlers over :mod:`core.data.store.explorer`. All query construction, validation
 and execution lives in core; these translate HTTP and shape errors.
 """
 
@@ -12,7 +12,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from core.data.explorer import (
+from core.data.store.explorer import (
     MAX_ROWS,
     QueryError,
     ScreenFilter,

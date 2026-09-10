@@ -1,4 +1,4 @@
-"""Tests for core.data.quality quarantine scanning (real small DataFrames, no I/O)."""
+"""Tests for core.data.quality.quarantine quarantine scanning (real small DataFrames, no I/O)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from core.data.quality import (
+from core.data.quality.quarantine import (
     merge_with_existing,
     repair_isolated_bad_prints,
     scan_entity_mismatch,

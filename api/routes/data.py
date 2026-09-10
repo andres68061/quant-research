@@ -10,8 +10,8 @@ from api.dependencies import (
     get_sectors,
     get_universe_disclosure,
 )
-from core.data.asset_classification import categorize_asset_type
-from core.data.factor_store import describe_factor_source
+from core.data.store.factor_store import describe_factor_source
+from core.data.universe.asset_classification import categorize_asset_type
 
 router = APIRouter(prefix="/data", tags=["data"])
 

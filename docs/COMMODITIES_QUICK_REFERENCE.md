@@ -184,7 +184,7 @@
 
 ```bash
 # 1. Fetch data (first time)
-python scripts/fetch_commodities.py
+python scripts/ingest/fetch_commodities.py
 
 # 2. Start the dev servers
 make api       # terminal 1

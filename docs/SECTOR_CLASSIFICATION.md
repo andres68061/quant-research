@@ -54,7 +54,7 @@ The `quoteType` field identifies the asset type:
 ### Initial Fetch
 When a stock is first added to the database:
 ```bash
-python scripts/add_symbol.py NVDA
+python scripts/ingest/add_symbol.py NVDA
 ```
 → Automatically fetches sector classification
 
@@ -66,19 +66,19 @@ Sector classifications are refreshed every **90 days (3 months)** for:
 ### Automatic Updates
 The daily update script checks for stale sectors:
 ```bash
-python scripts/update_daily.py
+python scripts/ingest/update_daily.py
 ```
 → Automatically refreshes sectors >90 days old
 
 ### Manual Refresh
 Force refresh all sectors:
 ```bash
-python scripts/update_sectors.py
+python scripts/ingest/update_sectors.py
 ```
 
 Force refresh specific symbols:
 ```bash
-python scripts/fetch_sectors.py --symbols AAPL MSFT --force
+python scripts/ingest/fetch_sectors.py --symbols AAPL MSFT --force
 ```
 
 ## Usage
@@ -87,7 +87,7 @@ python scripts/fetch_sectors.py --symbols AAPL MSFT --force
 
 Fetch sectors for all existing stocks:
 ```bash
-python scripts/fetch_sectors.py
+python scripts/ingest/fetch_sectors.py
 ```
 
 This will:
@@ -126,7 +126,7 @@ This will:
 
 When adding a new stock, sector is automatically fetched:
 ```bash
-python scripts/add_symbol.py NVDA
+python scripts/ingest/add_symbol.py NVDA
 ```
 
 **Output includes:**
@@ -140,7 +140,7 @@ python scripts/add_symbol.py NVDA
 #### Option A: Automatic (Recommended)
 Run daily update script (includes quarterly sector refresh):
 ```bash
-python scripts/update_daily.py
+python scripts/ingest/update_daily.py
 ```
 
 If sectors are stale (>90 days):
@@ -154,16 +154,16 @@ If sectors are stale (>90 days):
 #### Option B: Manual
 Explicitly run quarterly update:
 ```bash
-python scripts/update_sectors.py
+python scripts/ingest/update_sectors.py
 ```
 
 **Options:**
 ```bash
 # Custom refresh period (60 days instead of 90)
-python scripts/update_sectors.py --refresh-days 60
+python scripts/ingest/update_sectors.py --refresh-days 60
 
 # Only retry Unknown symbols
-python scripts/update_sectors.py --retry-unknown
+python scripts/ingest/update_sectors.py --retry-unknown
 ```
 
 ### 4. Programmatic Access
@@ -256,7 +256,7 @@ To avoid hitting Yahoo Finance rate limits:
 **Solution:**
 ```bash
 # Retry unknown symbols
-python scripts/update_sectors.py --retry-unknown
+python scripts/ingest/update_sectors.py --retry-unknown
 ```
 
 ### Problem: Specific symbol has wrong sector
@@ -266,7 +266,7 @@ python scripts/update_sectors.py --retry-unknown
 **Solution:**
 ```bash
 # Force refresh that symbol
-python scripts/fetch_sectors.py --symbols TICKER --force
+python scripts/ingest/fetch_sectors.py --symbols TICKER --force
 ```
 
 ### Problem: Sector file doesn't exist
@@ -276,7 +276,7 @@ python scripts/fetch_sectors.py --symbols TICKER --force
 **Solution:**
 ```bash
 # Run initial setup
-python scripts/fetch_sectors.py
+python scripts/ingest/fetch_sectors.py
 ```
 
 ### Problem: Rate limit errors
@@ -293,16 +293,16 @@ python scripts/fetch_sectors.py
 ### Backfill Process
 ```bash
 # 1. Backfill prices (existing)
-python scripts/backfill_all.py --years 10
+python scripts/ingest/backfill_all.py --years 10
 
 # 2. Fetch sectors (new step)
-python scripts/fetch_sectors.py
+python scripts/ingest/fetch_sectors.py
 ```
 
 ### Daily Updates
 ```bash
 # Single command handles everything
-python scripts/update_daily.py
+python scripts/ingest/update_daily.py
 ```
 This now includes:
 - Price updates
@@ -314,7 +314,7 @@ This now includes:
 ### Adding New Stocks
 ```bash
 # Single command handles everything
-python scripts/add_symbol.py NVDA TSLA
+python scripts/ingest/add_symbol.py NVDA TSLA
 ```
 This now includes:
 - Price history fetch

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from core.data.security_master import (
+from core.data.universe.security_master import (
     QID_PATTERN,
     build_security_master,
     format_qid,

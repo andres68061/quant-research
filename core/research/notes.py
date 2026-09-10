@@ -232,7 +232,9 @@ NOTES: tuple[ResearchNote, ...] = (
             "Short availability and borrow cost are not modelled. Both make the "
             "long/short variants worse, not better.",
         ),
-        reproduce=("/opt/anaconda3/envs/quant/bin/python scripts/experiment_pead_tradable.py"),
+        reproduce=(
+            "/opt/anaconda3/envs/quant/bin/python scripts/experiments/experiment_pead_tradable.py"
+        ),
         glossary_terms=(
             "PEAD",
             "SUE",
@@ -371,7 +373,7 @@ NOTES: tuple[ResearchNote, ...] = (
             "significance bar.",
         ),
         reproduce=(
-            "/opt/anaconda3/envs/quant/bin/python scripts/experiment_conditional_piotroski.py"
+            "/opt/anaconda3/envs/quant/bin/python scripts/experiments/experiment_conditional_piotroski.py"
         ),
         decade_table=(
             ("A — F-score in value, L/S", "-0.57", "-0.19", "-0.23"),
@@ -505,7 +507,9 @@ NOTES: tuple[ResearchNote, ...] = (
             "placeholder dates (ADR 0012), so the pre-2010 portion has more timing noise "
             "than the rest.",
         ),
-        reproduce=("/opt/anaconda3/envs/quant/bin/python scripts/screen_factor_library.py"),
+        reproduce=(
+            "/opt/anaconda3/envs/quant/bin/python scripts/experiments/screen_factor_library.py"
+        ),
         decade_table=(
             ("neg_net_operating_assets", "0.27", "0.53", "0.65"),
             ("amihud_illiquidity", "1.04", "0.11", "-0.20"),

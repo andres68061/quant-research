@@ -89,7 +89,7 @@ from src.models.commodity_direction import compare_models
 # Load data
 data_path = Path("data/factors/commodities_prices.parquet")
 if not data_path.exists():
-    print("❌ Data file not found. Run: python scripts/fetch_commodities.py")
+    print("❌ Data file not found. Run: python scripts/ingest/fetch_commodities.py")
     exit(1)
 
 prices_df = pd.read_parquet(data_path)

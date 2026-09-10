@@ -1,7 +1,7 @@
 """Data-health endpoints: audit snapshot, flaw registry, per-symbol drilldown.
 
-Thin handlers over ``core.data.health``. The snapshot itself is precomputed by
-``scripts/audit_data_health.py`` (a full audit walks ~50k parquet footers — too
+Thin handlers over ``core.data.quality.health``. The snapshot itself is precomputed by
+``scripts/ops/audit_data_health.py`` (a full audit walks ~50k parquet footers — too
 slow for a request), so ``GET /data-health`` serves the persisted JSON and
 reports its age. The per-symbol drilldown reads ~20 small files and is served
 live.
@@ -17,7 +17,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from config.settings import PROJECT_ROOT
-from core.data.health import load_symbol_detail
+from core.data.quality.health import load_symbol_detail
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/data-health", tags=["data-health"])
@@ -31,7 +31,7 @@ def get_data_health() -> dict[str, Any]:
     if not SNAPSHOT_PATH.exists():
         raise HTTPException(
             status_code=404,
-            detail="No audit snapshot. Run scripts/audit_data_health.py first.",
+            detail="No audit snapshot. Run scripts/ops/audit_data_health.py first.",
         )
     return json.loads(SNAPSHOT_PATH.read_text())
 

@@ -53,7 +53,7 @@ DEFAULT_RESOLUTION = "1d"
 # Logging configuration
 LOG_LEVEL = "INFO"
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-LOG_FILE = PROJECT_ROOT / "logs" / "quant.log"
+LOG_FILE = PROJECT_ROOT / "runtime" / "logs" / "quant.log"
 
 # Machine learning settings
 ML_MODELS_PATH = PROJECT_ROOT / "models"
@@ -104,7 +104,7 @@ def create_directories():
     directories = [
         PROJECT_ROOT / "data",
         PROJECT_ROOT / "data" / "backups",
-        PROJECT_ROOT / "logs",
+        PROJECT_ROOT / "runtime" / "logs",
         PROJECT_ROOT / "models",
         PROJECT_ROOT / "data" / "ml",
         PROJECT_ROOT / "outputs" / "ml_results",

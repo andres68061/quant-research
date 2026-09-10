@@ -11,7 +11,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from core.data.explorer import (
+from core.data.store.explorer import (
     QueryError,
     ScreenFilter,
     build_screen_sql,
@@ -180,7 +180,7 @@ class TestLiveDatasets:
     """
 
     def test_catalog_lists_only_existing_datasets(self) -> None:
-        from core.data.explorer import DATASETS, describe_datasets
+        from core.data.store.explorer import DATASETS, describe_datasets
 
         catalog = describe_datasets()
         names = {d["name"] for d in catalog}
@@ -189,7 +189,7 @@ class TestLiveDatasets:
                 assert dataset.name in names
 
     def test_every_factor_panel_exposes_columns(self) -> None:
-        from core.data.explorer import describe_datasets
+        from core.data.store.explorer import describe_datasets
 
         for entry in describe_datasets():
             if entry["family"] == "factor":
@@ -198,7 +198,7 @@ class TestLiveDatasets:
                 assert "symbol" not in entry["columns"]
 
     def test_a_real_screen_returns_rows(self) -> None:
-        from core.data.explorer import DATASETS_BY_NAME, run_query
+        from core.data.store.explorer import DATASETS_BY_NAME, run_query
 
         if not DATASETS_BY_NAME["factors_price"].exists:
             pytest.skip("factor panels not built")
@@ -216,7 +216,7 @@ class TestLiveDatasets:
 
     def test_results_are_json_safe(self) -> None:
         """NaN and Timestamp both break JSON serialisation if they survive."""
-        from core.data.explorer import DATASETS_BY_NAME, run_query
+        from core.data.store.explorer import DATASETS_BY_NAME, run_query
 
         if not DATASETS_BY_NAME["factors_price"].exists:
             pytest.skip("factor panels not built")
@@ -227,7 +227,7 @@ class TestLiveDatasets:
             assert not (isinstance(row["vol_60d"], float) and pd.isna(row["vol_60d"]))
 
     def test_limit_is_enforced_and_flagged(self) -> None:
-        from core.data.explorer import DATASETS_BY_NAME, run_query
+        from core.data.store.explorer import DATASETS_BY_NAME, run_query
 
         if not DATASETS_BY_NAME["universe"].exists:
             pytest.skip("universe not built")

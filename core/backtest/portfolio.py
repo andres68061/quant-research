@@ -238,7 +238,7 @@ def sp500_universe_filter() -> Callable[[pd.Timestamp], set[str]]:
     """
     Return a callable that maps a date to the set of S&P 500 members on that date.
 
-    Uses :class:`~core.data.sp500_constituents.SP500Constituents` with the default
+    Uses :class:`~core.data.universe.sp500_constituents.SP500Constituents` with the default
     historical CSV. The constituents are loaded once; subsequent calls are a dict
     lookup (fast).
 
@@ -252,7 +252,7 @@ def sp500_universe_filter() -> Callable[[pd.Timestamp], set[str]]:
         >>> "AAPL" in members
         True
     """
-    from core.data.sp500_constituents import SP500Constituents
+    from core.data.universe.sp500_constituents import SP500Constituents
 
     sp500 = SP500Constituents()
     sp500.load()
@@ -291,7 +291,7 @@ def calculate_portfolio_returns(
         long_only: If True, ignore short signals
         dollar_adv: Optional wide panel of trailing dollar ADV (same index/columns
             convention as ``prices``). When provided, each name's traded weight is
-            charged the ADV-bucket cost from :mod:`core.data.liquidity` instead of
+            charged the ADV-bucket cost from :mod:`core.data.factors.liquidity` instead of
             the flat ``transaction_cost``.
 
     Returns:
@@ -310,7 +310,7 @@ def calculate_portfolio_returns(
         ...     signals, prices, rebalance_freq='ME', transaction_cost=0.001
         ... )
     """
-    from core.data.liquidity import costs_for_date
+    from core.data.factors.liquidity import costs_for_date
 
     # Do NOT forward-fill NaN prices: a delisted / suspended stock must not be
     # treated as flat at its last price (that silently hides bankruptcies).

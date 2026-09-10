@@ -20,7 +20,7 @@ Prep's bulk endpoints return HTTP 402 on this subscription (probed 2026-08-18),
 so every universe-wide pull is per-symbol. Against 9,011 symbols in
 `data/universe/security_master.parquet` and 175 entitled endpoints, the full
 vendor surface is **1,244,039 requests** measured by planning it. The existing
-single-call client (`core/data/fmp/client.py`) sleeps between its own calls and
+single-call client (`core/data/vendors/fmp/client.py`) sleeps between its own calls and
 achieves **~134 calls/min measured**, which puts that sweep at roughly 150 hours.
 
 **Nothing could say what a gap meant.** After a multi-hour run, "symbol XYZ has
@@ -129,7 +129,7 @@ to do next.
 
 **Onboarding a vendor is one JSON manifest plus one transport adapter.** The
 adapter is a `fetch(path, params) -> FetchResult` callable — roughly 100 lines,
-as in `core/data/fmp/transport.py` — and that is the entire vendor interface. The
+as in `core/data/vendors/fmp/transport.py` — and that is the entire vendor interface. The
 runner contains no vendor-specific code. Adding an *endpoint* to an existing
 vendor is one JSON object and no Python at all.
 

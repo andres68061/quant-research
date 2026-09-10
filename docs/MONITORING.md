@@ -11,10 +11,10 @@ catches a failure the others structurally cannot.
 
 | Layer | When it runs | Catches | Module |
 |---|---|---|---|
-| **1. Write guard** | during a build | a partial or collapsing write reaching a production panel | `core/data/artifacts.py` |
-| **2. Structural validation** | at build + audit | impossible values (a $0.00 share, an infinite return) | `core/data/validation.py` |
-| **3. Quarantine scan** | on demand | *suspicious* symbols needing human judgement | `core/data/quality.py` |
-| **4. Watchdog** | every 4h + daily | everything that goes wrong **between** runs | `core/data/watchdog.py` |
+| **1. Write guard** | during a build | a partial or collapsing write reaching a production panel | `core/data/store/artifacts.py` |
+| **2. Structural validation** | at build + audit | impossible values (a $0.00 share, an infinite return) | `core/data/quality/validation.py` |
+| **3. Quarantine scan** | on demand | *suspicious* symbols needing human judgement | `core/data/quality/quarantine.py` |
+| **4. Watchdog** | every 4h + daily | everything that goes wrong **between** runs | `core/data/quality/watchdog.py` |
 
 Layer 4 is the one that was missing. Layers 1–3 all fire *while something is
 running*. None of them notices a cron job that silently stopped firing, a panel
@@ -28,7 +28,7 @@ or truncated data that looks completely normal.
   but has no parquet footer.
 - **Panels not collapsed** — row counts against the last clean baseline. This is
   the between-runs counterpart to the write guard: it catches damage done by
-  something that never went through `core.data.artifacts` at all.
+  something that never went through `core.data.store.artifacts` at all.
 - **Panel freshness** — the canonical price panel is still advancing with the
   market (tolerance 5 days, so a long weekend plus a holiday is fine).
 - **Scheduled jobs still firing** — each cron log was touched recently and does
@@ -62,7 +62,7 @@ what stops a monitoring system from ratifying the damage it was meant to catch.
 `ACKNOWLEDGED_INVARIANTS` marks conditions that are permanently true *by design*
 — the 1,826 extreme returns in the raw price panel are expected under the ADR
 0012 fidelity rule, since the raw layer keeps vendor values verbatim and
-`core.data.returns` rejects them at compute time.
+`core.data.factors.returns` rejects them at compute time.
 
 They report as `ok` with the reason attached, not as warnings. **A monitor that
 is always yellow is a monitor nobody reads**, and these are already disclosed in
@@ -71,7 +71,7 @@ to be made deliberately, not a way to silence something inconvenient.
 
 ## Schedule
 
-Installed from `scripts/crontab.txt`:
+Installed from `scripts/ops/crontab.txt`:
 
 ```
 0 */4 * * *   run_watchdog.py           fast checks, every 4 hours
@@ -81,9 +81,9 @@ Installed from `scripts/crontab.txt`:
 The deep run is at 18:40 specifically so it validates what that evening's update
 just wrote, rather than yesterday's artifacts.
 
-**To install:** `crontab scripts/crontab.txt`
+**To install:** `crontab scripts/ops/crontab.txt`
 **To set a fresh baseline after an intentional change:**
-`python scripts/run_watchdog.py --set-baseline`
+`python scripts/ops/run_watchdog.py --set-baseline`
 
 Until the cron entry exists, the watchdog reports a warning about itself
 (`job:watchdog.log — no log yet`), which is correct: an uninstalled monitor is a

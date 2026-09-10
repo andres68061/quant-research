@@ -144,7 +144,7 @@ def load_market_cap(path: Path) -> Optional[pd.DataFrame]:
     Load historical market caps and return a Series of ``log_market_cap``.
 
     Expects a Parquet file with MultiIndex ``(date, ticker)`` and a ``market_cap`` column
-    (as produced by ``scripts/fetch_shares_and_market_caps.py``).
+    (as produced by ``scripts/ingest/fetch_shares_and_market_caps.py``).
 
     Returns ``None`` if the file is missing or empty.
     """

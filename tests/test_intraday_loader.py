@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from core.data.fmp.intraday import detect_unapplied_splits, load_intraday_bars
+from core.data.vendors.fmp.intraday import detect_unapplied_splits, load_intraday_bars
 
 TZ = "America/New_York"
 

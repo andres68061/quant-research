@@ -276,7 +276,7 @@ Already covered — drop the pad.
 
 ### Bug 10 — Macro lookahead does NOT affect this page (audit finding, not a bug)
 
-The factor backtest uses only price-derived factors (`mom_*`, `vol_*`, `beta_*`) plus optional `log_market_cap`. The FRED macro lookahead issue from `roadmap.txt` applies to ML features, not here. Worth stating on the page so the user knows which bias budget is spent.
+The factor backtest uses only price-derived factors (`mom_*`, `vol_*`, `beta_*`) plus optional `log_market_cap`. The FRED macro lookahead issue from `docs/BACKLOG.txt` applies to ML features, not here. Worth stating on the page so the user knows which bias budget is spent.
 
 ---
 
@@ -390,6 +390,6 @@ Smallest self-contained PR that moves the needle:
 1. Fix Bug 1 + Bug 2 in `core/data/factors/build_factors.py` — ≤ 5 lines.
 2. Add `tests/test_factor_formula.py` with the rank-flip case and the IPO-NaN case — ≤ 50 lines.
 3. Add a `MOMENTUM_FORMULA_FIX.md` in `docs/` containing the before/after Sharpe table for `mom_12_1 / mom_6_1 / mom_3_1` on ME and QE rebal (regen notebook 08 cell 5 after the fix).
-4. Update `roadmap.txt`: move "Momentum formula" from `## Research / decisions` to `## Done / maintained` with a one-line summary.
+4. Update `docs/BACKLOG.txt`: move "Momentum formula" from `## Research / decisions` to `## Done / maintained` with a one-line summary.
 
 That PR proves the audit chain (bug → repro → fix → test → docs → roadmap) works. Then Phase A carries on with the delisting and timing fixes.

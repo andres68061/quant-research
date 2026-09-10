@@ -424,10 +424,10 @@ Crypto pairs (e.g. `BTCUSD`) use the same quote, EOD, and intraday paths as equi
 ## How to re-check entitlements
 
 ```bash
-/opt/anaconda3/envs/quant/bin/python scripts/probe_fmp_entitlements.py
-/opt/anaconda3/envs/quant/bin/python scripts/probe_fmp_entitlements.py --restricted-only
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/probe_fmp_entitlements.py
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/probe_fmp_entitlements.py --restricted-only
 ```
 
 Paste a changed restricted list into `docs/DATA_INVENTORY.md` §6. After adding a new
-per-symbol dataset, register it in `core/data/fmp/datasets.py` rather than writing a
+per-symbol dataset, register it in `core/data/vendors/fmp/datasets.py` rather than writing a
 one-off fetcher.

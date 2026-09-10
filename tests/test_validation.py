@@ -10,8 +10,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from core.data.returns import DEFAULT_MAX_ABS_RETURN
-from core.data.validation import (
+from core.data.factors.returns import DEFAULT_MAX_ABS_RETURN
+from core.data.quality.validation import (
     EXTREME_RETURN_THRESHOLD,
     assert_panel_valid,
     validate_price_panel,

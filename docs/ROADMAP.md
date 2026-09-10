@@ -194,7 +194,7 @@ of the generic per-backtest metrics dict.
   self-selected pair's full-history performance into what looks like a
   clean backtest.
 - **`/portfolio` in-sample look-ahead fix shipped**:
-  `run_walk_forward_tangency` (`core/optimization/portfolio.py`) +
+  `run_walk_forward_tangency` (`core/backtest/mean_variance.py`) +
   `POST /portfolio/walk-forward-optimize` + a "Walk-forward validation"
   panel on `/portfolio` (collapsed by default, reuses the page's selected
   symbols/dates). Re-fits weights on a trailing lookback window every
@@ -207,7 +207,7 @@ of the generic per-backtest metrics dict.
 
 ## PEAD validated on the expanded universe (2026-08-13) — the first positive result
 
-`scripts/experiment_pead_by_size.py`, 267,780 announcements, 1992-2026, event-time
+`scripts/experiments/experiment_pead_by_size.py`, 267,780 announcements, 1992-2026, event-time
 (day 0 excluded), quintiles by price-scaled SUE within each calendar quarter,
 non-operating vehicles excluded, returns require price >= $1 and |ret| <= 300%.
 
@@ -226,7 +226,7 @@ rather than the 2-4% of the 1980s papers.
 4x more events, and **bad-print rejection**. Before it, the same study returned
 `-inf` CAR paths — the panel contains daily "returns" up to +101,599,900% from
 un-adjusted reverse splits, and one of those in a cross-sectional mean destroys
-every symbol's abnormal return for that date. See `core/data/returns.py`.
+every symbol's abnormal return for that date. See `core/data/factors/returns.py`.
 
 **Answered 2026-08-14: the effect is real, the obvious strategy is not.**
 Steps 1 and 2 below are done — `core/strategies/pead.py` builds the overlapping
@@ -257,7 +257,7 @@ widening:
    1,200 symbols and computes cross-sectional composites in a cheap second pass
    (`factors_composites.parquet`).
 2. **The API needed ~7 GB.** Fixed by lazy per-column factor loading
-   (`core/data/factor_store.py`) plus an explicit, disclosed universe policy
+   (`core/data/store/factor_store.py`) plus an explicit, disclosed universe policy
    (`API_UNIVERSE`, default `research` = 6,369 symbols). ADR 0014. Startup is
    now ~3 s at ~1.5 GB.
 3. **The universe filter was quadratic-ish**: a per-date `.loc` + MultiIndex
@@ -266,14 +266,14 @@ widening:
    `tests/test_universe_filter_perf.py`).
 4. **20% of the universe is shells/SPACs** — see the flaw registry. Every
    cross-sectional screen must exclude them
-   (`core.data.universe_filters.build_universe_filter`).
+   (`core.data.universe.filters.build_universe_filter`).
 
 ## Screen results are in (2026-08-11) — what survived and what's next
 
 The systematic screen ran: **28 factors, uniform pipeline, zero Šidák survivors**
 (`docs/research/factor_screen_20260811.md`; negatives logged in the failure log).
 The PEAD event study also ran: **t=1.5 on large caps, not significant**. Both are
-now permanent surfaces: `scripts/screen_factor_library.py`, `/pead` page,
+now permanent surfaces: `scripts/experiments/screen_factor_library.py`, `/pead` page,
 `GET /backtest/events/pead-study`.
 
 Forward-looking items that survive contact with the data:
@@ -345,10 +345,10 @@ Whatever comes out of 1–4 goes to `FAILED_STRATEGIES_LOG.md` or ships — see 
 ## Recently shipped
 
 - **FMP footprint expansion + fundamental factor library (2026-08-07)** —
-  probed entitlements empirically (`scripts/probe_fmp_entitlements.py`; the
+  probed entitlements empirically (`scripts/ingest/probe_fmp_entitlements.py`; the
   complete 2026-08-18 sweep found 176/230 paths working and records all 54
   HTTP-402 paths in `docs/vendor/fmp/ENDPOINT_CATALOG.md`); dataset registry
-  with mandatory point-in-time classification (`core/data/fmp/datasets.py`, 16
+  with mandatory point-in-time classification (`core/data/vendors/fmp/datasets.py`, 16
   per-symbol datasets, ADR 0010); mined the raw statements from 6 derived fields
   to 37 factor columns (`statement_metrics.py`, `fundamental_factors.py`,
   `quality_scores.py`) with Piotroski and Altman reconciled against the vendor's
@@ -372,8 +372,8 @@ Whatever comes out of 1–4 goes to `FAILED_STRATEGIES_LOG.md` or ships — see 
 
 - **Simple Top-500 index + Cid-1 relevance study (2026-07-30)** — quarterly
   top-500-by-market-cap cap-weighted index ("S&P without the committee"):
-  `core/index/top500.py`, `core/metrics/cross_section.py` (per-stock
-  trailing Cid-1, ADR-0009), `core/index/cid1_study.py` (persistence / IC /
+  `core/strategies/top500_index.py`, `core/metrics/cross_section.py` (per-stock
+  trailing Cid-1, ADR-0009), `core/research/cid1_study.py` (persistence / IC /
   Fama-MacBeth / quintile sort, Newey-West), `GET /index/top500/*`,
   `/index-top500` page. Index result 2005→2026 (gross, dividend-adjusted
   prices vs ^GSPC price index): +13.3% ann, Sharpe 0.70, corr 0.998,
@@ -384,7 +384,7 @@ Whatever comes out of 1–4 goes to `FAILED_STRATEGIES_LOG.md` or ships — see 
   `data/market_caps/historical_market_caps.parquet` was never rebuilt from
   the raw FMP layer (legacy values: 3Com $4.5T in 2008, MCI $1.6e16;
   Citigroup 2004 2× overstated). Rebuilt via
-  `scripts/fetch_fmp_market_caps.py --build-only` (backup:
+  `scripts/ingest/fetch_fmp_market_caps.py --build-only` (backup:
   `data/backups/historical_market_caps_backup_20260730_pre_raw_rebuild.parquet`).
   Downstream `log_market_cap` factor values will silently improve on next
   `factors_all` rebuild.

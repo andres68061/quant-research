@@ -1,11 +1,11 @@
-"""Tests for core.data.fmp.prices parsing and chunking (no network)."""
+"""Tests for core.data.vendors.fmp.prices parsing and chunking (no network)."""
 
 from __future__ import annotations
 
 import pandas as pd
 import pytest
 
-from core.data.fmp.prices import (
+from core.data.vendors.fmp.prices import (
     PANEL_TIMEZONE,
     generate_date_chunks,
     parse_dividend_adjusted_rows,

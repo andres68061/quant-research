@@ -11,7 +11,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>__REPO__/scripts/ingest_daemon.sh</string>
+        <string>__REPO__/scripts/ingest/ingest_daemon.sh</string>
     </array>
 
     <key>WorkingDirectory</key>

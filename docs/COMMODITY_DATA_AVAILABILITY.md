@@ -262,13 +262,13 @@ When reporting results, always note:
 ls -lh data/commodities/prices.parquet
 
 # Update commodity data
-python scripts/update_commodities.py
+python scripts/ingest/update_commodities.py
 
 # Fetch fresh data
-python scripts/fetch_commodities.py
+python scripts/ingest/fetch_commodities.py
 
 # See available commodities
-python scripts/fetch_commodities.py --list
+python scripts/ingest/fetch_commodities.py --list
 ```
 
 ---

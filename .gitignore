@@ -40,8 +40,13 @@ venv/
 ENV/
 env/
 
-# Logs
-logs/
+# Runtime artifacts: logs, ML result caches, model pickles (see ARCHITECTURE.md)
+runtime/*
+!runtime/outputs/
+runtime/outputs/*
+!runtime/outputs/ml_results/
+runtime/outputs/ml_results/*
+!runtime/outputs/ml_results/README.md
 *.log
 
 # Data files (databases, datasets, artifacts)
@@ -59,16 +64,6 @@ logs/
 .cache/
 **/.cache/
 
-# Results and outputs
-results/
-outputs/
-!outputs/ml_results/README.md
-models/*.pkl
-models/*.joblib
-models/*.h5
-models/*.pt
-models/*.pth
-
 # IDE and editor files
 .vscode/
 .idea/
@@ -80,9 +75,6 @@ models/*.pth
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb_checkpoints
-
-# Archived legacy code
-_archive/
 
 # Node.js (React frontend)
 node_modules/

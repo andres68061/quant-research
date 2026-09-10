@@ -758,4 +758,4 @@ if __name__ == "__main__":
             print("❌ GLD not found in data")
     else:
         print(f"❌ Data file not found: {data_file}")
-        print("Run: python scripts/fetch_commodities.py")
+        print("Run: python scripts/ingest/fetch_commodities.py")

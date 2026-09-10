@@ -22,8 +22,8 @@ from api.schemas.data_coverage import (
 )
 from config.settings import PROJECT_ROOT
 from core.backtest.portfolio import sp500_universe_filter
-from core.data.quality import QUARANTINE_PATH, load_quarantine_list, set_review_status
-from core.data.sp500_constituents import resolve_sp500_historical_csv
+from core.data.quality.quarantine import QUARANTINE_PATH, load_quarantine_list, set_review_status
+from core.data.universe.sp500_constituents import resolve_sp500_historical_csv
 from core.exceptions import ConfigError
 
 logger = logging.getLogger(__name__)
@@ -298,7 +298,7 @@ def data_coverage() -> DataCoverageResponse:
         )
     else:
         edgar_note = (
-            "SEC EDGAR sample not built yet — run scripts/fetch_sec_filings_sample.py "
+            "SEC EDGAR sample not built yet — run scripts/ingest/fetch_sec_filings_sample.py "
             "to pull accepted dates from data.sec.gov."
         )
 

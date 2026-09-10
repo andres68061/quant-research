@@ -15,7 +15,7 @@ from api.dependencies import (
 )
 from api.schemas.strategy import InvestedCoverage
 from core.backtest.portfolio import sp500_universe_filter
-from core.replay.precompute import precompute_backtest_frames
+from core.backtest.replay import precompute_backtest_frames
 from core.strategies import run_factor_cross_section_backtest_detail
 
 logger = logging.getLogger(__name__)

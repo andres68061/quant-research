@@ -146,7 +146,7 @@ def read_raw_macro_parquet(path: Optional[Path] = None) -> pd.DataFrame:
     if not resolved.exists():
         raise FileNotFoundError(
             f"Raw macro parquet not found at {resolved}. "
-            "Run scripts/fetch_raw_macro.py to backfill it."
+            "Run scripts/ingest/fetch_raw_macro.py to backfill it."
         )
     raw_long = pd.read_parquet(resolved)
     raw_long["reference_date"] = pd.to_datetime(raw_long["reference_date"])

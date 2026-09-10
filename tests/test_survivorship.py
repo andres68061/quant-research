@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from core.backtest.portfolio import create_signals_from_factor, sp500_universe_filter
-from core.data.sp500_constituents import resolve_sp500_historical_csv
+from core.data.universe.sp500_constituents import resolve_sp500_historical_csv
 from core.exceptions import ConfigError
 
 

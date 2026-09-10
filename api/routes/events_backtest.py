@@ -15,7 +15,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from api.schemas.events_backtest import EventIn, EventSimulateRequest, EventSimulateResponse
 from core.backtest.events import Event, EventType, simulate_equal_weight_rebalances
-from core.data.universe_filters import load_non_operating_symbols
+from core.data.universe.filters import load_non_operating_symbols
 from core.exceptions import DataSchemaError
 from core.research.caveats import SURFACE_PEAD, as_dicts, caveats_for_surface
 
@@ -81,7 +81,9 @@ def _cached_pead_study(
         raise HTTPException(status_code=503, detail="Price panel not loaded")
     panel_path = Path(PROJECT_ROOT) / "data" / "factors" / "factors_earnings_surprise.parquet"
     if not panel_path.exists():
-        raise HTTPException(status_code=503, detail="Run scripts/build_event_factors.py first")
+        raise HTTPException(
+            status_code=503, detail="Run scripts/build/build_event_factors.py first"
+        )
 
     surprise_panel = pd.read_parquet(panel_path, columns=[signal_col, "days_since_earnings"])
     events = extract_events_from_surprise_panel(surprise_panel, signal_col=signal_col)

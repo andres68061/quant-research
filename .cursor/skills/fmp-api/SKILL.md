@@ -11,8 +11,8 @@ description: Reference for the Financial Modeling Prep (FMP) API used for market
 - Auth: `?apikey=` query param. The key is `FMP_API_KEY` in `.env`, loaded via
   `config/settings.py`. **Never** hardcode it, and never log a response URL —
   `requests`' `raise_for_status()` embeds the full URL including the key, which
-  is why `core/data/fmp/client.py` raises its own error instead.
-- Always go through `core.data.fmp.client.fmp_get`: it handles auth, retries,
+  is why `core/data/vendors/fmp/client.py` raises its own error instead.
+- Always go through `core.data.vendors.fmp.client.fmp_get`: it handles auth, retries,
   exponential backoff, and a client-side ~500 calls/min throttle.
 
 ## Entitlements — probe, never assume
@@ -34,13 +34,13 @@ rate-limit bound. Budget calls before starting anything wide.
 Re-probe after any subscription change and update `docs/DATA_INVENTORY.md` §6:
 
 ```bash
-/opt/anaconda3/envs/quant/bin/python scripts/probe_fmp_entitlements.py --restricted-only
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/probe_fmp_entitlements.py --restricted-only
 ```
 
 ## Adding a new per-symbol dataset
 
 Do **not** write a new script. Add one entry to `SYMBOL_DATASETS` in
-`core/data/fmp/datasets.py`:
+`core/data/vendors/fmp/datasets.py`:
 
 ```python
 "my_dataset": SymbolDataset(
@@ -57,8 +57,8 @@ Do **not** write a new script. Add one entry to `SYMBOL_DATASETS` in
 Then it is fetchable and resumable for free:
 
 ```bash
-/opt/anaconda3/envs/quant/bin/python scripts/fetch_fmp_datasets.py --list
-/opt/anaconda3/envs/quant/bin/python scripts/fetch_fmp_datasets.py --datasets my_dataset
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/fetch_fmp_datasets.py --list
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/fetch_fmp_datasets.py --datasets my_dataset
 ```
 
 ### pit_status is the field that matters
@@ -83,7 +83,7 @@ parameters matter.
 
 - **Intraday is bar-capped, not range-capped.** Requesting seven months of 1-min
   bars returns the most recent ~1,170 and silently drops the rest. The call looks
-  successful. Chunk sizes live in `core/data/fmp/intraday.py`.
+  successful. Chunk sizes live in `core/data/vendors/fmp/intraday.py`.
 - **Intraday bars are NOT split-adjusted** (unlike `historical-price-eod/dividend-adjusted`).
   A 4:1 split reads as a 75% overnight crash. Use `apply_split_adjustment` with
   the `splits` dataset.
@@ -99,7 +99,7 @@ parameters matter.
 - Fetch scripts in `scripts/`, pure transforms in `core/data/`.
 - Write vendor payloads verbatim to `data/raw/fmp/...` before deriving anything.
 - **Resumability is mandatory** for anything over a few minutes: skip symbols
-  whose file exists, and write via `core.data.fmp.storage.write_atomic` so a
+  whose file exists, and write via `core.data.vendors.fmp.storage.write_atomic` so a
   killed process cannot leave a truncated parquet that a later run treats as
   complete. There is no separate state file.
 - Narrow fetch windows with `load_fetch_windows` when a universe table is

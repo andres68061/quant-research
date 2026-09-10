@@ -51,9 +51,13 @@ Three strict layers — no logic crosses downward:
 ```
 frontend/   → HTTP + presentation only (React 19, TypeScript, Vite)
 api/        → Thin FastAPI handlers: validate (Pydantic), call core.*, serialize
-core/       → All quant math: data, signals, backtest, metrics, models, replay
+core/       → All quant math: data, signals, backtest, metrics, models, strategies
 data/       → Parquet + DuckDB (gitignored; loaded at API startup)
+scripts/    → Entry points, by kind: ingest/ build/ experiments/ ops/
+runtime/    → Logs and caches written by running code (gitignored)
 ```
+
+`ARCHITECTURE.md` at the root maps every folder in one screen; read it before adding a file.
 
 **Key constraint:** No business logic in `api/routes/`. No quant math in `frontend/src/`. No I/O inside `core/` computation functions (accept DataFrames, return DataFrames).
 
@@ -61,13 +65,22 @@ data/       → Parquet + DuckDB (gitignored; loaded at API startup)
 
 | Module | Responsibility |
 |---|---|
-| `core/data/` | Data loading, SP500 constituents, commodities, factor construction |
+| `core/data/vendors/` | Clients for external providers (FMP, SEC, FRED, Banxico, yfinance). Only place that talks to a vendor |
+| `core/data/factors/` | Derived quantities from the raw layer: price/fundamental factors, returns, liquidity, market caps, macro |
+| `core/data/universe/` | Who is eligible on a date (membership, lifecycle, filters) and what a ticker refers to (security master) |
+| `core/data/quality/` | Validation invariants, quarantine, data-health audit, unattended watchdog |
+| `core/data/store/` | Reading and writing panels: guarded artifact writes, lazy factor-panel reads, DuckDB querying |
+| `core/ingest/` | Vendor-agnostic ingestion engine: spec, plan, rate limit, journal, runner |
 | `core/backtest/portfolio.py` | Portfolio simulation, `create_signals_from_factor`, `calculate_portfolio_returns` |
 | `core/strategies/factor_runner.py` | `run_factor_cross_section_backtest` — single entry point for factor backtests |
 | `core/strategies/registry.py` | Named strategy catalog (`StrategyMetadata`); exposed via `GET /strategies` |
 | `core/signals/` | Sortino momentum, factor signals, regime detection (HMM + baselines) |
 | `core/metrics/` | Sharpe, Sortino, drawdown, VaR, cumulative returns |
-| `core/replay/precompute.py` | Frame-by-frame replay data for `GET /replay/frames` |
+| `core/backtest/replay.py` | Frame-by-frame replay data for `GET /replay/frames` |
+| `core/backtest/mean_variance.py` | Markowitz frontier, tangency and min-variance portfolios |
+| `core/metrics/black_scholes.py`, `vol_surface.py` | Option pricing, implied vol, IV grids |
+| `core/strategies/top500_index.py`, `sector_index.py` | Cap-weighted top-N and sector index construction |
+| `core/research/` | Caveat registry, glossary, research notes, Cid-1 study |
 | `core/features/` | Feature engineering and label construction for ML |
 | `core/models/` | XGBoost, RF, Logistic, LSTM for ML walk-forward |
 | `api/dependencies.py` | Loads `factors`, `prices`, `sectors` Parquet files once at startup |
@@ -76,8 +89,8 @@ data/       → Parquet + DuckDB (gitignored; loaded at API startup)
 
 **Raw layer** (canonical sources of truth):
 
-- `data/raw/macro_fred.parquet` — Long-format raw FRED panel `(reference_date, series_id, value)`. Native frequency, no publication lag, no business-day fill, no standardisation. Built by `scripts/fetch_raw_macro.py`.
-- `data/factors/prices.parquet` — Adjusted-close stock panel (yfinance-adjusted; treated as the raw stock layer under the light option). Built by `scripts/backfill_all.py` / `scripts/update_daily.py`.
+- `data/raw/macro_fred.parquet` — Long-format raw FRED panel `(reference_date, series_id, value)`. Native frequency, no publication lag, no business-day fill, no standardisation. Built by `scripts/ingest/fetch_raw_macro.py`.
+- `data/factors/prices.parquet` — Adjusted-close stock panel (yfinance-adjusted; treated as the raw stock layer under the light option). Built by `scripts/ingest/backfill_all.py` / `scripts/ingest/update_daily.py`.
 - `data/factors/vix.parquet` — VIX close history. Already raw (no transformation applied upstream).
 
 **Derived layer** (deterministic functions of the raw layer):
@@ -94,7 +107,7 @@ For factor backtests, always delegate to `run_factor_cross_section_backtest` in 
 
 ## Adding a New Strategy
 
-1. **Core logic** — new module under `core/` (pure functions, DataFrames in/out). Add tests in `tests/`.
+1. **Core logic** — new module in the existing `core/` package it belongs to (pure functions, DataFrames in/out); do not create a new top-level package for one or two files. Add tests in `tests/`.
 2. **Registry** — add `StrategyMetadata` entry in `core/strategies/registry.py`.
 3. **API** — Pydantic schema in `api/schemas/`, route module in `api/routes/`, router registration in `api/main.py`.
 4. **Frontend** — types in `frontend/src/lib/types.ts`, API methods in `lib/api.ts`, page in `frontend/src/pages/`, route in `App.tsx`, nav link in `TopBar.tsx`. Use `AppLayout` with `LeftSidebar`, `RightSidebar`, `BottomPanel` slots.
@@ -104,7 +117,7 @@ For factor backtests, always delegate to `run_factor_cross_section_backtest` in 
 - **No `print()`** — use `logging` with structured context.
 - **Type-hint every public function.** Run `mypy --strict` on `core/` and `api/`.
 - Raise domain exceptions (`DataSchemaError`, `LeakageError`, `ConfigError`), not bare `Exception`.
-- Modules: one concern per file, ≤ 300 lines. Use `__all__` in `__init__.py`.
+- Modules: one concern per file, ≤ 500 lines. Prefer one cohesive module over several fragments a reader must trace across. Use `__all__` in `__init__.py`.
 - Naming: `calculate_sharpe_ratio` (verb+noun, snake_case), DataFrames named by content (`daily_returns`), constants `UPPER_SNAKE_CASE`.
 
 ## Numerics & Data Rules

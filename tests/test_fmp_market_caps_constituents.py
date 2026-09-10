@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pandas as pd
 
-from core.data.fmp.constituents import (
+from core.data.vendors.fmp.constituents import (
     build_membership_snapshots,
     normalize_equity_ticker,
     reconcile_membership,
 )
-from core.data.fmp.market_caps import parse_market_cap_rows
+from core.data.vendors.fmp.market_caps import parse_market_cap_rows
 
 
 class TestParseMarketCapRows:

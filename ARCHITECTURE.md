@@ -7,7 +7,7 @@ A production-style quantitative analytics platform that replays strategies throu
 ## Platform status and agent rules
 
 - **Maturity snapshot, gaps, operations, migration notes**: [docs/PLATFORM_STATUS.md](docs/PLATFORM_STATUS.md).
-- **Prioritized backlog**: [roadmap.txt](roadmap.txt) (repo root).
+- **Prioritized backlog**: [docs/BACKLOG.txt](docs/BACKLOG.txt).
 - **Strategy boundaries** (logic in `core/`, parameters via API schemas, no user code execution in the frontend): enforced by Cursor project rules under [.cursor/rules/](.cursor/rules/) — see `quant-strategies.mdc`.
 - **Strategy registry (v1)**: [`core/strategies/`](core/strategies/) holds named strategy metadata, [`GET /strategies`](api/routes/strategies.py) exposes a read-only catalog, and [`run_factor_cross_section_backtest`](core/strategies/factor_runner.py) centralizes the factor pipeline used by `POST /run-backtest` and `GET /replay/frames`. ML execution remains on `POST /run-ml-strategy` until a v2 unifies runners.
 
@@ -43,45 +43,58 @@ A production-style quantitative analytics platform that replays strategies throu
 
 ## Directory Map
 
+Eleven top-level folders. Each answers "what kind of thing lives here" in one word;
+if a new file does not fit one of these, that is a design question, not a reason
+for a new folder.
+
 ```
 quant/
-  core/                  Layer 1 — Quant Engine
-    data/                  Data loading, SP500 constituents, commodities, factors
-    features/              Feature engineering, target/label construction
-    models/                ML models (XGBoost, RF, Logistic, LSTM)
-    backtest/              Portfolio simulation, walk-forward splits, benchmarks; survivorship-free universe filter via sp500_universe_filter()
-    backtest/events/       Event log validation; equal-weight simulator; REST POST /backtest/events/simulate
-    metrics/               Sharpe, Sortino, drawdown, VaR, cumulative returns
-    signals/               Sortino momentum, factor-based signal generation
-    strategies/            Named strategy registry; factor cross-section runner
-    surfaces/              Black–Scholes price, implied vol (Brent), IV grid helper; Dupire/SABR/SVI TBD
-    replay/                Frame-by-frame replay precomputation
-    utils/                 I/O helpers, ML result caching
+  core/                  Layer 1 — Quant Engine (pure functions, DataFrames in/out, no I/O in math)
+    data/                  Everything about getting and shaping data
+      vendors/               Clients for external providers: fmp/, sec/, fred, banxico, yfinance, vix, commodities
+      factors/               Derived quantities: price/fundamental factors, returns, liquidity, market caps, macro, FF5
+      universe/              Eligibility and identity: membership, lifecycle, filters, security master, sectors
+      quality/               Validation invariants, quarantine, data-health audit, watchdog
+      store/                 Panel I/O: guarded artifact writes, lazy factor-panel reads, DuckDB access
+    ingest/                Vendor-agnostic ingestion engine: spec → plan → rate-limited pool → journal → report
+    features/              Feature engineering and labels for ML (incl. commodity features)
+    models/                ML models (XGBoost, RF, Logistic, LSTM) and the ML results cache
+    signals/               Sortino momentum, factor signals, regime detection
+    backtest/              Portfolio simulation, walk-forward, benchmarks, replay frames, mean-variance
+    backtest/events/       Event-study backtests
+    metrics/               Sharpe, Sortino, drawdown, VaR, factor regression, option pricing / IV surface
+    strategies/            Strategy registry, factor cross-section runner, pairs, PEAD, top-N and sector indices
+    research/              Caveat registry, glossary, research notes, Cid-1 study
   api/                   Layer 2 — FastAPI Backend
     main.py                App factory, CORS, lifespan (data loading)
-    config.py              Host, port, allowed origins
     dependencies.py        Shared data loaders (factors, prices, sectors)
     schemas/               Pydantic request/response models
-    routes/                Endpoint modules (health, data, strategy, metrics, etc.)
+    routes/                Thin endpoint modules — validate, call core.*, serialize
   frontend/              Layer 3 — React Frontend
-    src/
-      pages/               One file per page (PortfolioSimulator, MLAlphaReplay, etc.)
-      components/          Reusable UI (charts, cards, controls, layout, tables)
-      lib/                 API client (api.ts), TypeScript types, formatters
-      stores/              Zustand stores (replay state)
-    index.html             Entry HTML with font imports
-    vite.config.ts         Dev server, Tailwind plugin, API proxy
-  # _archive/ was removed during migration (legacy Streamlit/Dash code deleted)
-  config/                Settings and environment
-  scripts/               CLI utilities (backfill, data prep)
-  tests/                 pytest suite
-  notebooks/             Jupyter notebooks
-  data/                  Parquet, DuckDB, SQLite (gitignored)
-  docs/                  Feature-specific documentation
-  docker/                Dockerfiles (API + frontend)
-  docker-compose.yml     Full-stack orchestration
+    src/pages/             One file per page
+    src/components/        Reusable UI (charts, cards, controls, layout, tables)
+    src/lib/               API client (api.ts), TypeScript types, formatters
+    src/stores/            Zustand stores
+  scripts/               Command-line entry points, by kind
+    ingest/                Vendor fetchers + the ingestion supervisor (ingest_fmp.py, ingest_daemon.sh)
+    build/                 Derived-layer builders (build_*_panel.py, build_price_factors.py, ...)
+    experiments/           One-off research scripts; their findings live in docs/, not here
+    ops/                   crontab.txt, install_crontab.sh, manage_ingest_daemon.sh, watchdog, audits
+  config/                settings.py (.env loading), launchd plist template, vendor manifests
+  tests/                 pytest suite; file names mirror the core/ module under test
+  notebooks/             Jupyter research notebooks (quant kernel)
+  docs/                  Documentation, ADRs (decisions/), roadmap, failure log, backlog
+  data/                  Parquet, DuckDB, SQLite — gitignored; raw/ is the source of truth, the rest is derived
+  runtime/               Written by running code, gitignored: logs/, outputs/ml_results/
+  docker/                Dockerfiles (API + frontend); docker-compose.yml at the root
   Makefile               Dev commands (api, frontend, test, lint, up, down)
 ```
+
+**Where does a new file go?** Talks to a vendor → `core/data/vendors/`. Computes a
+factor → `core/data/factors/`. Decides eligibility → `core/data/universe/`. Checks
+data → `core/data/quality/`. Reads/writes panels → `core/data/store/`. Trades on
+something → `core/strategies/` or `core/signals/`. Measures a result → `core/metrics/`.
+A command you run → `scripts/<kind>/`. A number you want to remember → `docs/`.
 
 ## Running the Project
 

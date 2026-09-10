@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from core.backtest.replay import precompute_backtest_frames
 from core.metrics.coverage import position_label_from_counts, summarize_invested_coverage
-from core.replay.precompute import precompute_backtest_frames
 
 
 def test_position_label_from_counts() -> None:

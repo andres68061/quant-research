@@ -13,7 +13,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from core.data.artifacts import (
+from core.data.store.artifacts import (
     SCRATCH_DIRNAME,
     ArtifactShrinkError,
     resolve_artifact_path,

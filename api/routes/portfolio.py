@@ -10,8 +10,7 @@ from pydantic import BaseModel, Field
 
 from api.dependencies import get_prices
 from api.time_utils import bound_timestamp, slice_by_dates
-from core.metrics.performance import calculate_cumulative_returns, calculate_performance_metrics
-from core.optimization.portfolio import (
+from core.backtest.mean_variance import (
     calculate_cal_points,
     calculate_efficient_frontier,
     find_min_variance_portfolio,
@@ -19,6 +18,7 @@ from core.optimization.portfolio import (
     run_walk_forward_tangency,
     simulate_rebalanced_portfolio,
 )
+from core.metrics.performance import calculate_cumulative_returns, calculate_performance_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -254,7 +254,7 @@ def walk_forward_optimize(req: WalkForwardOptimizeRequest) -> dict:
     the identical window — in-sample look-ahead), this re-fits weights on
     a trailing ``lookback_months`` window every ``rebalance_months`` and
     only ever reports realized returns from *after* each fit. See
-    ``core.optimization.portfolio.run_walk_forward_tangency`` for the
+    ``core.backtest.mean_variance.run_walk_forward_tangency`` for the
     full rationale.
     """
     if req.portfolio_kind not in {"tangency", "min_variance"}:

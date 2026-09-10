@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from core.data.api_universe import MIN_TRADING_DAYS, resolve_policy, select_api_symbols
-from core.data.factor_store import FactorStore, describe_factor_source
+from core.data.store.factor_store import FactorStore, describe_factor_source
+from core.data.universe.api_universe import MIN_TRADING_DAYS, resolve_policy, select_api_symbols
 
 
 def _panel(tmp_path, name: str, columns: dict[str, float], symbols=("AAA", "BBB")) -> None:

@@ -65,3 +65,4 @@ replacement, same rule as the failed-strategies log.
 - [0014](0014-lazy-factor-loading-and-api-universe-policy.md) — Load factor columns lazily; give the API an explicit universe policy
 - [0015](0015-permanent-security-identifiers.md) — Permanent security identifiers (`qid`), separate from issuer identity
 - [0016](0016-vendor-agnostic-ingestion-framework.md) — Replace per-dataset fetch scripts with a declarative manifest and a shared runner
+- [0017](0017-repository-layout-by-kind.md) — Group scripts and data modules by kind, and raise the module cap to 500 lines

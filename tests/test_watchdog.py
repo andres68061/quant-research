@@ -15,7 +15,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from core.data import watchdog as wd
+from core.data.quality import watchdog as wd
 
 TZ = "America/New_York"
 NOW = datetime(2026, 8, 15, 18, 0, tzinfo=timezone.utc)

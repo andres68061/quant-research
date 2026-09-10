@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.data.health import (
+from core.data.quality.health import (
     RAW_FMP,
     UNIVERSE_FILE,
     audit_calendar,

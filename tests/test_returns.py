@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from core.data.returns import (
+from core.data.factors.returns import (
     DEFAULT_MAX_ABS_RETURN,
     compute_abnormal_returns,
     compute_clean_returns,

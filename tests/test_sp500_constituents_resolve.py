@@ -1,4 +1,4 @@
-"""Tests for :func:`~core.data.sp500_constituents.resolve_sp500_historical_csv`."""
+"""Tests for :func:`~core.data.universe.sp500_constituents.resolve_sp500_historical_csv`."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from core.data.sp500_constituents import SP500Constituents, resolve_sp500_historical_csv
+from core.data.universe.sp500_constituents import SP500Constituents, resolve_sp500_historical_csv
 from core.exceptions import ConfigError
 
 

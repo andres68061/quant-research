@@ -175,7 +175,7 @@ def compute_corwin_schultz_spread(
         The estimator was validated on 1990s-2000s data and **overstates the
         spread for modern mega-caps**, where true effective spreads are a basis
         point or two. Treat it as a cross-sectional liquidity ranking, not as a
-        cost input — `core.data.liquidity` owns the cost schedule.
+        cost input — `core.data.factors.liquidity` owns the cost schedule.
     """
     adjusted_high, adjusted_low = _adjust_for_overnight_gap(high, low, close)
     squared_log_range = _log_ratio(adjusted_high, adjusted_low) ** 2

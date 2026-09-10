@@ -72,10 +72,10 @@ config/vendors/{vendor}.json      the manifest: one JSON entry per endpoint
 | [`core/ingest/pool.py`](../core/ingest/pool.py) | The thread pool, progress lines every 30 seconds, and turning a crashed worker into a journalled `failed` task instead of a lost one. |
 | [`core/ingest/journal.py`](../core/ingest/journal.py) | The SQLite audit trail: one row per task with status, HTTP status code, row count, byte count, duration, attempt count, and error text. |
 | [`core/ingest/report.py`](../core/ingest/report.py) | Rendering one run's journal rows into the text report a human reads afterwards. |
-| [`core/data/fmp/transport.py`](../core/data/fmp/transport.py) | The FMP-specific half: build the URL, attach the API key, redact the key from any error text, normalise the response into `FetchResult(status_code, rows, content, error)`. |
-| [`scripts/ingest_fmp.py`](../scripts/ingest_fmp.py) | The command-line driver: resolve partition keys, plan, run, report. |
-| [`scripts/validate_fmp_manifest.py`](../scripts/validate_fmp_manifest.py) | Pre-flight check: call each spec once against the live vendor and list the ones that return nothing (see [Trap 4](#trap-4--a-spec-missing-a-required-parameter-returns-empty-not-an-error)). |
-| [`scripts/run_full_ingestion.sh`](../scripts/run_full_ingestion.sh) | Unattended sequential driver for several waves in a row. |
+| [`core/data/vendors/fmp/transport.py`](../core/data/vendors/fmp/transport.py) | The FMP-specific half: build the URL, attach the API key, redact the key from any error text, normalise the response into `FetchResult(status_code, rows, content, error)`. |
+| [`scripts/ingest/ingest_fmp.py`](../scripts/ingest/ingest_fmp.py) | The command-line driver: resolve partition keys, plan, run, report. |
+| [`scripts/ingest/validate_fmp_manifest.py`](../scripts/ingest/validate_fmp_manifest.py) | Pre-flight check: call each spec once against the live vendor and list the ones that return nothing (see [Trap 4](#trap-4--a-spec-missing-a-required-parameter-returns-empty-not-an-error)). |
+| [`scripts/ingest/run_full_ingestion.sh`](../scripts/ingest/run_full_ingestion.sh) | Unattended sequential driver for several waves in a row. |
 
 **The runner knows nothing about any vendor.** It receives a
 `fetch(path, params) -> FetchResult` callable. That is the entire vendor
@@ -119,7 +119,7 @@ data/quality/ingest_reports/{run_id}.txt   text report, written when a run finis
 `--dry-run` plans and prints, and makes zero HTTP requests:
 
 ```bash
-/opt/anaconda3/envs/quant/bin/python scripts/ingest_fmp.py --wave 1,2 --dry-run
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/ingest_fmp.py --wave 1,2 --dry-run
 ```
 
 It prints the task count per endpoint, the total, and an estimated wall clock at
@@ -146,19 +146,19 @@ Things that push it down: anything already downloaded is skipped without a call.
 
 ```bash
 # waves 1 and 2, logging to a file as well as stdout
-/opt/anaconda3/envs/quant/bin/python scripts/ingest_fmp.py \
-    --wave 1,2 --log-file logs/ingest_fmp.log
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/ingest_fmp.py \
+    --wave 1,2 --log-file runtime/logs/ingest_fmp.log
 
 # one endpoint only, re-fetching files that already exist
-/opt/anaconda3/envs/quant/bin/python scripts/ingest_fmp.py \
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/ingest_fmp.py \
     --endpoints earnings --force
 
 # a handful of symbols, for a smoke test
-/opt/anaconda3/envs/quant/bin/python scripts/ingest_fmp.py \
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/ingest_fmp.py \
     --endpoints earnings,dividends --symbols AAPL,MSFT,NVDA
 
 # print the most recent run's report and exit
-/opt/anaconda3/envs/quant/bin/python scripts/ingest_fmp.py --report
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/ingest_fmp.py --report
 ```
 
 Useful flags:
@@ -179,8 +179,8 @@ Useful flags:
 A long run belongs in the background with its log on disk:
 
 ```bash
-nohup /opt/anaconda3/envs/quant/bin/python scripts/ingest_fmp.py \
-    --wave 2 --log-file logs/ingest_wave2.log > /dev/null 2>&1 &
+nohup /opt/anaconda3/envs/quant/bin/python scripts/ingest/ingest_fmp.py \
+    --wave 2 --log-file runtime/logs/ingest_wave2.log > /dev/null 2>&1 &
 ```
 
 Progress lines appear every 30 seconds and carry the observed tasks/minute and a
@@ -193,8 +193,8 @@ returns rows. This costs one call per spec — a few hundred, not a few hundred
 thousand:
 
 ```bash
-/opt/anaconda3/envs/quant/bin/python scripts/validate_fmp_manifest.py
-/opt/anaconda3/envs/quant/bin/python scripts/validate_fmp_manifest.py --symbol MSFT --waves 2,3
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/validate_fmp_manifest.py
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/validate_fmp_manifest.py --symbol MSFT --waves 2,3
 ```
 
 It calls each spec once with a liquid, long-listed symbol (default `AAPL`) that
@@ -208,7 +208,7 @@ list worth reading before spending a day of calls.
 ### Running several waves unattended
 
 ```bash
-nohup bash scripts/run_full_ingestion.sh "1 2 3 4" > logs/ingestion_all.out 2>&1 &
+nohup bash scripts/ingest/run_full_ingestion.sh "1 2 3 4" > runtime/logs/ingestion_all.out 2>&1 &
 ```
 
 The shell driver runs waves **one at a time on purpose**: the rate limiter lives
@@ -217,7 +217,7 @@ the intended calls per minute and risk the vendor throttling the key. The script
 refuses to start when it finds another `ingest_fmp.py` already running. A wave
 that fails does not stop the ones after it — partial coverage of a later wave is
 more useful than none, and the journal records exactly what was missed. Rate and
-pool size are overridable: `RATE=400 WORKERS=8 bash scripts/run_full_ingestion.sh "2"`.
+pool size are overridable: `RATE=400 WORKERS=8 bash scripts/ingest/run_full_ingestion.sh "2"`.
 
 **Never run two ingestions at once**, by any route — that includes starting a
 manual run while a scheduled one is going.
@@ -255,7 +255,7 @@ no state file, no manual list of what to skip.
 
 ```bash
 # it died at hour 6; this picks up where it stopped
-/opt/anaconda3/envs/quant/bin/python scripts/ingest_fmp.py --wave 2 --log-file logs/ingest_wave2.log
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/ingest_fmp.py --wave 2 --log-file runtime/logs/ingest_wave2.log
 ```
 
 **Why this is correct**, and not merely usually correct:
@@ -445,7 +445,7 @@ worth investigating before the **derived layer** is rebuilt on top of it.
 ## 10. Rate limiting and adaptive backoff
 
 **One shared bucket, not a per-call sleep.** The older single-call client
-(`core/data/fmp/client.py`) sleeps between its own calls to target ~500
+(`core/data/vendors/fmp/client.py`) sleeps between its own calls to target ~500
 calls/min; because the sleep is serial with the network round trip, it actually
 achieves about **134 calls/min measured**. It remains the right tool for
 interactive and small scripted use, and is unchanged.
@@ -553,7 +553,7 @@ of 9,011 empty files that looks like a genuine, well-documented coverage gap.
 Real example: `analyst-estimates` requires a `period` parameter. Without it, it
 returns nothing for every symbol.
 
-**Guard:** run `scripts/validate_fmp_manifest.py` before a long wave. It calls
+**Guard:** run `scripts/ingest/validate_fmp_manifest.py` before a long wave. It calls
 each spec once for a symbol that should have data for almost everything, and
 prints every spec that came back with no rows. A short list of names that a human
 can sanity-check in a minute is the whole defence here — nothing in the framework
@@ -571,7 +571,7 @@ Stated rather than discovered later:
   `house_trades_by_name`, `insider_trading_reporting_name`,
   `mergers_acquisitions_search`, `fundraising_search`,
   `crowdfunding_offerings_search`, `economic_indicators`).
-  `scripts/ingest_fmp.py::resolve_keys` sets that key list to empty, so the
+  `scripts/ingest/ingest_fmp.py::resolve_keys` sets that key list to empty, so the
   planner logs "no keys available" and skips them. They are catalogued but not
   yet ingestible; a name source has to be chosen first (for
   `economic_indicators`, the list of series names).
@@ -633,11 +633,11 @@ before running it for 9,011.
 1. `config/vendors/{vendor}.json` — `vendor`, `base_url`,
    `rate_limit_per_minute`, `raw_root`, and the `endpoints` list.
 2. A transport adapter exposing `fetch(path, params) -> FetchResult`, modelled on
-   `core/data/fmp/transport.py`. It must be thread-safe (one `requests.Session`
+   `core/data/vendors/fmp/transport.py`. It must be thread-safe (one `requests.Session`
    per worker thread), must report non-200 statuses rather than raising, and must
    **never let the API key reach an error string or a log line**.
 
-A driver script like `scripts/ingest_fmp.py` is a thin wrapper: resolve the
+A driver script like `scripts/ingest/ingest_fmp.py` is a thin wrapper: resolve the
 partition keys the vendor's manifest needs, then call `plan_run` and `execute`.
 
 ---

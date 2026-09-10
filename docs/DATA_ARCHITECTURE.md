@@ -50,7 +50,7 @@ data/raw/macro_fred.parquet             long-format FRED panel (existing)
 ```
 
 Per-symbol files make downloads chunked, resumable, and parallelizable: a
-failed run refetches only missing symbols (`scripts/fetch_fmp_prices.py` skips
+failed run refetches only missing symbols (`scripts/ingest/fetch_fmp_prices.py` skips
 existing files). Empty files are written for symbols FMP does not cover, so
 reruns don't re-probe known gaps. `_fetch_report.csv` records status per symbol.
 
@@ -91,9 +91,9 @@ produces the file changes vendor.
 
 ## FMP migration status & plan
 
-1. ✅ `core/data/fmp/` client (retry/backoff/timeout, ~500 calls/min throttle)
+1. ✅ `core/data/vendors/fmp/` client (retry/backoff/timeout, ~500 calls/min throttle)
    and price parsing; tests in `tests/test_fmp_prices.py`.
-2. ✅ `scripts/fetch_fmp_prices.py` — resumable per-symbol download. Full run
+2. ✅ `scripts/ingest/fetch_fmp_prices.py` — resumable per-symbol download. Full run
    2026-07-11: 768 symbols fetched OK (incl. `^GSPC` via the `/full` endpoint —
    the dividend-adjusted endpoint rejects index symbols with HTTP 402), 62 with
    no FMP coverage (mostly long-delisted recycled tickers), ~55 min wall time.
@@ -107,16 +107,16 @@ produces the file changes vendor.
    `prices_backup_20260711_*_pre_fmp_cutover.parquet`; `prices.parquet` is now
    FMP-built (10,460 dates × 773 symbols, 1985-01-02 → 2026-07-10); factor
    panels rebuilt from it.
-5. ✅ Daily updates: `scripts/update_daily.py` now fetches from FMP via
-   `core.data.fmp.panel.update_panel_from_fmp`. The fetch window overlaps the
+5. ✅ Daily updates: `scripts/ingest/update_daily.py` now fetches from FMP via
+   `core.data.vendors.fmp.panel.update_panel_from_fmp`. The fetch window overlaps the
    last 7 calendar days so recent vendor restatements overwrite stale rows
    (vendor-latest wins), and every fetch also lands in the raw layer.
-6. ✅ Quarantine system (`core/data/quality.py` + `scripts/scan_data_quality.py`):
+6. ✅ Quarantine system (`core/data/quality/quarantine.py` + `scripts/ops/scan_data_quality.py`):
    automatic scan for bad-print signatures with a persistent review list.
 
 ## Quarantine system
 
-Four checks run over the price panel (`scripts/scan_data_quality.py`, also
+Four checks run over the price panel (`scripts/ops/scan_data_quality.py`, also
 invoked automatically by `update_daily.py` after new data lands):
 
 | Check | Signature | Status |
@@ -150,7 +150,7 @@ truncation, two ambiguous 2008-era divergences).
 
 ### Bad-print repair (derived-layer cleaning)
 
-`core.data.quality.repair_isolated_bad_prints` removes single-day quotes that
+`core.data.quality.quarantine.repair_isolated_bad_prints` removes single-day quotes that
 jump >75% and snap back to within 25% of the pre-spike level on the next bar
 (LEN 1990 doubled quotes, AET 2005/2006 split-day prints). The raw layer keeps
 the vendor values; only `prices.parquet` is cleaned, and every removal is

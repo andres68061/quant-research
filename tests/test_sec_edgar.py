@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 
-from core.data.sec.client import (
+from core.data.vendors.sec.client import (
     build_filings_sample,
     fetch_company_tickers,
     fetch_recent_filings,

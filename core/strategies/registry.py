@@ -614,7 +614,7 @@ STRATEGIES: dict[str, StrategyMetadata] = {
             "This factor deliberately longs the names that are most expensive to "
             "trade — it is the one strategy here where a naive cost assumption "
             "will most overstate returns. Use the dollar-ADV cost schedule in "
-            "``core.data.liquidity``, not a flat bps figure.",
+            "``core.data.factors.liquidity``, not a flat bps figure.",
             "Largely a size factor in disguise within a large-cap universe; the "
             "premium needs the small-cap tail to show up at all.",
             "Capacity-constrained by construction.",

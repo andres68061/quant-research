@@ -41,12 +41,12 @@ On **2026-08-18**, every documented example was called: 263 examples covering
 a required parameter. **176 paths returned HTTP 200; 54 returned HTTP 402.**
 This is path-level evidence, not an inference from endpoint families.
 
-`scripts/probe_fmp_entitlements.py` remains the smaller representative smoke
+`scripts/ingest/probe_fmp_entitlements.py` remains the smaller representative smoke
 test. Run it after any subscription change and update `docs/DATA_INVENTORY.md`
 §6:
 
 ```bash
-/opt/anaconda3/envs/quant/bin/python scripts/probe_fmp_entitlements.py
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/probe_fmp_entitlements.py
 ```
 
 The restricted paths include transcript directory/content, exchange and
@@ -84,7 +84,7 @@ path on 2026-08-18.
 
 ## Endpoints most relevant to this repo's data migration
 
-Replacing the yfinance pipeline (`scripts/backfill_all.py`, `scripts/update_daily.py`):
+Replacing the yfinance pipeline (`scripts/ingest/backfill_all.py`, `scripts/ingest/update_daily.py`):
 
 | Need | FMP endpoint |
 |---|---|

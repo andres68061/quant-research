@@ -42,7 +42,7 @@ Base URL: `https://financialmodelingprep.com/stable/` — append `?apikey=$FMP_A
 | `/historical-price-eod/{light,full}?symbol=BTCUSD` | — | EOD crypto history |
 | `/historical-chart/{1min,5min,1hour}?symbol=BTCUSD` | — | Intraday crypto bars |
 
-Repo note: commodities pipeline (`scripts/fetch_commodities.py`,
-`scripts/update_commodities.py`) and the FRED macro layer
-(`scripts/fetch_raw_macro.py`) could source from these endpoints; FRED remains
+Repo note: commodities pipeline (`scripts/ingest/fetch_commodities.py`,
+`scripts/ingest/update_commodities.py`) and the FRED macro layer
+(`scripts/ingest/fetch_raw_macro.py`) could source from these endpoints; FRED remains
 preferable for macro series with proper publication-lag semantics.

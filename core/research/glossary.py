@@ -1,6 +1,6 @@
 """One glossary for the whole platform.
 
-The data-hygiene glossary previously lived inside ``core.data.health`` and was
+The data-hygiene glossary previously lived inside ``core.data.quality.health`` and was
 rendered only on the data-health page. That worked until a second page needed to
 define "Sharpe ratio" — at which point the natural move is a second glossary, and
 two glossaries drift within a month.

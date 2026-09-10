@@ -41,7 +41,7 @@ not arbitrarily:
 ~5 GB, would have to be rewritten in full whenever any one input changed, and
 would force every reader to pay for columns they do not want. Splitting by source
 means a price-factor change does not touch fundamentals, and
-`core.data.factor_store` reads one column (~43 MB) instead of everything (~7 GB).
+`core.data.store.factor_store` reads one column (~43 MB) instead of everything (~7 GB).
 
 **Why not one file per factor.** 100+ tiny files multiplies metadata overhead and
 makes the multi-column reads (`load_factors`) that the Cid-1 study needs slow.
@@ -88,7 +88,7 @@ rows (COV has three). Storing a daily flag instead would be 1,202 × 7,600 ≈ 9
 rows to express the same 1,255 facts.
 
 Reading it is an interval lookup (`valid_from <= date <= valid_to`), which
-`core.data.universe_filters.load_membership_filter` does.
+`core.data.universe.filters.load_membership_filter` does.
 
 ### Which pattern to use
 
@@ -116,7 +116,7 @@ The controls that keep it from sprawling:
   repaired.
 - **`data-inventory-sync`** requires the inventory and health audit to be updated
   when an artifact appears.
-- **`core.data.validation`** gates panel builds on structural invariants.
+- **`core.data.quality.validation`** gates panel builds on structural invariants.
 - **`FactorStore`** decouples factor names from file layout.
 
 The real limit is not file count but **research discipline**: 100+ factor columns

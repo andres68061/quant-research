@@ -31,7 +31,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from core.data.returns import DEFAULT_MAX_ABS_RETURN, compute_abnormal_returns
+from core.data.factors.returns import DEFAULT_MAX_ABS_RETURN, compute_abnormal_returns
 from core.exceptions import DataSchemaError
 
 logger = logging.getLogger(__name__)
@@ -120,7 +120,7 @@ def run_event_study(
         horizon_days: Trading days of drift to measure after day 0.
         n_quantiles: Signal buckets (quarterly breakpoints).
         max_abs_return: Reject daily observations beyond this absolute return as
-            vendor bad prints (see :mod:`core.data.returns`).
+            vendor bad prints (see :mod:`core.data.factors.returns`).
         min_price: Optional price floor for return eligibility; the conventional
             screen against bid-ask-bounce-dominated sub-dollar stocks.
 

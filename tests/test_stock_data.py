@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from core.data.stock_data import StockDataFetcher, fetch_stock_data, get_stock_analysis
+from core.data.vendors.yfinance import StockDataFetcher, fetch_stock_data, get_stock_analysis
 
 
 class TestStockDataFetcher:
@@ -93,7 +93,7 @@ class TestConvenienceFunctions:
 
     def test_fetch_stock_data_function(self):
         """Test the fetch_stock_data convenience function."""
-        with patch("core.data.stock_data.StockDataFetcher") as mock_fetcher_class:
+        with patch("core.data.vendors.yfinance.StockDataFetcher") as mock_fetcher_class:
             mock_fetcher = Mock()
             mock_fetcher.fetch_stock_data.return_value = pd.DataFrame({"Close": [100, 101, 102]})
             mock_fetcher_class.return_value = mock_fetcher
@@ -105,7 +105,7 @@ class TestConvenienceFunctions:
 
     def test_get_stock_analysis_function(self):
         """Test the get_stock_analysis convenience function."""
-        with patch("core.data.stock_data.StockDataFetcher") as mock_fetcher_class:
+        with patch("core.data.vendors.yfinance.StockDataFetcher") as mock_fetcher_class:
             mock_fetcher = Mock()
             sample_data = pd.DataFrame(
                 {

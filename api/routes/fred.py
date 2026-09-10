@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
-from core.data.fred import INDICATOR_CATALOG, get_fred_series, get_recession_periods
+from core.data.vendors.fred import INDICATOR_CATALOG, get_fred_series, get_recession_periods
 
 logger = logging.getLogger(__name__)
 

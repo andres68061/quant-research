@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from core.data.universe_filters import (
+from core.data.universe.filters import (
     NON_OPERATING_INDUSTRIES,
     build_universe_filter,
     load_membership_filter,

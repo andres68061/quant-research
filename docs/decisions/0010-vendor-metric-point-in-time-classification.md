@@ -27,7 +27,7 @@ every time someone reached for a new endpoint.
 ## Decision
 
 Every per-symbol FMP dataset is declared in a registry
-(`core/data/fmp/datasets.py`) with a mandatory `pit_status` field:
+(`core/data/vendors/fmp/datasets.py`) with a mandatory `pit_status` field:
 
 - **`point_in_time`** — rows carry the date the information became public
   (announcement date, filing date, observation date). Usable directly.

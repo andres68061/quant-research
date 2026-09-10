@@ -54,7 +54,7 @@ fails loudly rather than silently disclosing nothing.
 5. **Numbers must explain themselves.** Any count shown to a user needs enough
    context to prevent the obvious misreading — what population it describes, and
    why it differs from the count above it. See `build_funnel` in
-   `core/data/health.py` for the pattern (`scope` / `definition` / `why_smaller`).
+   `core/data/quality/health.py` for the pattern (`scope` / `definition` / `why_smaller`).
 
 ## Anti-patterns
 
@@ -74,7 +74,7 @@ fails loudly rather than silently disclosing nothing.
 | Record | Purpose |
 |---|---|
 | `core/research/caveats.py` | **Caveats** — what a reader must know. The one registry. |
-| `core/data/health.py::known_flaws` | **Measured data flaws** — recomputed from disk each audit. |
+| `core/data/quality/health.py::known_flaws` | **Measured data flaws** — recomputed from disk each audit. |
 | `docs/DATA_HEALTH.md` | Rendered data state + flaws (generated; do not hand-edit the marked section). |
 | `docs/decisions/` | **Why** an implementation choice was made, with alternatives rejected. |
 | `docs/FAILED_STRATEGIES_LOG.md` | **Experiment outcomes** that were negative, with real numbers. |

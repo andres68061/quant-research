@@ -88,5 +88,5 @@ flowchart LR
 ## References
 
 - Platform gaps: [PLATFORM_STATUS.md](PLATFORM_STATUS.md)
-- Roadmap ordering: [roadmap.txt](../roadmap.txt)
+- Roadmap ordering: [docs/BACKLOG.txt](../docs/BACKLOG.txt)
 - Strategy boundaries: [.cursor/rules/quant-strategies.mdc](../.cursor/rules/quant-strategies.mdc)

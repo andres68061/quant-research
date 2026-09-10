@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from core.data.fmp.datasets import (
+from core.data.vendors.fmp.datasets import (
     PERIOD_END_ONLY,
     POINT_IN_TIME,
     SNAPSHOT,
@@ -13,13 +13,13 @@ from core.data.fmp.datasets import (
     describe_datasets,
     fetch_symbol_dataset,
 )
-from core.data.fmp.intraday import (
+from core.data.vendors.fmp.intraday import (
     INTRADAY_INTERVALS,
     apply_split_adjustment,
     generate_intraday_chunks,
     parse_intraday_rows,
 )
-from core.data.fmp.storage import load_fetch_windows, safe_filename, write_atomic
+from core.data.vendors.fmp.storage import load_fetch_windows, safe_filename, write_atomic
 from core.exceptions import DataSchemaError
 
 

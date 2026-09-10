@@ -24,13 +24,13 @@ Main functions:
 
 ### 2. Scripts
 
-**`scripts/fetch_sectors.py`** (150+ lines)
+**`scripts/ingest/fetch_sectors.py`** (150+ lines)
 - Initial setup: fetch all sectors
 - Reads symbols from `prices.parquet`
 - Shows sector breakdown with ASCII visualization
 - Options: `--force`, `--symbols`
 
-**`scripts/update_sectors.py`** (120+ lines)
+**`scripts/ingest/update_sectors.py`** (120+ lines)
 - Quarterly refresh of stale sectors
 - Retry "Unknown" classifications
 - Options: `--refresh-days`, `--retry-unknown`
@@ -53,7 +53,7 @@ Main functions:
 
 ## 🔄 Modified Files
 
-### 1. `scripts/add_symbol.py`
+### 1. `scripts/ingest/add_symbol.py`
 **Changes:**
 - Added sector classification fetch when adding stocks
 - Shows sector/industry for new symbols
@@ -72,7 +72,7 @@ sector_df = add_or_update_sectors(new_symbols)
 # Step 6: Update DuckDB views
 ```
 
-### 2. `scripts/update_daily.py`
+### 2. `scripts/ingest/update_daily.py`
 **Changes:**
 - Added `update_sectors_if_needed()` function
 - Automatically refreshes stale sectors (>90 days)
@@ -135,14 +135,14 @@ Stocks without data are labeled `"Unknown"` (delisted, new IPOs, API failures)
 
 ### Automatic Refresh
 ```bash
-python scripts/update_daily.py
+python scripts/ingest/update_daily.py
 ```
 → Checks for sectors >90 days old
 → Refreshes automatically if found
 
 ### Manual Refresh
 ```bash
-python scripts/update_sectors.py
+python scripts/ingest/update_sectors.py
 ```
 → Refreshes all stale sectors
 
@@ -153,7 +153,7 @@ python scripts/update_sectors.py
 ### Initial Setup (First Time)
 ```bash
 # After backfilling prices
-python scripts/fetch_sectors.py
+python scripts/ingest/fetch_sectors.py
 ```
 
 **Output:**
@@ -179,7 +179,7 @@ python scripts/fetch_sectors.py
 
 ### Adding New Stocks
 ```bash
-python scripts/add_symbol.py NVDA
+python scripts/ingest/add_symbol.py NVDA
 ```
 
 **Output includes:**
@@ -190,7 +190,7 @@ python scripts/add_symbol.py NVDA
 
 ### Quarterly Update
 ```bash
-python scripts/update_sectors.py
+python scripts/ingest/update_sectors.py
 ```
 
 **Output:**
@@ -322,18 +322,18 @@ All existing workflows now include sector classification:
 
 1. **Initial Setup**
    ```bash
-   python scripts/backfill_all.py --years 10
-   python scripts/fetch_sectors.py  # NEW STEP
+   python scripts/ingest/backfill_all.py --years 10
+   python scripts/ingest/fetch_sectors.py  # NEW STEP
    ```
 
 2. **Daily Updates**
    ```bash
-   python scripts/update_daily.py  # Now includes sector refresh
+   python scripts/ingest/update_daily.py  # Now includes sector refresh
    ```
 
 3. **Adding Stocks**
    ```bash
-   python scripts/add_symbol.py NVDA  # Now fetches sector
+   python scripts/ingest/add_symbol.py NVDA  # Now fetches sector
    ```
 
 ### Data Flow
@@ -393,11 +393,11 @@ Sections:
 
 Before using in production:
 
-- [ ] Run initial fetch: `python scripts/fetch_sectors.py`
+- [ ] Run initial fetch: `python scripts/ingest/fetch_sectors.py`
 - [ ] Verify file created: `data/sectors/sector_classifications.parquet`
 - [ ] Check sector summary: `python -m src.data.sector_classification`
-- [ ] Test add symbol: `python scripts/add_symbol.py TEST`
-- [ ] Test daily update: `python scripts/update_daily.py`
+- [ ] Test add symbol: `python scripts/ingest/add_symbol.py TEST`
+- [ ] Test daily update: `python scripts/ingest/update_daily.py`
 - [ ] Test programmatic access (see examples above)
 - [ ] Verify quarterly refresh works (wait 90 days or force)
 
@@ -430,8 +430,8 @@ Before using in production:
 
 ### Code
 - Module: `src/data/sector_classification.py`
-- Scripts: `scripts/fetch_sectors.py`, `scripts/update_sectors.py`
-- Integration: `scripts/add_symbol.py`, `scripts/update_daily.py`
+- Scripts: `scripts/ingest/fetch_sectors.py`, `scripts/ingest/update_sectors.py`
+- Integration: `scripts/ingest/add_symbol.py`, `scripts/ingest/update_daily.py`
 
 ### Testing
 ```python

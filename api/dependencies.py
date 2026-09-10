@@ -10,9 +10,9 @@ from typing import Optional
 import pandas as pd
 
 from config.settings import PROJECT_ROOT
-from core.data.api_universe import select_api_symbols
-from core.data.factor_store import FactorStore
-from core.data.quality import QUARANTINE_PATH, load_quarantined_symbols
+from core.data.quality.quarantine import QUARANTINE_PATH, load_quarantined_symbols
+from core.data.store.factor_store import FactorStore
+from core.data.universe.api_universe import select_api_symbols
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ def load_data() -> None:
     # either the list of factor names or one column. FactorStore (built below,
     # after prices define the universe) reads metadata now and columns on demand.
     # Cross-sectional composites (value_quality, *_sn) are attached by
-    # scripts/build_fundamentals_panel.py at build time, not here: computing a
+    # scripts/build/build_fundamentals_panel.py at build time, not here: computing a
     # cross-sectional z-score during a load is both slow and silently dependent
     # on whichever universe happened to be loaded. See ADR 0014.
     if not factors_path.exists():

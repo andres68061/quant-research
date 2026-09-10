@@ -9,12 +9,12 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
 from config.settings import PROJECT_ROOT
-from core.data.sector_classification import (
+from core.data.universe.sector_classification import (
     get_sector_summary,
     load_sector_classifications,
 )
-from core.index.sector_index import MIN_MEMBERS_DEFAULT, compute_sector_indices
 from core.research.caveats import SURFACE_SECTOR_PERFORMANCE, as_dicts, caveats_for_surface
+from core.strategies.sector_index import MIN_MEMBERS_DEFAULT, compute_sector_indices
 
 logger = logging.getLogger(__name__)
 

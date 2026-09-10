@@ -17,10 +17,10 @@ Your automated daily updates are functioning correctly!
 
 ```bash
 # Stock & Factor Data Updates (6:00 PM daily)
-0 18 * * * cd /Users/andres/Downloads/Cursor/quant && /opt/anaconda3/envs/quant/bin/python scripts/update_daily.py >> logs/update.log 2>&1
+0 18 * * * cd /Users/andres/Downloads/Cursor/quant && /opt/anaconda3/envs/quant/bin/python scripts/ingest/update_daily.py >> runtime/logs/update.log 2>&1
 
 # Commodities Data Updates (6:05 PM daily)
-5 18 * * * cd /Users/andres/Downloads/Cursor/quant && /opt/anaconda3/envs/quant/bin/python scripts/update_commodities.py >> logs/commodities_update.log 2>&1
+5 18 * * * cd /Users/andres/Downloads/Cursor/quant && /opt/anaconda3/envs/quant/bin/python scripts/ingest/update_commodities.py >> runtime/logs/commodities_update.log 2>&1
 ```
 
 **Status:** ✅ **Both jobs are configured and running**
@@ -261,17 +261,17 @@ Want to check status yourself?
 crontab -l
 
 # Check last update logs
-tail -50 logs/update.log
+tail -50 runtime/logs/update.log
 
 # Check data file ages
 ls -lht data/factors/*.parquet | head -5
 
 # Check commodities data
-tail -20 logs/commodities_update.log
+tail -20 runtime/logs/commodities_update.log
 
 # Manual update (test)
-python scripts/update_daily.py
-python scripts/update_commodities.py
+python scripts/ingest/update_daily.py
+python scripts/ingest/update_commodities.py
 ```
 
 ---

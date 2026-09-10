@@ -3,7 +3,7 @@ Simple quarterly top-500 cap-weighted index + Cid-1 relevance study.
 
 Thin handlers only: data comes from ``api.dependencies`` (prices, factors)
 plus the market-cap panel (lazy-loaded here, cached at module level); all
-math is delegated to ``core.index`` and ``core.metrics``. Results are
+math is delegated to ``core.strategies.top500_index`` and ``core.metrics``. Results are
 cached per parameter set — the underlying panels are static between data
 refreshes.
 """
@@ -21,14 +21,14 @@ from pydantic import BaseModel, Field
 
 from api.dependencies import get_factor_store, get_prices, get_sectors
 from config.settings import PROJECT_ROOT
-from core.index.cid1_study import CONTROL_COLUMNS, run_cid1_relevance_study
-from core.index.top500 import (
+from core.metrics.cross_section import calculate_trailing_cid1_cross_section
+from core.metrics.performance import calculate_performance_metrics
+from core.research.cid1_study import CONTROL_COLUMNS, run_cid1_relevance_study
+from core.strategies.top500_index import (
     CapWeightedIndexResult,
     build_quarterly_rebalance_dates,
     compute_cap_weighted_index,
 )
-from core.metrics.cross_section import calculate_trailing_cid1_cross_section
-from core.metrics.performance import calculate_performance_metrics
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/index/top500", tags=["index-top500"])

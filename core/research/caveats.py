@@ -1,7 +1,7 @@
 """THE registry of research caveats. One file, every disclosure, every surface.
 
 Before this module, caveats lived in four places: data flaws in
-``core/data/health.py``, sector-index caveats in ``core/index/sector_index.py``,
+``core/data/quality/health.py``, sector-index caveats in ``core/strategies/sector_index.py``,
 PEAD caveats inline in an API route, and screen caveats inline in a script. Each
 was correct and none knew about the others, so no surface could answer "what
 should a user of THIS number know?" — which is the only question that matters.
@@ -15,7 +15,7 @@ Two kinds, deliberately in the same registry because a reader does not care whic
 is which:
 
 - ``DATA`` — a property of what we hold (coverage gaps, vendor defects, bias).
-  Measured counterparts are produced live by ``core.data.health`` and merged in.
+  Measured counterparts are produced live by ``core.data.quality.health`` and merged in.
 - ``METHOD`` — a consequence of how we compute (weighting, rebalance cadence,
   cost assumptions, statistical treatment).
 
@@ -144,7 +144,7 @@ CAVEAT_REGISTRY: tuple[Caveat, ...] = (
             SURFACE_DATA_HEALTH,
         ),
         remediation=(
-            "core.data.universe_filters.build_universe_filter(exclude_non_operating=True)"
+            "core.data.universe.filters.build_universe_filter(exclude_non_operating=True)"
         ),
     ),
     Caveat(
@@ -160,7 +160,7 @@ CAVEAT_REGISTRY: tuple[Caveat, ...] = (
             "destructive: one infinite value in a cross-sectional mean turns EVERY symbol's "
             "abnormal return that day into infinity, and it propagates through any cumulative "
             "sum. The first expanded-universe PEAD run returned -inf paths for exactly this "
-            "reason. Compute returns through core.data.returns, never bare pct_change."
+            "reason. Compute returns through core.data.factors.returns, never bare pct_change."
         ),
         surfaces=(
             SURFACE_UNIVERSE,
@@ -170,7 +170,7 @@ CAVEAT_REGISTRY: tuple[Caveat, ...] = (
             SURFACE_DATA_HEALTH,
         ),
         remediation=(
-            "core.data.returns.compute_clean_returns rejects |return| > 300% as bad prints "
+            "core.data.factors.returns.compute_clean_returns rejects |return| > 300% as bad prints "
             "and supports a min_price floor; the panel builder nulls non-positive closes."
         ),
     ),
@@ -188,7 +188,7 @@ CAVEAT_REGISTRY: tuple[Caveat, ...] = (
             "assumed to be bounce."
         ),
         surfaces=(SURFACE_UNIVERSE, SURFACE_FACTOR_SCREEN, SURFACE_PEAD, SURFACE_DATA_HEALTH),
-        remediation="Pass min_price to core.data.returns / the event study.",
+        remediation="Pass min_price to core.data.factors.returns / the event study.",
     ),
     # ---------------- Method: sector index ----------------
     Caveat(
@@ -294,7 +294,7 @@ CAVEAT_REGISTRY: tuple[Caveat, ...] = (
             "Backtests charge one basis-point figure per trade for every name. That flatters "
             "any strategy that trades illiquid stocks — most of all the liquidity factors, "
             "which deliberately go long the hardest-to-trade names. Use the dollar-ADV cost "
-            "schedule in core/data/liquidity.py before believing a liquidity result."
+            "schedule in core/data/factors/liquidity.py before believing a liquidity result."
         ),
         surfaces=(SURFACE_FACTOR_SCREEN, SURFACE_FACTOR_BACKTEST),
         remediation="Pass dollar_adv to the runner so per-name costs scale with liquidity.",

@@ -159,7 +159,7 @@ The Portfolio Simulator offers multiple benchmark options for comparing your str
 To add NASDAQ, Russell 2000, or other indices:
 
 ```bash
-python scripts/add_symbol.py ^IXIC ^RUT ^DJI
+python scripts/ingest/add_symbol.py ^IXIC ^RUT ^DJI
 ```
 
 Where:
@@ -208,6 +208,6 @@ Where:
 
 ## References
 
-- S&P 500 Historical Components: newest `data/S&P 500 Historical Components & Changes*.csv` (see `resolve_sp500_historical_csv` in `core/data/sp500_constituents.py`)
-- Failed symbols analysis: `python scripts/analyze_failed_symbols.py`
+- S&P 500 Historical Components: newest `data/S&P 500 Historical Components & Changes*.csv` (see `resolve_sp500_historical_csv` in `core/data/universe/sp500_constituents.py`)
+- Failed symbols analysis: `python scripts/experiments/analyze_failed_symbols.py`
 - Coverage analysis: See "Data Quality Summary" above

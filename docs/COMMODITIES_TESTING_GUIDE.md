@@ -5,7 +5,7 @@
 ### **Prerequisites:**
 ```bash
 # 1. Ensure commodities data exists
-python scripts/fetch_commodities.py
+python scripts/ingest/fetch_commodities.py
 
 # 2. Verify data file
 ls -lh data/commodities/prices.parquet
@@ -236,7 +236,7 @@ ls -lh data/commodities/prices.parquet
 ### **Issue: "No commodities data found"**
 **Fix:**
 ```bash
-python scripts/fetch_commodities.py
+python scripts/ingest/fetch_commodities.py
 ```
 
 ### **Issue: Charts not displaying**

@@ -1,11 +1,11 @@
 """
 ML feature engineering for commodity/asset price prediction.
 
-Re-exports the full feature pipeline from ``core.data.ml_features`` and adds
+Re-exports the full feature pipeline from ``core.features.commodity_features`` and adds
 Sortino-momentum features used by the signal modules.
 """
 
-from core.data.ml_features import (
+from core.features.commodity_features import (
     calculate_downside_deviation_expanding,
     calculate_downside_deviation_rolling,
     calculate_rsi,

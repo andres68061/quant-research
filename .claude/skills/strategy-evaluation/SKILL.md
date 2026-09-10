@@ -73,10 +73,10 @@ bias the correction removes.
 ## Universe hygiene
 
 - Exclude non-operating vehicles (shells/SPACs, fund wrappers) via
-  `core.data.universe_filters.build_universe_filter`. A pre-merger SPAC has no
+  `core.data.universe.filters.build_universe_filter`. A pre-merger SPAC has no
   factor exposure, and its artificial near-zero volatility lands it in the traded
   tiers of vol-sensitive factors.
-- Compute returns through `core.data.returns`, never bare `pct_change`. The panel
+- Compute returns through `core.data.factors.returns`, never bare `pct_change`. The panel
   contains vendor defects up to +100,000,000%, and one of them destroys a
   cross-sectional mean for every symbol on that date.
 - State the universe and its size. A number computed on the API's 6,369-symbol

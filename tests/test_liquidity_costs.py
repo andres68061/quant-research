@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from core.backtest.portfolio import calculate_portfolio_returns
-from core.data.liquidity import cost_bps_from_dollar_adv
+from core.data.factors.liquidity import cost_bps_from_dollar_adv
 
 
 class TestCostSchedule:

@@ -13,7 +13,7 @@ router = APIRouter(prefix="/banxico", tags=["banxico"])
 def get_cetes28() -> dict:
     """Fetch the latest CETES 28 annualized rate from Banxico."""
     try:
-        from core.data.banxico_api import get_current_cetes28_rate
+        from core.data.vendors.banxico import get_current_cetes28_rate
 
         rate, dt = get_current_cetes28_rate()
         return {"rate": round(rate * 100, 4), "date": str(dt.date())}

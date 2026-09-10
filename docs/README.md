@@ -11,7 +11,7 @@ you where it goes, and the other three are wrong by definition.
 
 | Question | Record | Source of truth |
 |---|---|---|
-| **"What must I know before trusting this number?"** | [DATA_HEALTH.md](DATA_HEALTH.md) | `core/research/caveats.py` (caveats, all surfaces) + `core/data/health.py::known_flaws` (measured flaws) |
+| **"What must I know before trusting this number?"** | [DATA_HEALTH.md](DATA_HEALTH.md) | `core/research/caveats.py` (caveats, all surfaces) + `core/data/quality/health.py::known_flaws` (measured flaws) |
 | **"Why is it implemented this way?"** | [decisions/](decisions/) | One ADR per decision, with alternatives rejected |
 | **"Did we already try this and fail?"** | [FAILED_STRATEGIES_LOG.md](FAILED_STRATEGIES_LOG.md) | Real numbers from real runs; entries are never deleted |
 | **"What are we building next?"** | [ROADMAP.md](ROADMAP.md) | Forward-looking only; no results |
@@ -39,7 +39,7 @@ locations, each correct, none complete. They now live in a single registry
   `research-disclosure` skill's checklist.
 
 **Measured** flaws (coverage gaps, vendor defects, calendar anomalies) are
-different: they are recomputed from disk by `scripts/audit_data_health.py` on
+different: they are recomputed from disk by `scripts/ops/audit_data_health.py` on
 every run, because asserting them in prose is how docs go stale. Both streams
 render into DATA_HEALTH.md and the `/data-health` page.
 

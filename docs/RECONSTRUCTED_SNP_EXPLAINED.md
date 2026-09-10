@@ -49,7 +49,7 @@ for date in df_prices.index:
     # Returns: ['AAPL', 'MSFT', 'GOOGL', ...] for that specific date
 ```
 
-**Data Source:** newest `data/S&P 500 Historical Components & Changes*.csv` in `data/` (see `resolve_sp500_historical_csv` in `core/data/sp500_constituents.py`)
+**Data Source:** newest `data/S&P 500 Historical Components & Changes*.csv` in `data/` (see `resolve_sp500_historical_csv` in `core/data/universe/sp500_constituents.py`)
 - Contains S&P 500 membership changes from 1996-2026
 - Shows which stocks were in the index on each date
 - Includes additions, removals, ticker changes

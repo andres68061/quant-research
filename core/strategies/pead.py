@@ -32,8 +32,8 @@ from typing import Callable, Optional
 import numpy as np
 import pandas as pd
 
-from core.data.liquidity import cost_bps_from_dollar_adv
-from core.data.returns import DEFAULT_MAX_ABS_RETURN, compute_clean_returns
+from core.data.factors.liquidity import cost_bps_from_dollar_adv
+from core.data.factors.returns import DEFAULT_MAX_ABS_RETURN, compute_clean_returns
 from core.exceptions import DataSchemaError
 
 logger = logging.getLogger(__name__)
@@ -184,7 +184,7 @@ def simulate_pead_portfolio(
             this strategy trades — prefer the ADV schedule.
         dollar_adv: Optional date x symbol trailing dollar-volume panel. When
             given, each name's cost comes from
-            :func:`core.data.liquidity.cost_bps_from_dollar_adv` instead, so
+            :func:`core.data.factors.liquidity.cost_bps_from_dollar_adv` instead, so
             micro-caps are charged what they actually cost.
         min_price: Price floor for return eligibility.
         max_abs_return: Bad-print rejection bound.
@@ -246,6 +246,6 @@ def simulate_pead_portfolio(
 
 def _adv_schedule() -> tuple[tuple[float, float], ...]:
     """The dollar-ADV cost buckets, imported lazily to keep the dependency light."""
-    from core.data.liquidity import ADV_COST_SCHEDULE
+    from core.data.factors.liquidity import ADV_COST_SCHEDULE
 
     return ADV_COST_SCHEDULE

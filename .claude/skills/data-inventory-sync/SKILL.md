@@ -26,7 +26,7 @@ endpoint" must be traceable to a probe or to the code that makes the call.
 For FMP, the probe is:
 
 ```bash
-/opt/anaconda3/envs/quant/bin/python scripts/probe_fmp_entitlements.py --restricted-only
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/probe_fmp_entitlements.py --restricted-only
 ```
 
 The stale "fundamentals come from FMP bulk" line in `DATA_INVENTORY.md` survived
@@ -38,7 +38,7 @@ That is the failure mode this skill exists to prevent.
 0. **Rerun the health audit — this is mandatory, not optional.**
 
    ```bash
-   /opt/anaconda3/envs/quant/bin/python scripts/audit_data_health.py
+   /opt/anaconda3/envs/quant/bin/python scripts/ops/audit_data_health.py
    ```
 
    This recomputes every number in `docs/DATA_HEALTH.md`'s generated section and
@@ -48,7 +48,7 @@ That is the failure mode this skill exists to prevent.
    no record, because it looks authoritative.
 
    If the change **introduced or fixed a flaw** (leakage, coverage gap, calendar
-   anomaly, bias), edit the registry in `core/data/health.py::known_flaws` —
+   anomaly, bias), edit the registry in `core/data/quality/health.py::known_flaws` —
    that one function feeds the doc, the API, and the frontend page. A fixed flaw
    is *removed* there and, if methodologically interesting, memorialized as an
    ADR instead. Chat is not a record; the registry is.
@@ -66,7 +66,7 @@ That is the failure mode this skill exists to prevent.
    - §1 table: path, shape, producer script, whether the API loads it at startup.
    - §2: ingestion sources — script name **and** module path must both resolve.
    - §3: factor-family gap map, if a new factor family became available.
-   - §4: cron, if scheduling changed. Mirror into `scripts/crontab.txt`.
+   - §4: cron, if scheduling changed. Mirror into `scripts/ops/crontab.txt`.
    - §6: vendor entitlements, if a probe result changed.
 
 3. **`docs/DATA_ARCHITECTURE.md`** — only if the raw/derived boundary moved

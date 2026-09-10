@@ -105,7 +105,7 @@ The frontend runs at `http://localhost:5173`. It proxies `/api/*` requests to th
 Go to `http://localhost:5173` in your browser.
 
 Note: price/factor Parquet files under `data/` are built locally (gitignored)
-via `scripts/backfill_all.py` and need `FMP_API_KEY` / `FRED_API_KEY` in
+via `scripts/ingest/backfill_all.py` and need `FMP_API_KEY` / `FRED_API_KEY` in
 `.env` — see `.env.example`. The test suite runs entirely on synthetic
 fixtures and needs no data or keys.
 
@@ -170,16 +170,17 @@ pre-commit (`pip install pre-commit && pre-commit install`).
 
 ```
 quant/
-  core/           # Quant engine (data, features, models, backtest, metrics, signals)
+  core/           # Quant engine: data/{vendors,factors,universe,quality,store}, signals, backtest, metrics, models, strategies
   api/            # FastAPI (routes, schemas, dependencies)
   frontend/       # React + TypeScript + Vite
   config/         # Settings and environment
-  scripts/        # CLI utilities
+  scripts/        # CLI entry points: ingest/ build/ experiments/ ops/
   tests/          # pytest suite
   notebooks/      # Jupyter notebooks (outputs stripped)
   data/           # Parquet, DuckDB (gitignored)
   docs/           # Research docs: backtest audit, failed strategies log, roadmap
   docs/decisions/ # ADRs: why implementations are shaped the way they are
+  runtime/        # Logs and result caches written by running code (gitignored)
   docker/         # Dockerfiles
 ```
 

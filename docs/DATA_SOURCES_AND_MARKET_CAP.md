@@ -4,7 +4,7 @@
 
 ### 1. **Stock Prices** (Primary Source: Yahoo Finance via `yfinance`)
 - **Location**: `data/factors/prices.parquet`
-- **Update Mechanism**: `scripts/update_daily.py`
+- **Update Mechanism**: `scripts/ingest/update_daily.py`
 - **Coverage**: 508 stocks currently
 - **Update Frequency**: Daily (incremental - only fetches new dates)
 - **API**: FREE, unlimited for price data
@@ -20,7 +20,7 @@ hist = ticker.history(period="max")  # Full history
 
 ### 2. **Commodities** (Alpha Vantage + Yahoo Finance ETFs)
 - **Location**: `data/commodities/prices.parquet`
-- **Update Mechanism**: `scripts/update_commodities.py`
+- **Update Mechanism**: `scripts/ingest/update_commodities.py`
 - **Sources**:
   - Alpha Vantage: WTI Oil, Brent Oil, Natural Gas, Wheat, Corn, Coffee
   - Yahoo Finance: GLD (Gold), SLV (Silver), PPLT (Platinum), PALL (Palladium)
@@ -45,7 +45,7 @@ series = fred.get_series('CPIAUCSL')  # CPI data
 
 ### 4. **S&P 500 Historical Constituents** (CSV File)
 - **Source**: Pre-downloaded CSV (e.g. fja05680/sp500 on GitHub)
-- **Location**: `data/S&P 500 Historical Components & Changes*.csv` — the codebase selects the **newest** file matching that pattern in `data/` (by modification time); see `resolve_sp500_historical_csv` in `core/data/sp500_constituents.py`.
+- **Location**: `data/S&P 500 Historical Components & Changes*.csv` — the codebase selects the **newest** file matching that pattern in `data/` (by modification time); see `resolve_sp500_historical_csv` in `core/data/universe/sp500_constituents.py`.
 - **Coverage**: on the order of ~1,000+ unique tickers over multi-decade history (varies with dataset revision)
 - **Update**: Automated copy from a local clone of the upstream repo, or manual placement of the CSV under `data/`
 
@@ -214,7 +214,7 @@ date        ticker  market_cap
 ### Q1: "Will price history follow the same daily automatic update logic?"
 **A:** ✅ **YES!** Once fetched via `add_symbol.py`, all tickers are automatically added to:
 - `data/factors/prices.parquet` (new columns)
-- Daily updates via `scripts/update_daily.py` (incremental fetch)
+- Daily updates via `scripts/ingest/update_daily.py` (incremental fetch)
 - Cron job at 6 PM daily
 
 ### Q2: "We should be transparent in how many are successfully fetched"

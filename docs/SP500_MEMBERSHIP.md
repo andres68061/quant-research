@@ -14,7 +14,7 @@ data/S&P 500 Historical Components & Changes*.csv
 ```
 
 Resolved by `resolve_sp500_historical_csv()` in
-`core/data/sp500_constituents.py` (highest modification time wins). As of
+`core/data/universe/sp500_constituents.py` (highest modification time wins). As of
 2026-07-12 that is:
 
 ```text
@@ -86,10 +86,10 @@ create_signals_from_factor(..., universe_filter=...)
 Optional FMP refresh (does **not** change the live CSV unless `--promote`):
 
 ```bash
-/opt/anaconda3/envs/quant/bin/python scripts/refresh_sp500_constituents.py
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/refresh_sp500_constituents.py
 # review data/quality/sp500_reconciliation.txt
 # only if mean Jaccard ≥ 0.95 AND notation reviewed:
-# /opt/anaconda3/envs/quant/bin/python scripts/refresh_sp500_constituents.py --promote
+# /opt/anaconda3/envs/quant/bin/python scripts/ingest/refresh_sp500_constituents.py --promote
 ```
 
 ## Update checklist (every few months)
@@ -100,7 +100,7 @@ Optional FMP refresh (does **not** change the live CSV unless `--promote`):
    `S&P 500 Historical Components & Changes*.csv` name pattern).
 3. Optionally archive the previous copy under `data/archive/` so only one
    live file sits in `data/` (resolver already prefers newest mtime).
-4. Run `scripts/refresh_sp500_constituents.py` and skim the reconciliation
+4. Run `scripts/ingest/refresh_sp500_constituents.py` and skim the reconciliation
    report — expect high agreement in recent years; investigate big drops.
 5. Restart the API if it was already running (membership is loaded via the
    CSV path at filter construction time).

@@ -112,7 +112,7 @@ def get_equity_curve(tail: int = 500) -> dict:
 def run_ml_strategy(req: MLStrategyRequest) -> dict:
     """Run an ML direction-prediction strategy via walk-forward validation."""
     try:
-        from core.data.ml_features import create_ml_features_with_transparency
+        from core.features.commodity_features import create_ml_features_with_transparency
         from core.models.commodity_direction import run_walk_forward_validation
 
         prices = get_prices()

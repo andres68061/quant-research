@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pandas as pd
 
-from core.data.lifecycle import (
+from core.data.universe.lifecycle import (
     _earliest_segment_end,
     apply_lifecycle_to_panel,
     build_lifecycle_windows,
 )
-from core.data.sector_classification import _quote_type_from_profile, _slugify
+from core.data.universe.sector_classification import _quote_type_from_profile, _slugify
 
 
 class TestSectorHelpers:

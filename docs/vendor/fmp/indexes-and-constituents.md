@@ -25,6 +25,6 @@ Base URL: `https://financialmodelingprep.com/stable/` — append `?apikey=$FMP_A
 | `/historical-nasdaq-constituent` | Historical Nasdaq changes |
 | `/historical-dowjones-constituent` | Historical Dow changes |
 
-Repo note: `core/data/sp500_constituents.py` + `sp500_universe_filter()` implement
+Repo note: `core/data/universe/sp500_constituents.py` + `sp500_universe_filter()` implement
 point-in-time membership. `historical-sp500-constituent` is the FMP source to
 rebuild/verify that membership table during the data migration.

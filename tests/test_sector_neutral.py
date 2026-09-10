@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from core.data.commodities import COMMODITIES_CONFIG
+from core.data.vendors.commodities import COMMODITIES_CONFIG
 from core.signals.sector_neutral import (
     attach_value_quality_columns,
     combine_value_quality,

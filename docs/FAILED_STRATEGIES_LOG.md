@@ -220,7 +220,7 @@ Reusable code shipped despite the negative result:
 Question: is a stock's trailing Cid-1 ratio (total return ÷ cost-basis
 pain, ADR-0009 boundary convention) *relevant* — i.e. does it predict the
 next quarter — within the quarterly top-500-by-market-cap universe?
-Diagnostic study, not a tradeable backtest: `core/index/cid1_study.py`,
+Diagnostic study, not a tradeable backtest: `core/research/cid1_study.py`,
 surfaced at `GET /index/top500/cid1-study` and the `/index-top500` page.
 
 **Config:** top 500 by cap at each quarter-end (rebuilt FMP market-cap
@@ -328,7 +328,7 @@ universe (Sharpe −0.33) but the paper applies the F-score *within the high
 book-to-market quintile*. The registry entry flagged that mismatch, so the
 conditional version had to be tested before calling the factor dead.
 
-**Setup:** `scripts/experiment_conditional_piotroski.py`. F-score masked to NaN
+**Setup:** `scripts/experiments/experiment_conditional_piotroski.py`. F-score masked to NaN
 outside each date's top-quintile book-to-market (breakpoint computed per date),
 fed to the shared cross-section runner. 2000-01-03 → 2026-08-07, monthly, 10bps,
 S&P PIT membership, shells/SPACs excluded, 30% tiers within the quintile.
@@ -366,7 +366,7 @@ paper's sample was 1976-1996 US small caps with far thinner analyst coverage.
 days, t=10.05, 267,780 announcements — see ROADMAP "PEAD validated"). That is an
 event-time, gross-of-costs research result. This tests the tradable form.
 
-**Construction** (`core/strategies/pead.py`, `scripts/experiment_pead_tradable.py`):
+**Construction** (`core/strategies/pead.py`, `scripts/experiments/experiment_pead_tradable.py`):
 overlapping book — each announcement opens a position the day AFTER the
 announcement and holds 60 trading days, so ~1/60th turns over daily; long the top
 surprise quintile, short the bottom; gross exposure normalized to 1.0 each day;

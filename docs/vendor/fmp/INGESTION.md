@@ -98,7 +98,7 @@ key sources, `crowdfunding-offerings-latest` (global) and
 `crowdfunding-offerings-search` (by company name), are in the manifest.
 
 > **Under-documented, flagged honestly:** the manifest's own `notes` field says
-> "Regenerate with `scripts/probe_fmp_shapes.py` when the vendor surface
+> "Regenerate with `scripts/ingest/probe_fmp_shapes.py` when the vendor surface
 > changes." **That script is not in the repository.** The shape sweep's results
 > are checked in — the manifest is the artifact — but the sweep itself is not
 > currently reproducible from the repo. Until it is restored, re-probing is the
@@ -122,10 +122,10 @@ and filing feeds.
 Three reasons it is first:
 1. **It is nearly free** — 66 tasks. There is no scenario where you skip it.
 2. **It changes daily and is small**, which makes it the natural nightly refresh
-   (see the commented block in [`scripts/crontab.txt`](../../../scripts/crontab.txt)).
+   (see the commented block in [`scripts/ops/crontab.txt`](../../../scripts/ops/crontab.txt)).
 3. **It is the only genuine ordering constraint.** The per-CIK, per-sector,
    per-industry and per-exchange endpoints in waves 2 and 3 take their partition
-   keys from wave-1 outputs — `scripts/ingest_fmp.py::resolve_keys` reads
+   keys from wave-1 outputs — `scripts/ingest/ingest_fmp.py::resolve_keys` reads
    `data/raw/fmp/cik_list/_all.parquet`,
    `data/raw/fmp/available_sectors/_all.parquet`, and so on. Run a later wave
    before wave 1 has landed and those endpoints log "no keys available" and plan
@@ -262,8 +262,8 @@ a run starts producing HTTP 402 or 404 responses it did not produce before.
 family, using the smallest possible response, about 50 calls:
 
 ```bash
-/opt/anaconda3/envs/quant/bin/python scripts/probe_fmp_entitlements.py
-/opt/anaconda3/envs/quant/bin/python scripts/probe_fmp_entitlements.py --restricted-only
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/probe_fmp_entitlements.py
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/probe_fmp_entitlements.py --restricted-only
 ```
 
 Paste a changed restricted list into
@@ -341,10 +341,10 @@ distinction:
 
 ```bash
 # plan only, no calls
-/opt/anaconda3/envs/quant/bin/python scripts/ingest_fmp.py --endpoints new_endpoint --dry-run
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/ingest_fmp.py --endpoints new_endpoint --dry-run
 
 # three symbols, real calls
-/opt/anaconda3/envs/quant/bin/python scripts/ingest_fmp.py \
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/ingest_fmp.py \
     --endpoints new_endpoint --symbols AAPL,MSFT,NVDA
 ```
 
@@ -355,7 +355,7 @@ running it across 9,011 symbols.
 spec, a few hundred calls total:
 
 ```bash
-/opt/anaconda3/envs/quant/bin/python scripts/validate_fmp_manifest.py
+/opt/anaconda3/envs/quant/bin/python scripts/ingest/validate_fmp_manifest.py
 ```
 
 It calls each spec once with `AAPL` (override with `--symbol`) and prints every
@@ -379,7 +379,7 @@ checklist.
 
 - **Base URL is `stable`.** Legacy `v3` and `v4` paths still resolve for some
   endpoints but are not what the catalog or manifest describe. Do not mix them.
-- **The API key must never reach a log line.** `core/data/fmp/transport.py`
+- **The API key must never reach a log line.** `core/data/vendors/fmp/transport.py`
   redacts the key from error bodies and never logs `response.url`, because the
   key travels as a query parameter. Preserve that property in any change.
 - **Transport errors become a synthetic HTTP 503** so they back off like a server
@@ -389,7 +389,7 @@ checklist.
   manifest, so it downloads one annual report per symbol rather than a history.
 - **Run at most one ingestion process at a time.** The rate limiter is
   per-process, so two concurrent runs emit twice the configured calls per minute.
-  `scripts/run_full_ingestion.sh` runs waves sequentially and refuses to start
+  `scripts/ingest/run_full_ingestion.sh` runs waves sequentially and refuses to start
   when it finds another `ingest_fmp.py` already running; nothing enforces this if
   you launch `ingest_fmp.py` directly.
 - **Seven `per_name` endpoints currently plan to zero tasks** because the driver
@@ -397,7 +397,7 @@ checklist.
   [`docs/INGESTION.md` §12](../../INGESTION.md#12-known-gaps-and-limitations).
 - **Per-CIK endpoints are capped at the first 5,000 CIKs**, a deliberate prefix
   of the SEC registry rather than full coverage.
-- **The single-call client `core/data/fmp/client.py` is unchanged and still the
+- **The single-call client `core/data/vendors/fmp/client.py` is unchanged and still the
   right tool** for interactive and small scripted use. It throttles per call and
   achieves about 134 calls/min measured; the ingestion framework's shared token
   bucket with 16 workers sustains 600–700 calls/min measured. Use the client for

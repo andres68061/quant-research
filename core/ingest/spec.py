@@ -22,7 +22,7 @@ from enum import Enum
 from typing import Any, Optional
 
 # Point-in-time classifications, re-exported so a vendor catalog imports one
-# module. Kept identical to core.data.fmp.datasets for continuity.
+# module. Kept identical to core.data.vendors.fmp.datasets for continuity.
 POINT_IN_TIME = "point_in_time"
 PERIOD_END_ONLY = "period_end_only"
 SNAPSHOT = "snapshot"

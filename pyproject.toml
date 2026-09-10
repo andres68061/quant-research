@@ -1,17 +1,17 @@
 [tool.black]
 line-length = 100
 target-version = ["py311"]
-extend-exclude = "_archive|notebooks"
+extend-exclude = "notebooks"
 
 [tool.isort]
 profile = "black"
 line_length = 100
-skip_glob = ["_archive/*", "notebooks/*"]
+skip_glob = ["notebooks/*"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = ["_archive", "notebooks"]
+extend-exclude = ["notebooks"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"]
