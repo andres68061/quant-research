@@ -29,6 +29,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/pead", label: "PEAD" },
       { to: "/metals", label: "Commodities" },
       { to: "/economic", label: "Economic" },
+      { to: "/data-monitor", label: "Data Monitor" },
       { to: "/sectors", label: "Sectors" },
       { to: "/excluded-stocks", label: "Excluded" },
       { to: "/data-coverage", label: "Data Coverage" },

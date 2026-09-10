@@ -58,6 +58,9 @@ def _daily(fred_id: str, name: str, group: Group, unit: str = "%", lag: int = 1)
 def _monthly(
     fred_id: str, name: str, group: Group, lag: int, transform: Transform = "level", unit: str = "%"
 ) -> FredSeriesSpec:
+    # A YoY pct_change is stored as a fraction (0.033 = 3.3%), never as percent.
+    if transform == "yoy_pct":
+        unit = "ratio"
     return FredSeriesSpec(fred_id, name, group, "monthly", lag, transform, unit)
 
 

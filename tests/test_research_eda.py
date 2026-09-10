@@ -150,6 +150,14 @@ def test_yield_curve_snapshots_uses_nearest_prior_date_never_forward() -> None:
     assert snaps[0]["points"][-1]["yield"] == pytest.approx(panel.loc["2024-01-05", "dgs30"])
 
 
+def test_yield_curve_snapshots_falls_back_past_all_nan_rows() -> None:
+    panel = _curve()
+    # Another series printed on 2024-01-15 but the curve did not: all-NaN row.
+    panel.loc[pd.Timestamp("2024-01-15")] = np.nan
+    snap = eda.yield_curve_snapshots(panel, TENORS, [pd.Timestamp("2024-01-15")])
+    assert len(snap) == 1 and snap[0]["date"] == "2024-01-12"
+
+
 def test_yield_curve_snapshots_skips_dates_before_history() -> None:
     assert eda.yield_curve_snapshots(_curve(), TENORS, [pd.Timestamp("2000-01-01")]) == []
 

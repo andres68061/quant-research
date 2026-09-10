@@ -39,9 +39,9 @@ See [`scripts/ingest/backfill_all.py`](../scripts/ingest/backfill_all.py). Outpu
 | File | Contents (high level) |
 |------|------------------------|
 | `prices.parquet` | Wide close panel from `build_prices_panel` (yfinance-backed in `core/data/factors/prices.py`); treated as the raw stock layer under the light option |
-| `../raw/macro_fred.parquet` | **Raw** long-format FRED panel `(reference_date, series_id, value)` at native frequency. Source of truth for all macro derivations. Built by `scripts/ingest/fetch_raw_macro.py`. |
-| `macro.parquet` | **Derived** publication-lagged business-day macro panel from `derive_macro_panel_from_raw(raw_long)` |
-| `macro_z.parquet` | **Derived** 5-year rolling z-scores from `compute_macro_zscores(macro)` |
+| `../raw/macro_fred.parquet` | **Raw** long-format FRED panel `(reference_date, series_id, value)` at native frequency. **38 series, 273k rows** (2026-09-10): the full constant-maturity Treasury curve (1M–30Y), 10Y–2Y and 10Y–3M spreads, TIPS 5Y/10Y real yields, 5Y/10Y breakevens, Baa–10Y and ICE BofA HY/IG OAS, fed funds (monthly and daily), SOFR, CPI/core CPI/PCE YoY, unemployment, payrolls, initial claims, industrial production and retail sales YoY, housing starts, Michigan sentiment, M2 YoY, Fed assets, broad dollar, VIX, WTI. Catalog with per-series lag, group, transform and unit: `core/data/factors/macro_catalog.py::FRED_SERIES_CATALOG`. Built by `scripts/ingest/fetch_raw_macro.py` (38 calls, ~30 s). YoY series are stored as fractions (0.033 = 3.3%). |
+| `macro.parquet` | **Derived** publication-lagged business-day macro panel from `derive_macro_panel_from_raw(raw_long)`; 38 columns. Lags count from the FRED reference date (the 1st of the reference month), so a monthly value becomes visible ~31 days + its release day later — see the catalog module docstring and ADR 0018. |
+| `macro_z.parquet` | **Derived** 5-year rolling z-scores from `compute_macro_zscores(macro)`; 38 columns |
 | `factors_price.parquet` | Price-derived factors from `build_price_factors` (see below) |
 | `fundamentals_daily.parquet` | Dailyized fundamentals (per-symbol FMP statement calls), when fundamentals pipeline runs |
 | `factors_vq.parquet` | Value/quality composites from `compute_value_quality_factors`, when fundamentals present |
@@ -197,7 +197,7 @@ These files exist on disk and are produced by standalone scripts. They are **not
 |------|------------------|----------|-------|
 | `data/market_caps/historical_market_caps.parquet` | ~6M rows, MultiIndex `(date, ticker)`, 725 stocks, 1962–present | [`scripts/ingest/fetch_shares_and_market_caps.py`](../scripts/ingest/fetch_shares_and_market_caps.py) (yfinance shares × prices) | **Not yet wired into factor pipeline.** Could provide per-stock size signal (`log_market_cap`). |
 | `data/market_caps/shares_outstanding.parquet` | ~725 rows; columns: `ticker`, `shares_outstanding`, `fetch_date`, `source` | Same script | Point-in-time snapshot of latest shares outstanding. |
-| `data/commodities/prices.parquet` | ~5,300 dates × 14 columns (GLD, SLV, WTI, BRENT, etc.) | [`scripts/ingest/update_commodities.py`](../scripts/ingest/update_commodities.py) / [`scripts/ingest/fetch_commodities.py`](../scripts/ingest/fetch_commodities.py) | Used by commodity API routes; not merged into the equity factor table. |
+| `data/commodities/prices.parquet` | ~6,950 dates × 14 columns (GLD, SLV, PPLT, PALL, WTI, BRENT, NATURAL_GAS, COPPER, ALUMINUM, WHEAT, CORN, COFFEE, COTTON, SUGAR), 2000–present. Was frozen at 2026-07-10 for two months by an index-alignment bug in `update_commodity` (fixed 2026-09-10; the watchdog now checks each series' freshness). | [`scripts/ingest/update_commodities.py`](../scripts/ingest/update_commodities.py) / [`scripts/ingest/fetch_commodities.py`](../scripts/ingest/fetch_commodities.py) | Used by commodity API routes; not merged into the equity factor table. |
 | `data/cetes28_daily.parquet` | Mexican CETES 28-day rates (Banxico) | Banxico API route / script | MX risk-free rate proxy. |
 | `data/ml/stock_ml_dataset.csv` | ML training dataset (~916 KB) | Legacy (Aug 2025) | Pre-built feature set; may be stale. |
 | `data/S&P 500 Historical Components & Changes*.csv` | Historical S&P 500 membership (newest file by mtime; usually `(Updated).csv` from fja05680/sp500) | Manual copy from upstream sp500 repo after `sp500_historical.ipynb` | **Canonical PIT universe.** Procedure: [`docs/SP500_MEMBERSHIP.md`](SP500_MEMBERSHIP.md). Loaded by [`core/data/universe/sp500_constituents.py`](../core/data/universe/sp500_constituents.py). |
@@ -385,7 +385,7 @@ All data updates run **daily at 6 PM** (after US market close) via `crontab`. Th
 
 | Time | Script | What it updates | Log |
 |------|--------|-----------------|-----|
-| 18:00 | `scripts/ingest/update_daily.py` | Prices (yfinance), macro (FRED), FF5 (Kenneth French), price factors, sectors (quarterly auto-refresh), DuckDB views | `runtime/logs/update.log` |
+| 18:00 | `scripts/ingest/update_daily.py` | Prices (yfinance), macro (FRED, 38 series), FF5 (Kenneth French), price factors, sectors (quarterly auto-refresh), DuckDB views | `runtime/logs/update.log` |
 | 18:05 | `scripts/ingest/update_commodities.py` | 14 commodity series | `runtime/logs/commodities_update.log` |
 | 18:10 | `scripts/ingest/fetch_shares_and_market_caps.py` | Shares outstanding + historical market caps (yfinance) | `runtime/logs/market_caps_update.log` |
 

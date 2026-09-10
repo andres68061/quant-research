@@ -1271,3 +1271,151 @@ export interface ResearchNotesIndex {
   notes: ResearchNoteSummary[];
   verdicts: { id: string; label: string }[];
 }
+
+// ─── Data Monitor ─────────────────────────────────────────────────────
+
+export type MonitorTransform = "level" | "diff" | "pct_change" | "log_return";
+export type StaleStatus = "fresh" | "late" | "stale" | "empty";
+
+export interface MonitoredSeries {
+  id: string;
+  name: string;
+  group: string;
+  source: "fmp" | "fred";
+  unit: string;
+  frequency: string;
+  default_transform: MonitorTransform;
+  lag_days: number;
+  expected_max_gap_days: number;
+  rolling_window: number;
+}
+
+export interface MonitorCatalogResponse {
+  groups: { id: string; label: string; series: MonitoredSeries[] }[];
+  transforms: MonitorTransform[];
+}
+
+export interface DistributionSummary {
+  n: number;
+  start: string | null;
+  end: string | null;
+  last_value: number | null;
+  mean: number | null;
+  std: number | null;
+  min: number | null;
+  p05: number | null;
+  p25: number | null;
+  median: number | null;
+  p75: number | null;
+  p95: number | null;
+  max: number | null;
+  skew: number | null;
+  kurtosis: number | null;
+  autocorr_lag1: number | null;
+  percentile_of_last: number | null;
+  zscore_of_last: number | null;
+  adf_pvalue: number | null;
+}
+
+export interface MonitorHistogram {
+  edges: number[];
+  counts: number[];
+  mark: number | null;
+  mark_bin: number | null;
+}
+
+export interface MonitorLevelPoint {
+  date: string;
+  level: number | null;
+  rolling_mean: number | null;
+  upper: number | null;
+  lower: number | null;
+  zscore: number | null;
+}
+
+export interface MonthStat {
+  month: number;
+  n: number;
+  mean: number | null;
+  median: number | null;
+  hit_rate: number | null;
+}
+
+export interface SeasonalityTable {
+  years: number[];
+  matrix: (number | null)[][];
+  month_stats: MonthStat[];
+  transform: MonitorTransform;
+}
+
+export interface AnnualPaths {
+  years: number[];
+  paths: Record<string, { doy: number; value: number }[]>;
+  normalized: boolean;
+}
+
+export interface StalenessReport {
+  series_id: string;
+  last_date: string | null;
+  days_since_last: number | null;
+  expected_max_gap_days: number;
+  status: StaleStatus;
+}
+
+export interface Caveat {
+  id: string;
+  kind: string;
+  severity: string;
+  title: string;
+  detail: string;
+  remediation: string | null;
+}
+
+export interface MonitorSeriesResponse {
+  series: MonitoredSeries;
+  transform: MonitorTransform;
+  summary: DistributionSummary;
+  histogram: MonitorHistogram;
+  levels: MonitorLevelPoint[];
+  seasonality: SeasonalityTable;
+  annual_paths: AnnualPaths;
+  staleness: StalenessReport;
+  methodology: Record<string, string>;
+  caveats: Caveat[];
+}
+
+export interface CurveSnapshot {
+  requested: string;
+  date: string;
+  points: { id: string; tenor_years: number; yield: number | null }[];
+}
+
+export interface CurveShapePoint {
+  date: string;
+  spread_2s10s?: number | null;
+  spread_3m10y?: number | null;
+  spread_5s30s?: number | null;
+  butterfly_2_5_10?: number | null;
+  level?: number | null;
+}
+
+export interface YieldCurveResponse {
+  tenors: { id: string; tenor_years: number; name: string }[];
+  snapshots: CurveSnapshot[];
+  shape_history: CurveShapePoint[];
+  methodology: Record<string, string>;
+  caveats: Caveat[];
+}
+
+export interface StalenessBoardRow extends StalenessReport {
+  name: string;
+  group: string;
+  source: "fmp" | "fred";
+  frequency: string;
+}
+
+export interface StalenessBoardResponse {
+  as_of: string;
+  counts: Record<StaleStatus, number>;
+  series: StalenessBoardRow[];
+}

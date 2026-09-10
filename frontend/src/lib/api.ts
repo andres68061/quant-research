@@ -16,6 +16,11 @@ import type {
   FactorsResponse,
   FF5SeriesResponse,
   FREDCatalogResponse,
+  MonitorCatalogResponse,
+  MonitorSeriesResponse,
+  MonitorTransform,
+  StalenessBoardResponse,
+  YieldCurveResponse,
   FREDSeriesResponse,
   GridSearchResponse,
   MeasuresLabRequest,
@@ -430,4 +435,26 @@ export const api = {
 
   getResearchNote: (id: string) =>
     request<ResearchNote>(`/research-notes/${encodeURIComponent(id)}`),
+
+  // ─── Data Monitor ───────────────────────────────────────────────────
+  getMonitorCatalog: () => request<MonitorCatalogResponse>("/data-monitor/catalog"),
+
+  getMonitorSeries: (id: string, transform?: MonitorTransform, start?: string) => {
+    const sp = new URLSearchParams();
+    if (transform) sp.set("transform", transform);
+    if (start) sp.set("start", start);
+    const qs = sp.toString();
+    return request<MonitorSeriesResponse>(
+      `/data-monitor/series/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`,
+    );
+  },
+
+  getYieldCurve: (dates?: string[]) => {
+    const sp = new URLSearchParams();
+    (dates ?? []).forEach((d) => sp.append("dates", d));
+    const qs = sp.toString();
+    return request<YieldCurveResponse>(`/data-monitor/yield-curve${qs ? `?${qs}` : ""}`);
+  },
+
+  getStalenessBoard: () => request<StalenessBoardResponse>("/data-monitor/staleness"),
 } as const;

@@ -4,6 +4,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import DataCoverage from "./pages/DataCoverage.tsx";
 import DataHealth from "@/pages/DataHealth.tsx";
 import PeadStudy from "@/pages/PeadStudy.tsx";
+import DataMonitor from "./pages/DataMonitor.tsx";
 import EconomicIndicators from "./pages/EconomicIndicators.tsx";
 import Portfolio from "./pages/Portfolio.tsx";
 import ExcludedStocks from "./pages/ExcludedStocks.tsx";
@@ -63,6 +64,7 @@ export default function App() {
         <Route path="/index-top500" element={<AnimatedPage><IndexTop500 /></AnimatedPage>} />
         <Route path="/metals" element={<AnimatedPage><MetalsAnalytics /></AnimatedPage>} />
         <Route path="/economic" element={<AnimatedPage><EconomicIndicators /></AnimatedPage>} />
+        <Route path="/data-monitor" element={<AnimatedPage><DataMonitor /></AnimatedPage>} />
         <Route path="/sectors" element={<AnimatedPage><SectorBreakdown /></AnimatedPage>} />
         <Route path="/excluded-stocks" element={<AnimatedPage><ExcludedStocks /></AnimatedPage>} />
         <Route path="/explorer" element={<AnimatedPage><Explorer /></AnimatedPage>} />

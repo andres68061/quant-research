@@ -362,13 +362,12 @@ def yield_curve_snapshots(
     panel = curve_panel[cols].sort_index()
     out: List[Dict[str, object]] = []
     for requested in dates:
-        prior = panel.loc[:requested]
+        # Rows where every tenor is NaN exist because other series in the same
+        # panel print on days the curve does not; fall back to the last real curve.
+        prior = panel.loc[:requested].dropna(how="all")
         if prior.empty:
             continue
         row = prior.iloc[-1]
-        # Skip a date where the whole curve is missing (holiday row from ffill gaps).
-        if row.isna().all():
-            continue
         out.append(
             {
                 "requested": str(pd.Timestamp(requested).date()),

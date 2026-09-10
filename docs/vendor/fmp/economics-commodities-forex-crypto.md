@@ -11,6 +11,17 @@ Base URL: `https://financialmodelingprep.com/stable/` — append `?apikey=$FMP_A
 | `/economic-calendar` | — | Upcoming economic data releases |
 | `/market-risk-premium` | — | Market risk premium by date |
 
+**Probed 2026-09-10 — both economics endpoints are capped at ~one quarter per
+call regardless of the `from`/`to` window requested.** `treasury-rates` with
+`from=2000-01-01&to=2009-12-31` returned 61 rows (2009-10-02 → 2009-12-31);
+`economic-indicators?name=CPI&from=1990-01-01` returned 1 row. Full history would
+need ~4 calls per year per series, which the ingestion engine's year-based
+chunking does not express. The stored raw files
+(`data/raw/fmp/treasury_rates/`, `data/raw/fmp/economic_indicators/`) are
+therefore a **recent-quarter snapshot only**. **FRED is the history source for
+rates and macro** (`core/data/factors/macro_catalog.py`, 38 series, full
+history in one call each); see ADR 0018.
+
 ## Commodities
 
 | Endpoint | Example | Description |

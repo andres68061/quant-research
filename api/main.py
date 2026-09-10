@@ -20,6 +20,7 @@ from api.routes import (
     data,
     data_coverage,
     data_health,
+    data_monitor,
     events_backtest,
     exclusions,
     explorer,
@@ -84,6 +85,7 @@ app.include_router(health.router)
 app.include_router(data.router)
 app.include_router(data_coverage.router)
 app.include_router(data_health.router)
+app.include_router(data_monitor.router)
 app.include_router(fama_french.router)
 app.include_router(strategy.router)
 app.include_router(pairs.router)

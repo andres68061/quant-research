@@ -66,3 +66,4 @@ replacement, same rule as the failed-strategies log.
 - [0015](0015-permanent-security-identifiers.md) — Permanent security identifiers (`qid`), separate from issuer identity
 - [0016](0016-vendor-agnostic-ingestion-framework.md) — Replace per-dataset fetch scripts with a declarative manifest and a shared runner
 - [0017](0017-repository-layout-by-kind.md) — Group scripts and data modules by kind, and raise the module cap to 500 lines
+- [0018](0018-fred-macro-catalog-and-reference-date-lags.md) — FRED is the source for rates and macro; publication lags count from the FRED reference date
