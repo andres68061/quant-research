@@ -53,7 +53,7 @@ def fake_tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         if name != "prices.parquet":
             pd.DataFrame({"value": range(1000)}).to_parquet(factors / name)
 
-    for log_name, _ in wd.SCHEDULED_JOBS:
+    for log_name, _, _ in wd.SCHEDULED_JOBS:
         write_log(logs / log_name, "finished cleanly\n")
 
     monkeypatch.setattr(wd, "FACTORS_DIR", factors)
@@ -77,7 +77,7 @@ class TestCleanTree:
         assert "panel_freshness" in names
         for panel in wd.CRITICAL_PANELS:
             assert f"panel_present:{panel}" in names
-        for log_name, _ in wd.SCHEDULED_JOBS:
+        for log_name, _, _ in wd.SCHEDULED_JOBS:
             assert f"job:{log_name}" in names
 
 
@@ -147,6 +147,26 @@ class TestScheduledJobs:
 
     def test_traceback_in_log_is_an_error(self, fake_tree: Path) -> None:
         write_log(wd.LOGS_DIR / "update.log", "fetching...\nTraceback (most recent call last):\n")
+        snapshot = wd.run_watchdog(now=NOW)
+        job = next(c for c in snapshot["checks"] if c["name"] == "job:update.log")
+        assert job["status"] == "error"
+
+    def test_traceback_before_a_later_success_is_not_an_error(self, fake_tree: Path) -> None:
+        """A job that failed once and then ran clean must clear its own alarm."""
+        write_log(
+            wd.LOGS_DIR / "update.log",
+            "fetching...\nTraceback (most recent call last):\n  boom\n"
+            "fetching...\n✅ Incremental update completed successfully!\n",
+        )
+        snapshot = wd.run_watchdog(now=NOW)
+        job = next(c for c in snapshot["checks"] if c["name"] == "job:update.log")
+        assert job["status"] == "ok"
+
+    def test_traceback_after_the_last_success_is_an_error(self, fake_tree: Path) -> None:
+        write_log(
+            wd.LOGS_DIR / "update.log",
+            "✅ Incremental update completed successfully!\nfetching...\nTraceback (most recent call last):\n",
+        )
         snapshot = wd.run_watchdog(now=NOW)
         job = next(c for c in snapshot["checks"] if c["name"] == "job:update.log")
         assert job["status"] == "error"

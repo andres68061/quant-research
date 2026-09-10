@@ -65,16 +65,33 @@ COLLAPSE_TOLERANCE = 0.10
 # plus a holiday before calling it stale.
 MAX_PANEL_STALENESS_DAYS = 5
 
-# Scheduled jobs and how often their log should be touched.
-SCHEDULED_JOBS: tuple[tuple[str, int], ...] = (
-    ("update.log", 2),
-    ("commodities_update.log", 2),
-    ("market_caps_update.log", 2),
-    ("watchdog.log", 2),
+# Scheduled jobs, how often their log should be touched, and the line each
+# writes when a run finishes well. A failure marker only counts if it appears
+# AFTER the last success marker: otherwise a job that failed once stayed red
+# until 8 KB of clean output had pushed the old traceback out of the tail,
+# and a fixed job could not clear its own alarm.
+SCHEDULED_JOBS: tuple[tuple[str, int, str], ...] = (
+    ("update.log", 2, "Incremental update completed successfully"),
+    ("commodities_update.log", 2, "DONE"),
+    ("market_caps_update.log", 2, "COMPLETE"),
+    ("watchdog.log", 2, "Watchdog verdict"),
 )
 
 # Log lines that mean a job ended badly even though it produced output.
 FAILURE_MARKERS: tuple[str, ...] = ("Traceback", "CRITICAL", "ERROR", "Killed")
+
+
+def failure_markers_after_last_success(tail: str, success_marker: str) -> list[str]:
+    """Failure markers that occur after the final success line in ``tail``.
+
+    Python block-buffers stdout when a job's output is redirected to a file,
+    so the tail can interleave several runs; judging only what follows the
+    last success line is what makes "the most recent run failed" mean that.
+    """
+    cut = tail.rfind(success_marker)
+    recent = tail[cut + len(success_marker) :] if cut >= 0 else tail
+    return [marker for marker in FAILURE_MARKERS if marker in recent]
+
 
 # Invariants that are permanently violated *by design*, with the reason. These
 # report as "ok" so the banner stays meaningful: a monitor that is always yellow
@@ -282,7 +299,7 @@ def check_scheduled_jobs(now: datetime | None = None) -> list[Check]:
     """
     reference = now or datetime.now(timezone.utc)
     checks: list[Check] = []
-    for log_name, max_age_days in SCHEDULED_JOBS:
+    for log_name, max_age_days, success_marker in SCHEDULED_JOBS:
         path = LOGS_DIR / log_name
         if not path.exists():
             checks.append(
@@ -305,7 +322,7 @@ def check_scheduled_jobs(now: datetime | None = None) -> list[Check]:
             continue
 
         tail = _read_tail(path)
-        hits = [marker for marker in FAILURE_MARKERS if marker in tail]
+        hits = failure_markers_after_last_success(tail, success_marker)
         if hits:
             checks.append(
                 Check(
