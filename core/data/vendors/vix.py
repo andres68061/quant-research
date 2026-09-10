@@ -12,7 +12,7 @@ from core.data.vendors.fmp.prices import fetch_dividend_adjusted_history
 
 logger = logging.getLogger(__name__)
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _DEFAULT_CACHE = _PROJECT_ROOT / "data" / "factors" / "vix.parquet"
 
 

@@ -59,7 +59,8 @@ def test_derive_macro_panel_pivots_lags_and_ffills() -> None:
 
     derived = derive_macro_panel_from_raw(raw_long)
 
-    assert set(derived.columns) == set(DEFAULT_FRED_SERIES_MAP)
+    assert set(derived.columns) == set(raw_long["series_id"].unique())
+    assert set(derived.columns) <= set(DEFAULT_FRED_SERIES_MAP)
     assert derived.index.freqstr == "B"
     # Each column should have non-null values once the lag period elapses.
     cpi_lag = MACRO_PUBLICATION_LAGS_DAYS["cpi_yoy"]

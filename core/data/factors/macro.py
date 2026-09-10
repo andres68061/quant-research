@@ -26,25 +26,17 @@ import pandas as pd
 from fredapi import Fred
 
 from config.settings import FRED_API_KEY, PROJECT_ROOT
+from core.data.factors.macro_catalog import (  # noqa: F401  (re-exported)
+    DEFAULT_FRED_SERIES_MAP,
+    FRED_SERIES_CATALOG,
+    MACRO_PUBLICATION_LAGS_DAYS,
+)
 
 # Fixed lags approximate first-release availability. Not ALFRED vintages.
 MACRO_USES_TRUE_VINTAGES: bool = False
 
-MACRO_PUBLICATION_LAGS_DAYS: Dict[str, int] = {
-    "cpi_yoy": 30,
-    "unrate": 10,
-    "fed_funds": 5,
-    "dgs10": 1,
-    "t10y2y": 1,
-}
-
-DEFAULT_FRED_SERIES_MAP: Dict[str, str] = {
-    "cpi_yoy": "CPIAUCSL",
-    "unrate": "UNRATE",
-    "fed_funds": "FEDFUNDS",
-    "dgs10": "DGS10",
-    "t10y2y": "T10Y2Y",
-}
+# The catalog (ids, lags, transforms, groups) lives in macro_catalog.py; these
+# two names are re-exported so existing imports keep working.
 
 RAW_MACRO_PARQUET = PROJECT_ROOT / "data" / "raw" / "macro_fred.parquet"
 
@@ -58,8 +50,8 @@ def fetch_raw_fred_series(series_map: Dict[str, str]) -> pd.DataFrame:
     publication lag, no business-day forward-fill, and no standardisation.
     Each series stays at its native FRED frequency.
 
-    The single project-specific transform applied here is the YoY pct_change
-    used to translate ``CPIAUCSL`` (a price index level) into ``cpi_yoy`` (a
+    The only transform applied here is the 12-period pct_change for series whose
+    catalog entry says ``yoy_pct`` - e.g. ``CPIAUCSL`` (a price index level) into ``cpi_yoy`` (a
     YoY change). The reference date is preserved from FRED.
 
     Args:
@@ -92,7 +84,8 @@ def fetch_raw_fred_series(series_map: Dict[str, str]) -> pd.DataFrame:
         raw_series = fred.get_series(fred_id)
         raw_series.index = pd.to_datetime(raw_series.index)
 
-        if series_id == "cpi_yoy" and fred_id == "CPIAUCSL":
+        spec = FRED_SERIES_CATALOG.get(series_id)
+        if spec is not None and spec.transform == "yoy_pct":
             values = raw_series.pct_change(12, fill_method=None).dropna()
         else:
             values = raw_series.dropna()

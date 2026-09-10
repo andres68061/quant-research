@@ -48,7 +48,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 FACTORS_DIR = ROOT / "data" / "factors"
 UNIVERSE_DIR = ROOT / "data" / "universe"
 SECTORS_DIR = ROOT / "data" / "sectors"

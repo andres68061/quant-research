@@ -18,7 +18,7 @@ from core.exceptions import ConfigError
 
 logger = logging.getLogger(__name__)
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _HISTORICAL_CSV_GLOB = "S&P 500 Historical Components & Changes*.csv"
 
 

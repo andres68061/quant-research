@@ -18,7 +18,7 @@ import requests
 from dotenv import load_dotenv
 
 # Load environment variables from project root
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(ROOT / ".env", override=True)
 
 # Constants
@@ -303,7 +303,7 @@ def cache_cetes28_data(
 
     # Save to parquet
     if output_path is None:
-        output_path = Path(__file__).parents[2] / "data" / "cetes28_daily.parquet"
+        output_path = Path(__file__).parents[3] / "data" / "cetes28_daily.parquet"
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 

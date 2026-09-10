@@ -71,7 +71,7 @@ __all__ = [
     "normalize_symbol",
 ]
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 MASTER_FILE = ROOT / "data" / "universe" / "security_master.parquet"
 ALIAS_FILE = ROOT / "data" / "universe" / "symbol_aliases.parquet"
 

@@ -170,12 +170,12 @@ class CommodityDataFetcher:
 
     def __init__(self, data_dir: Optional[Path] = None) -> None:
         if data_dir is None:
-            self.data_dir = Path(__file__).parents[2] / "data" / "commodities"
+            self.data_dir = Path(__file__).parents[3] / "data" / "commodities"
         else:
             self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.prices_file = self.data_dir / "prices.parquet"
-        self.raw_dir = Path(__file__).parents[2] / RAW_COMMODITIES_DIR
+        self.raw_dir = Path(__file__).parents[3] / RAW_COMMODITIES_DIR
 
     def fetch_commodity(self, symbol: str) -> pd.Series:
         """Fetch full history for one internal commodity key."""
@@ -253,14 +253,18 @@ class CommodityDataFetcher:
         if existing_df.empty:
             updated = pd.DataFrame({symbol: new_series}).sort_index()
         else:
-            updated = existing_df.copy()
+            # Grow the panel's index BEFORE assigning: ``frame[col] = series``
+            # aligns the series to the frame's existing index and silently drops
+            # every date the frame does not already have, which left the panel
+            # frozen at its last full-refetch date while every nightly update
+            # reported "already up to date".
+            updated = existing_df.reindex(existing_df.index.union(new_series.index)).sort_index()
             if symbol in updated.columns:
-                combined = pd.concat([updated[symbol], new_series])
+                combined = pd.concat([updated[symbol].dropna(), new_series])
                 combined = combined[~combined.index.duplicated(keep="last")].sort_index()
                 updated[symbol] = combined
             else:
                 updated[symbol] = new_series
-            updated = updated.sort_index()
 
         full_col = updated[symbol].dropna()
         self._write_raw(symbol, full_col.rename(symbol))

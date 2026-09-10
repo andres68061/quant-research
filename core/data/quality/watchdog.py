@@ -36,7 +36,7 @@ import pyarrow.parquet as pq
 
 logger = logging.getLogger(__name__)
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 FACTORS_DIR = ROOT / "data" / "factors"
 QUALITY_DIR = ROOT / "data" / "quality"
 LOGS_DIR = ROOT / "runtime" / "logs"
