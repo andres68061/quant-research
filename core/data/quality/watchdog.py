@@ -215,6 +215,64 @@ def check_panel_freshness(now: datetime | None = None) -> list[Check]:
     return [Check("panel_freshness", "ok", f"Last price {last.date()} ({age_days}d old)", facts)]
 
 
+def check_series_freshness(now: datetime | None = None) -> list[Check]:
+    """Every monitored commodity and macro series is still arriving.
+
+    The equity panel check above would not have caught the commodity panel
+    freezing for two months while its nightly job logged "up to date"; this
+    one judges each series against its own cadence and publication lag.
+    """
+    # Imported here so the fast watchdog path does not pay for the research
+    # package on every 4-hourly run when it only needs file metadata.
+    from core.data.factors.macro import RAW_MACRO_PARQUET
+    from core.research.monitor import pivot_raw_macro, staleness_board
+
+    reference = now or datetime.now(timezone.utc)
+    as_of = pd.Timestamp(reference).tz_convert("UTC").tz_localize(None)
+    panels: dict[str, pd.DataFrame] = {}
+    commodities = ROOT / "data" / "commodities" / "prices.parquet"
+    try:
+        if commodities.exists():
+            panels["fmp"] = pd.read_parquet(commodities)
+        if RAW_MACRO_PARQUET.exists():
+            panels["fred"] = pivot_raw_macro(pd.read_parquet(RAW_MACRO_PARQUET))
+    except Exception as exc:  # noqa: BLE001
+        return [Check("series_freshness", "error", f"Cannot read monitored panels: {exc}")]
+
+    board = staleness_board(panels, as_of)
+    stale = [r for r in board if r["status"] == "stale"]
+    late = [r for r in board if r["status"] == "late"]
+    empty = [r for r in board if r["status"] == "empty"]
+    facts = {
+        "n_series": len(board),
+        "stale": [f"{r['series_id']} (last {r['last_date']})" for r in stale],
+        "late": [f"{r['series_id']} (last {r['last_date']})" for r in late],
+        "empty": [r["series_id"] for r in empty],
+    }
+    if stale or empty:
+        names = ", ".join(str(r["series_id"]) for r in (stale + empty)[:8])
+        return [
+            Check(
+                "series_freshness",
+                "error",
+                f"{len(stale)} stale and {len(empty)} missing monitored series ({names}). "
+                "Their update job is not landing; the Data Monitor page shows which.",
+                facts,
+            )
+        ]
+    if late:
+        names = ", ".join(str(r["series_id"]) for r in late[:8])
+        return [
+            Check(
+                "series_freshness",
+                "warning",
+                f"{len(late)} monitored series late ({names})",
+                facts,
+            )
+        ]
+    return [Check("series_freshness", "ok", f"All {len(board)} monitored series fresh", facts)]
+
+
 def check_scheduled_jobs(now: datetime | None = None) -> list[Check]:
     """
     Each cron job wrote to its log recently, and did not end in a traceback.
@@ -339,6 +397,7 @@ def run_watchdog(deep: bool = False, now: datetime | None = None) -> dict[str, A
     checks += check_panels_present()
     checks += check_panels_not_collapsed(baseline)
     checks += check_panel_freshness(now=now)
+    checks += check_series_freshness(now=now)
     checks += check_scheduled_jobs(now=now)
     if deep:
         checks += check_structural_invariants()

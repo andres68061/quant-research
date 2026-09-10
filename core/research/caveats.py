@@ -42,6 +42,7 @@ SURFACE_FACTOR_SCREEN = "factor_screen"
 SURFACE_FACTOR_BACKTEST = "factor_backtest"
 SURFACE_DATA_HEALTH = "data_health"
 SURFACE_UNIVERSE = "universe"
+SURFACE_DATA_MONITOR = "data_monitor"
 
 ALL_SURFACES: tuple[str, ...] = (
     SURFACE_SECTOR_PERFORMANCE,
@@ -50,6 +51,7 @@ ALL_SURFACES: tuple[str, ...] = (
     SURFACE_FACTOR_BACKTEST,
     SURFACE_DATA_HEALTH,
     SURFACE_UNIVERSE,
+    SURFACE_DATA_MONITOR,
 )
 
 
@@ -348,6 +350,89 @@ CAVEAT_REGISTRY: tuple[Caveat, ...] = (
             "re-run with imputed rows excluded before it is believed (ADR 0012)."
         ),
         surfaces=(SURFACE_FACTOR_SCREEN, SURFACE_FACTOR_BACKTEST, SURFACE_DATA_HEALTH),
+    ),
+    # ---------------- Data monitor: macro, rates, commodities ----------------
+    Caveat(
+        id="macro-shown-on-reference-date",
+        kind="method",
+        severity="medium",
+        title="Macro series are plotted on their reference date, not their release date",
+        detail=(
+            "June CPI appears at 2026-06-01 on the monitor because that is the period it "
+            "describes, and that is the right axis for seasonality and distributions. It was "
+            "not knowable until ~July 12. Anything that trades on these values must use the "
+            "publication-lagged panel (data/factors/macro.parquet), where each series is "
+            "shifted by its catalog lag (core/data/factors/macro_catalog.py)."
+        ),
+        surfaces=(SURFACE_DATA_MONITOR,),
+    ),
+    Caveat(
+        id="macro-latest-revision-only",
+        kind="data",
+        severity="medium",
+        title="FRED history is the latest revision, not what was known at the time",
+        detail=(
+            "Payrolls, industrial production, GDP-type series and M2 are revised for months "
+            "after first release. The monitor shows today's vintage of the whole history, so "
+            "a 'normal' historical range is slightly cleaner than a real-time observer saw. "
+            "True vintages would need ALFRED (docs/MACRO_VINTAGES.md)."
+        ),
+        surfaces=(SURFACE_DATA_MONITOR,),
+        remediation="Store ALFRED vintages in the raw layer and derive from publication_date.",
+    ),
+    Caveat(
+        id="oas-series-start-2023",
+        kind="data",
+        severity="low",
+        title="Credit OAS series (hy_oas, ig_oas) start in September 2023",
+        detail=(
+            "FRED's ICE BofA option-adjusted spread series were re-licensed and only ~3 "
+            "years remain downloadable. Their percentiles and 'normal range' describe a "
+            "short, benign window - a spread at its 95th percentile of this sample would be "
+            "unremarkable against 1997-2023. Use baa10y (Moody's Baa minus 10Y, from 1986) "
+            "for a long-history credit read."
+        ),
+        surfaces=(SURFACE_DATA_MONITOR,),
+    ),
+    Caveat(
+        id="commodity-etf-not-spot",
+        kind="data",
+        severity="medium",
+        title="Several 'commodities' are ETFs or front-month futures, not spot",
+        detail=(
+            "GLD, SLV, PPLT and PALL are ETF closes (net of expense ratio, no roll); the "
+            "energy, metal and agricultural series are FMP continuous front-month futures, "
+            "whose history includes roll gaps. Seasonality in a futures series partly reflects "
+            "the roll calendar, not only the physical market."
+        ),
+        surfaces=(SURFACE_DATA_MONITOR,),
+    ),
+    Caveat(
+        id="stationarity-test-is-descriptive",
+        kind="method",
+        severity="low",
+        title="The ADF p-value is a description, not a trading signal",
+        detail=(
+            "The augmented Dickey-Fuller test on the transformed series says whether a unit "
+            "root is rejected in-sample with AIC lag selection. It has low power against "
+            "near-unit-root alternatives and says nothing about whether a mean-reverting "
+            "series reverts on a tradable horizon. It is shown so that a level series that "
+            "is clearly non-stationary is not read through a histogram as if it were."
+        ),
+        surfaces=(SURFACE_DATA_MONITOR,),
+    ),
+    Caveat(
+        id="seasonality-few-years",
+        kind="method",
+        severity="medium",
+        title="Monthly seasonality averages are over few observations",
+        detail=(
+            "A 20-year series gives 20 Januaries. A 60% hit rate over 20 draws is one "
+            "standard error from a coin flip. Read the year-by-month table, not only the "
+            "column mean, and treat any pattern as a hypothesis to test out-of-sample, not a "
+            "finding. The n per month is shown next to each mean for this reason."
+        ),
+        surfaces=(SURFACE_DATA_MONITOR,),
     ),
 )
 

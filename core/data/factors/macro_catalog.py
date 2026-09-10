@@ -69,7 +69,7 @@ def _monthly(
 #   PCE ~ last business day                         -> 31 + 31 + 2       = 64
 #   M2 ~ fourth Tuesday                             -> 31 + 28 + 2       = 61
 #   FEDFUNDS monthly average: knowable once the month ends -> 31 + 2     = 33
-#   UMCSENT final: last Friday of the reference month itself -> 31
+#   UMCSENT: FRED receives it ~one month after the university publishes -> 62
 FRED_SERIES_CATALOG: Dict[str, FredSeriesSpec] = {
     # --- policy and money-market rates ---------------------------------------
     "fed_funds": _monthly("FEDFUNDS", "Fed funds (monthly avg)", "rates", 33),
@@ -112,7 +112,7 @@ FRED_SERIES_CATALOG: Dict[str, FredSeriesSpec] = {
     "indpro_yoy": _monthly("INDPRO", "Industrial production, YoY", "activity", 50, "yoy_pct"),
     "retail_sales_yoy": _monthly("RSAFS", "Retail sales, YoY", "activity", 50, "yoy_pct"),
     "housing_starts": _monthly("HOUST", "Housing starts (SAAR)", "activity", 53, unit="thousands"),
-    "umcsent": _monthly("UMCSENT", "Consumer sentiment (Michigan)", "activity", 31, unit="index"),
+    "umcsent": _monthly("UMCSENT", "Consumer sentiment (Michigan)", "activity", 62, unit="index"),
     # --- money and Fed balance sheet ----------------------------------------------
     "m2_yoy": _monthly("M2SL", "M2 money stock, YoY", "money", 61, "yoy_pct"),
     "fed_assets": FredSeriesSpec(
@@ -121,7 +121,8 @@ FRED_SERIES_CATALOG: Dict[str, FredSeriesSpec] = {
     # --- market reference series --------------------------------------------------
     "dollar_broad": _daily("DTWEXBGS", "Broad dollar index", "markets", "index", lag=7),
     "vix": _daily("VIXCLS", "VIX close", "markets", "index"),
-    "wti": _daily("DCOILWTICO", "WTI crude spot", "markets", "USD/bbl"),
+    # EIA posts the daily spot price weekly, about a week in arrears.
+    "wti": _daily("DCOILWTICO", "WTI crude spot", "markets", "USD/bbl", lag=8),
 }
 
 # Compatibility views used by the derivation code and tests.
