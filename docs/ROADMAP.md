@@ -344,6 +344,23 @@ Whatever comes out of 1–4 goes to `FAILED_STRATEGIES_LOG.md` or ships — see 
 
 ## Recently shipped
 
+- **Data Monitor + 38-series macro layer (2026-09-10)** — the first EDA
+  surface: distribution (moments, percentile-of-today, ADF), histogram with
+  the latest value marked, rolling ±2σ level profile, year × month
+  seasonality with hit-rate and n, years overlaid, Treasury curve snapshots
+  and 2s10s / 3m10y / butterfly history, and a per-series freshness board
+  wired into the watchdog. Found and fixed on the way: the commodity panel
+  frozen for two months by an index-alignment bug, and monthly FRED lags
+  that leaked values a month early (ADR 0018). Core in
+  `core/research/eda.py` + `monitor.py`; page at `/data-monitor`.
+  **Next on this surface, in order of value:** (a) cross-series view —
+  rolling correlation / lead-lag between any two monitored series (e.g.
+  breakevens vs WTI, 2s10s vs HY OAS) so the monitor answers "what moves
+  with what", (b) regime shading — NBER recessions and the HMM regime as
+  bands on every level chart, (c) commodity term structure once a
+  futures-chain source exists (front-month only today), (d) ALFRED vintages
+  (item 1 below) so the monitor can show first-print vs revised.
+
 - **FMP footprint expansion + fundamental factor library (2026-08-07)** —
   probed entitlements empirically (`scripts/ingest/probe_fmp_entitlements.py`; the
   complete 2026-08-18 sweep found 176/230 paths working and records all 54
