@@ -14,7 +14,7 @@
 
 set -uo pipefail
 
-REPO="/Users/andres/Downloads/Cursor/quant"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON="/opt/anaconda3/envs/quant/bin/python"
 WAVES="${1:-1 2 3 4}"
 RATE="${RATE:-600}"

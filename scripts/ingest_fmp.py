@@ -124,8 +124,7 @@ def resolve_keys(raw_root: Path, symbols_override: list[str] | None) -> dict[obj
 
     # Name-keyed endpoints do NOT share one pool: economic-indicators takes 21
     # economic series, the by-name trade endpoints take legislators, the search
-    # endpoints take company names. Pooling them would spend 12,000 requests per
-    # endpoint on names that cannot match. Each spec names its own source.
+    # endpoints take company names. Each spec names its own source.
     keys[Partition.PER_NAME] = []
     keys["economic_indicators"] = list(ECONOMIC_INDICATORS)
     keys["legislators"] = legislator_names(raw_root)

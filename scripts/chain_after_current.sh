@@ -5,7 +5,7 @@
 #
 # Usage: INGEST_WAVES="1" bash scripts/chain_after_current.sh
 set -uo pipefail
-REPO="/Users/andres/Downloads/Cursor/quant"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO" || exit 1
 WAVES="${INGEST_WAVES:-1}"
 
@@ -16,4 +16,4 @@ while running > /dev/null || pgrep -f "scripts/ingest_daemon\.sh" > /dev/null; d
     sleep 60
 done
 echo "$(date -u +%FT%TZ) [chain] current ingestion done; starting waves: $WAVES"
-exec /opt/anaconda3/envs/quant/bin/python scripts/spawn_ingest_daemon.py --waves "$WAVES" --force
+exec /opt/anaconda3/envs/quant/bin/python "$REPO/scripts/spawn_ingest_daemon.py" --waves "$WAVES" --force

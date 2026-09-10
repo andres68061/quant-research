@@ -11,11 +11,11 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/andres/Downloads/Cursor/quant/scripts/ingest_daemon.sh</string>
+        <string>__REPO__/scripts/ingest_daemon.sh</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/andres/Downloads/Cursor/quant</string>
+    <string>__REPO__</string>
 
     <!-- Start as soon as the agent is loaded, and again at login. -->
     <key>RunAtLoad</key>
@@ -35,9 +35,9 @@
     <integer>300</integer>
 
     <key>StandardOutPath</key>
-    <string>/Users/andres/Downloads/Cursor/quant/logs/ingest_daemon.log</string>
+    <string>__REPO__/logs/ingest_daemon.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/andres/Downloads/Cursor/quant/logs/ingest_daemon.log</string>
+    <string>__REPO__/logs/ingest_daemon.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>

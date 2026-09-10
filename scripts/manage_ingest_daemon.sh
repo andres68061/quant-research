@@ -14,7 +14,7 @@
 
 set -uo pipefail
 
-REPO="/Users/andres/Downloads/Cursor/quant"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LABEL="com.quant.fmp-ingest"
 SRC="$REPO/config/launchd/$LABEL.plist"
 DEST="$HOME/Library/LaunchAgents/$LABEL.plist"
@@ -23,7 +23,11 @@ DOMAIN="gui/$(id -u)"
 case "${1:-status}" in
   install)
     mkdir -p "$HOME/Library/LaunchAgents"
-    cp "$SRC" "$DEST"
+    # The plist is a template: render the repo's actual location into it, so the
+    # agent works wherever the repo lives. Note macOS refuses to run agents from
+    # TCC-protected folders (~/Downloads, ~/Desktop, ~/Documents); keep the repo
+    # outside those.
+    sed "s|__REPO__|$REPO|g" "$SRC" > "$DEST"
     # bootout first so install is idempotent; ignore "not loaded".
     launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null
     launchctl bootstrap "$DOMAIN" "$DEST" || {
