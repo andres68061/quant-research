@@ -46,7 +46,7 @@ case "${1:-status}" in
     launchctl kickstart -k "$DOMAIN/$LABEL" && echo "restarted $LABEL"
     ;;
   logs)
-    tail -n "${2:-40}" "$REPO/logs/ingest_daemon.log"
+    tail -n "${2:-40}" "$REPO/runtime/logs/ingest_daemon.log"
     ;;
   status)
     echo "== launchd =="

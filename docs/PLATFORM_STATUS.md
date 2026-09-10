@@ -5,7 +5,7 @@ This document captures the **quant platform health audit** conclusions (maturity
 - **Prioritized backlog**: see [docs/BACKLOG.txt](../docs/BACKLOG.txt) at the repo root.
 - **Data & factor inventory** (artifacts, sources, academic gap map): [DATA_INVENTORY.md](DATA_INVENTORY.md).
 - **Architecture and layers**: [ARCHITECTURE.md](../ARCHITECTURE.md).
-- **Migration history**: [migration.log](../migration.log) (when present).
+- **Migration history**: `runtime/logs/migration.log` (local only, when present).
 - **Non-negotiable strategy boundaries**: [.cursor/rules/quant-strategies.mdc](../.cursor/rules/quant-strategies.mdc).
 
 ## Scorecard (what exists today)

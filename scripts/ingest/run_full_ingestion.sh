@@ -21,7 +21,7 @@ RATE="${RATE:-600}"
 WORKERS="${WORKERS:-16}"
 
 cd "$REPO" || exit 1
-mkdir -p logs
+mkdir -p runtime/logs
 
 # Refuse to start while another ingester is running, for the rate-limit reason above.
 if pgrep -f "ingest_fmp.py" > /dev/null; then

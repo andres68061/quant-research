@@ -4,7 +4,7 @@
 # Update jobs run daily at 6 PM (after US market close).
 # The watchdog runs several times a day, because the failure it exists to catch
 # is a job that STOPS running — which produces no error and no log line.
-# Logs land in <repo>/logs/<job>.log.
+# Logs land in <repo>/runtime/logs/<job>.log.
 #
 # Python interpreter: conda env "quant"
 # Repo root:         __REPO__

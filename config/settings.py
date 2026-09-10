@@ -56,9 +56,9 @@ LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 LOG_FILE = PROJECT_ROOT / "runtime" / "logs" / "quant.log"
 
 # Machine learning settings
-ML_MODELS_PATH = PROJECT_ROOT / "models"
+ML_MODELS_PATH = PROJECT_ROOT / "runtime" / "models"
 ML_DATA_PATH = PROJECT_ROOT / "data" / "ml"
-ML_RESULTS_PATH = PROJECT_ROOT / "outputs" / "ml_results"
+ML_RESULTS_PATH = PROJECT_ROOT / "runtime" / "outputs" / "ml_results"
 
 # Visualization settings
 PLOT_STYLE = "seaborn-v0_8"
@@ -105,9 +105,9 @@ def create_directories():
         PROJECT_ROOT / "data",
         PROJECT_ROOT / "data" / "backups",
         PROJECT_ROOT / "runtime" / "logs",
-        PROJECT_ROOT / "models",
+        PROJECT_ROOT / "runtime" / "models",
         PROJECT_ROOT / "data" / "ml",
-        PROJECT_ROOT / "outputs" / "ml_results",
+        PROJECT_ROOT / "runtime" / "outputs" / "ml_results",
     ]
 
     for directory in directories:

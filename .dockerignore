@@ -9,9 +9,8 @@ __pycache__
 notebooks/
 tests/
 scripts/
-apps/
 docs/
-outputs/
+runtime/
 .pytest_cache
 .mypy_cache
 .ruff_cache

@@ -201,13 +201,13 @@ Feb 5, 6:02 PM: ✅ Update ran - Downloaded new data
 ## 📝 Log File Analysis
 
 ### **Main Update Log:**
-- **Location:** `/Users/andres/Downloads/Cursor/quant/logs/update.log`
+- **Location:** `<repo>/runtime/logs/update.log`
 - **Size:** 196 KB
 - **Last written:** Feb 7, 6:02 PM
 - **Status:** Healthy, no errors
 
 ### **Commodities Update Log:**
-- **Location:** `/Users/andres/Downloads/Cursor/quant/logs/commodities_update.log`
+- **Location:** `<repo>/runtime/logs/commodities_update.log`
 - **Size:** 22 KB
 - **Last written:** Feb 7, 6:05 PM
 - **Status:** Healthy, no errors

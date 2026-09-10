@@ -10,6 +10,7 @@ skip_glob = ["notebooks/*"]
 
 [tool.ruff]
 line-length = 100
+cache-dir = "runtime/cache/ruff"
 target-version = "py311"
 extend-exclude = ["notebooks"]
 
@@ -29,10 +30,12 @@ ignore = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+cache_dir = "runtime/cache/pytest"
 norecursedirs = ["core", "src", "apps", "scripts", "frontend", "api", "notebooks", "data"]
 
 [tool.mypy]
 python_version = "3.11"
+cache_dir = "runtime/cache/mypy"
 warn_unused_configs = true
 warn_redundant_casts = true
 warn_unused_ignores = true

@@ -35,9 +35,9 @@
     <integer>300</integer>
 
     <key>StandardOutPath</key>
-    <string>__REPO__/logs/ingest_daemon.log</string>
+    <string>__REPO__/runtime/logs/ingest_daemon.log</string>
     <key>StandardErrorPath</key>
-    <string>__REPO__/logs/ingest_daemon.log</string>
+    <string>__REPO__/runtime/logs/ingest_daemon.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>

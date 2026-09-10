@@ -85,7 +85,7 @@ quant/
   notebooks/             Jupyter research notebooks (quant kernel)
   docs/                  Documentation, ADRs (decisions/), roadmap, failure log, backlog
   data/                  Parquet, DuckDB, SQLite — gitignored; raw/ is the source of truth, the rest is derived
-  runtime/               Written by running code, gitignored: logs/, outputs/ml_results/
+  runtime/               Written by running code, gitignored: logs/, outputs/ml_results/, tool caches
   docker/                Dockerfiles (API + frontend); docker-compose.yml at the root
   Makefile               Dev commands (api, frontend, test, lint, up, down)
 ```

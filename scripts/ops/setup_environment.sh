@@ -29,7 +29,7 @@ python -m ipykernel install --user --name quant --display-name "Python (quant)"
 
 # Create necessary directories
 echo "📁 Creating project directories..."
-mkdir -p data/backups data/ml logs models results
+mkdir -p data/backups data/ml runtime/logs runtime/models
 
 # Set up environment variables
 echo "🔑 Setting up environment variables..."
