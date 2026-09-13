@@ -263,7 +263,7 @@ pip install tensorflow
 1. Select longer date range
 2. Check outlier analysis (extreme events?)
 3. Try different commodity
-4. See `docs/ML_PRICE_PREDICTION.md` for tuning advice
+4. See `docs/research/ml/ML_PRICE_PREDICTION.md` for tuning advice
 
 ---
 
@@ -271,8 +271,8 @@ pip install tensorflow
 
 ### Learn More
 
-- 📚 **Full Documentation:** `docs/ML_PRICE_PREDICTION.md`
-- 🔍 **Transparency Report:** `docs/ML_TRANSPARENCY_REPORT.md`
+- 📚 **Full Documentation:** `docs/research/ml/ML_PRICE_PREDICTION.md`
+- 🔍 **Transparency Report:** `docs/archive/ML_TRANSPARENCY_REPORT.md`
 - 🎓 **Code Examples:** See `__main__` blocks in:
   - `src/data/ml_features.py`
   - `src/models/commodity_direction.py`
@@ -331,8 +331,8 @@ A: Check:
 
 ## Getting Help
 
-- **Documentation:** `docs/ML_PRICE_PREDICTION.md`
-- **Transparency:** `docs/ML_TRANSPARENCY_REPORT.md`
+- **Documentation:** `docs/research/ml/ML_PRICE_PREDICTION.md`
+- **Transparency:** `docs/archive/ML_TRANSPARENCY_REPORT.md`
 - **Code:** `src/data/ml_features.py`, `src/models/commodity_direction.py`
 - **Example:** Run module `__main__` blocks to see example usage
 

@@ -13,7 +13,7 @@ stamped on the week-ending date; daily series on the observation date.
 
 Lags are deliberately conservative (a few days past the typical release) so a
 holiday-shifted release does not leak. They are fixed calendar-day offsets, not
-ALFRED vintages - see ``docs/MACRO_VINTAGES.md``.
+ALFRED vintages - see ``docs/sources/MACRO_VINTAGES.md``.
 """
 
 from __future__ import annotations

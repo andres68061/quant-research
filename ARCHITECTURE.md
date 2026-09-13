@@ -8,8 +8,8 @@ A production-style quantitative analytics platform that replays strategies throu
 
 - **Maturity snapshot, gaps, operations, migration notes**: [docs/PLATFORM_STATUS.md](docs/PLATFORM_STATUS.md).
 - **Prioritized backlog**: [docs/BACKLOG.txt](docs/BACKLOG.txt).
-- **Strategy boundaries** (logic in `core/`, parameters via API schemas, no user code execution in the frontend): enforced by Cursor project rules under [.cursor/rules/](.cursor/rules/) — see `quant-strategies.mdc`.
-- **Strategy registry (v1)**: [`core/strategies/`](core/strategies/) holds named strategy metadata, [`GET /strategies`](api/routes/strategies.py) exposes a read-only catalog, and [`run_factor_cross_section_backtest`](core/strategies/factor_runner.py) centralizes the factor pipeline used by `POST /run-backtest` and `GET /replay/frames`. ML execution remains on `POST /run-ml-strategy` until a v2 unifies runners.
+- **Strategy boundaries** (logic in `core/`, parameters via API schemas, no user code execution in the frontend): enforced by Cursor project rules under [.cursor/rules/](.cursor/rules) — see `quant-strategies.mdc`.
+- **Strategy registry (v1)**: [`core/strategies/`](core/strategies) holds named strategy metadata, [`GET /strategies`](api/routes/strategies.py) exposes a read-only catalog, and [`run_factor_cross_section_backtest`](core/strategies/factor_runner.py) centralizes the factor pipeline used by `POST /run-backtest` and `GET /replay/frames`. ML execution remains on `POST /run-ml-strategy` until a v2 unifies runners.
 
 ## 3-Layer Design
 
@@ -40,6 +40,22 @@ A production-style quantitative analytics platform that replays strategies throu
 - The frontend never imports Python. It only calls the API.
 - API route handlers call `core.*` functions and return Pydantic models. No business logic in routes.
 - All quant math lives in `core/`. No computations in the UI or in API routes.
+
+## One shape, every folder
+
+The top level is arranged by **kind** — code, tests, docs, data, scripts — because
+every tool expects that. *Inside* each kind the arrangement is by **flow**: the
+vendors are the roots, the tables built from them are the trunk, the research
+that uses subsets of those tables is the branches, and the pages a user touches
+are the leaves. Learn the shape once and you can find your way in any folder:
+
+| kind | roots | trunk | branches | leaves |
+|---|---|---|---|---|
+| `core/` | `data/vendors/` | `data/{store,universe,quality,factors}/`, `ingest/` | `signals/ backtest/ metrics/ strategies/ research/` | (`api/` → `frontend/`) |
+| `scripts/` | `ingest/` | `build/` | `experiments/` | `ops/` |
+| `data/` | `raw/` | `factors/ universe/ quality/` | `quality/*_reports` | — |
+| `docs/` | `sources/` | `data/` | `research/` | `platform/` |
+| `notebooks/` | `explore/` | — | `ideas/` → `strategies/` | `pipelines/` |
 
 ## Directory Map
 
@@ -82,8 +98,8 @@ quant/
     ops/                   crontab.txt, install_crontab.sh, manage_ingest_daemon.sh, watchdog, audits
   config/                settings.py (.env loading), launchd plist template, vendor manifests
   tests/                 pytest suite; file names mirror the core/ module under test
-  notebooks/             Jupyter research notebooks (quant kernel)
-  docs/                  Documentation, ADRs (decisions/), roadmap, failure log, backlog
+  notebooks/             explore/ ideas/ strategies/ pipelines/ (quant kernel; README lists each)
+  docs/                  sources/ data/ research/ platform/ archive/ + ADRs and living records on top
   data/                  Parquet, DuckDB, SQLite — gitignored; raw/ is the source of truth, the rest is derived
   runtime/               Written by running code, gitignored: logs/, outputs/ml_results/, tool caches
   docker/                Dockerfiles (API + frontend); docker-compose.yml at the root

@@ -316,10 +316,10 @@ def data_coverage() -> DataCoverageResponse:
             "(~67% coverage in 2005 → ~98% in 2025). Missing names are dropped "
             "from the cross-section. Prefer 2015+ windows; earlier results are "
             "survivor-tilted. Closing the gap needs Norgate/CRSP/Tiingo. "
-            "S&P membership: trust the Updated CSV (docs/SP500_MEMBERSHIP.md); "
+            "S&P membership: trust the Updated CSV (docs/data/SP500_MEMBERSHIP.md); "
             "FMP is cross-check only (notation-normalized Jaccard). "
             "Macro uses fixed pub lags, not ALFRED vintages "
-            "(docs/MACRO_VINTAGES.md)." + age_note
+            "(docs/sources/MACRO_VINTAGES.md)." + age_note
         ),
     )
 

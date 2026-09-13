@@ -172,7 +172,7 @@ def main() -> None:
         logger.warning("Finished in %.2f h with failed steps: %s", elapsed_hours, failed)
     else:
         logger.info("All steps finished in %.2f h", elapsed_hours)
-        logger.info("Next: review coverage, then update docs/DATA_INVENTORY.md §1")
+        logger.info("Next: review coverage, then update docs/data/DATA_INVENTORY.md §1")
 
 
 if __name__ == "__main__":

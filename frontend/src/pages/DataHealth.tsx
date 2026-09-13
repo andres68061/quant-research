@@ -524,7 +524,7 @@ export default function DataHealth() {
         <h1 className="text-base text-zinc-100 mb-1">Data Health</h1>
         <p className="text-xs text-zinc-500 mb-5">
           What we hold, how complete it is, and every known flaw — recomputed from disk by the
-          audit script, not asserted. Prose caveats live in docs/DATA_HEALTH.md.
+          audit script, not asserted. Prose caveats live in docs/data/DATA_HEALTH.md.
         </p>
         {isLoading ? <p className="text-xs text-zinc-500">Loading audit snapshot…</p> : null}
         {error ? (

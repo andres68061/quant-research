@@ -173,6 +173,6 @@ semantics do not fit the `EndpointSpec` fields, or if scheduling grows past what
   the orchestrator alternative would have strained.
 - [0010](0010-vendor-metric-point-in-time-classification.md) — the point-in-time
   classification that `pit_status` carries.
-- [`docs/INGESTION.md`](../INGESTION.md) — the operator runbook.
-- [`docs/vendor/fmp/INGESTION.md`](../vendor/fmp/INGESTION.md) — the FMP manifest,
+- [`docs/data/INGESTION.md`](../data/INGESTION.md) — the operator runbook.
+- [`docs/sources/vendor/fmp/INGESTION.md`](../sources/vendor/fmp/INGESTION.md) — the FMP manifest,
   waves, and entitlements.

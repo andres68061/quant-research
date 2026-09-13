@@ -2,8 +2,8 @@
 
 This document answers: **what variables and files exist in the repo today**, **which external sources the code can pull from**, and **how that compares to common systematic equity factor families**. Update it when you add Parquet artifacts, new ingestion scripts, or core factor builders.
 
-- **Prioritized backlog**: [docs/BACKLOG.txt](../docs/BACKLOG.txt)
-- **Platform gaps**: [PLATFORM_STATUS.md](PLATFORM_STATUS.md)
+- **Prioritized backlog**: [docs/BACKLOG.txt](../BACKLOG.txt)
+- **Platform gaps**: [PLATFORM_STATUS.md](../PLATFORM_STATUS.md)
 
 ## 1. Artifacts on disk (ground truth)
 
@@ -22,7 +22,7 @@ The macro raw layer is long-format (`reference_date`, `series_id`, `value`) at t
 
 ### Loaded by the FastAPI app at startup
 
-Defined in [`api/dependencies.py`](../api/dependencies.py):
+Defined in [`api/dependencies.py`](../../api/dependencies.py):
 
 | Path | Role |
 |------|------|
@@ -34,7 +34,7 @@ If a file is missing, the loader logs a warning and exposes `None` from getters.
 
 ### Produced by `scripts/ingest/backfill_all.py`
 
-See [`scripts/ingest/backfill_all.py`](../scripts/ingest/backfill_all.py). Output directory defaults to `data/factors/`.
+See [`scripts/ingest/backfill_all.py`](../../scripts/ingest/backfill_all.py). Output directory defaults to `data/factors/`.
 
 | File | Contents (high level) |
 |------|------------------------|
@@ -61,7 +61,7 @@ See [`scripts/ingest/backfill_all.py`](../scripts/ingest/backfill_all.py). Outpu
 
 ### Price-derived factor columns (`build_price_factors`)
 
-Implemented in [`core/data/factors/build_factors.py`](../core/data/factors/build_factors.py). For each symbol in the price panel:
+Implemented in [`core/data/factors/build_factors.py`](../../core/data/factors/build_factors.py). For each symbol in the price panel:
 
 | Column | Description |
 |--------|-------------|
@@ -74,11 +74,11 @@ Implemented in [`core/data/factors/build_factors.py`](../core/data/factors/build
 
 ### 3a. Fundamental factor columns (`factors_fundamental.parquet`)
 
-Built by [`scripts/build/build_fundamentals_panel.py`](../scripts/build/build_fundamentals_panel.py) from
+Built by [`scripts/build/build_fundamentals_panel.py`](../../scripts/build/build_fundamentals_panel.py) from
 the raw statements — **no additional API calls**. The three statements carry ~147
 vendor columns per symbol; these are the factor definitions derived from them.
 
-Statement-only factors ([`core/data/factors/fundamental_factors.py`](../core/data/factors/fundamental_factors.py)),
+Statement-only factors ([`core/data/factors/fundamental_factors.py`](../../core/data/factors/fundamental_factors.py)),
 computed at quarterly publication frequency then dailyized once:
 
 | Column | Definition | Reference |
@@ -115,7 +115,7 @@ for AAPL and MSFT).
 
 ### 3b. Microstructure factor columns (`factors_microstructure.parquet`)
 
-From [`core/data/factors/microstructure.py`](../core/data/factors/microstructure.py),
+From [`core/data/factors/microstructure.py`](../../core/data/factors/microstructure.py),
 using the OHLC fields that were already on disk but unused:
 
 | Column | Definition | Reference |
@@ -134,11 +134,11 @@ cross-sectional liquidity ranking; the cost schedule lives in `core/data/factors
 
 ### 3c. Event and vendor-metric factor columns
 
-Built by [`scripts/build/build_event_factors.py`](../scripts/build/build_event_factors.py),
+Built by [`scripts/build/build_event_factors.py`](../../scripts/build/build_event_factors.py),
 also with no additional API calls.
 
 **`factors_earnings_surprise.parquet`** — from
-[`core/data/factors/earnings_surprise.py`](../core/data/factors/earnings_surprise.py).
+[`core/data/factors/earnings_surprise.py`](../../core/data/factors/earnings_surprise.py).
 The `earnings` dataset is the only fundamental input that is **announcement
 dated**, so it needs no filing-date join.
 
@@ -156,7 +156,7 @@ a standing characteristic — forward-filling it to the next announcement would
 invent signal that the literature does not claim.
 
 **`factors_vendor_metrics.parquet`** — from
-[`core/data/factors/vendor_metrics.py`](../core/data/factors/vendor_metrics.py).
+[`core/data/factors/vendor_metrics.py`](../../core/data/factors/vendor_metrics.py).
 42 vendor ratios (ROIC, cash conversion cycle, turnover, coverage, growth) from
 `key_metrics` / `ratios` / `financial_growth`, re-indexed from fiscal period end
 onto the **real filing date** joined from the raw statements. Without that join
@@ -180,7 +180,7 @@ excluded before it is believed.**
 
 ### Value / quality composites (`compute_value_quality_factors`)
 
-From [`core/data/factors/fundamentals_fmp.py`](../core/data/factors/fundamentals_fmp.py), when quarterly FMP ratios are dailyized:
+From [`core/data/factors/fundamentals_fmp.py`](../../core/data/factors/fundamentals_fmp.py), when quarterly FMP ratios are dailyized:
 
 | Column | Description |
 |--------|-------------|
@@ -195,18 +195,18 @@ These files exist on disk and are produced by standalone scripts. They are **not
 
 | Path | Shape / contents | Producer | Notes |
 |------|------------------|----------|-------|
-| `data/market_caps/historical_market_caps.parquet` | ~6M rows, MultiIndex `(date, ticker)`, 725 stocks, 1962–present | [`scripts/ingest/fetch_shares_and_market_caps.py`](../scripts/ingest/fetch_shares_and_market_caps.py) (yfinance shares × prices) | **Not yet wired into factor pipeline.** Could provide per-stock size signal (`log_market_cap`). |
+| `data/market_caps/historical_market_caps.parquet` | ~6M rows, MultiIndex `(date, ticker)`, 725 stocks, 1962–present | [`scripts/ingest/fetch_shares_and_market_caps.py`](../../scripts/ingest/fetch_shares_and_market_caps.py) (yfinance shares × prices) | **Not yet wired into factor pipeline.** Could provide per-stock size signal (`log_market_cap`). |
 | `data/market_caps/shares_outstanding.parquet` | ~725 rows; columns: `ticker`, `shares_outstanding`, `fetch_date`, `source` | Same script | Point-in-time snapshot of latest shares outstanding. |
-| `data/commodities/prices.parquet` | ~6,950 dates × 14 columns (GLD, SLV, PPLT, PALL, WTI, BRENT, NATURAL_GAS, COPPER, ALUMINUM, WHEAT, CORN, COFFEE, COTTON, SUGAR), 2000–present. Was frozen at 2026-07-10 for two months by an index-alignment bug in `update_commodity` (fixed 2026-09-10; the watchdog now checks each series' freshness). | [`scripts/ingest/update_commodities.py`](../scripts/ingest/update_commodities.py) / [`scripts/ingest/fetch_commodities.py`](../scripts/ingest/fetch_commodities.py) | Used by commodity API routes; not merged into the equity factor table. |
+| `data/commodities/prices.parquet` | ~6,950 dates × 14 columns (GLD, SLV, PPLT, PALL, WTI, BRENT, NATURAL_GAS, COPPER, ALUMINUM, WHEAT, CORN, COFFEE, COTTON, SUGAR), 2000–present. Was frozen at 2026-07-10 for two months by an index-alignment bug in `update_commodity` (fixed 2026-09-10; the watchdog now checks each series' freshness). | [`scripts/ingest/update_commodities.py`](../../scripts/ingest/update_commodities.py) / [`scripts/ingest/fetch_commodities.py`](../../scripts/ingest/fetch_commodities.py) | Used by commodity API routes; not merged into the equity factor table. |
 | `data/cetes28_daily.parquet` | Mexican CETES 28-day rates (Banxico) | Banxico API route / script | MX risk-free rate proxy. |
 | `data/ml/stock_ml_dataset.csv` | ML training dataset (~916 KB) | Legacy (Aug 2025) | Pre-built feature set; may be stale. |
-| `data/S&P 500 Historical Components & Changes*.csv` | Historical S&P 500 membership (newest file by mtime; usually `(Updated).csv` from fja05680/sp500) | Manual copy from upstream sp500 repo after `sp500_historical.ipynb` | **Canonical PIT universe.** Procedure: [`docs/SP500_MEMBERSHIP.md`](SP500_MEMBERSHIP.md). Loaded by [`core/data/universe/sp500_constituents.py`](../core/data/universe/sp500_constituents.py). |
+| `data/S&P 500 Historical Components & Changes*.csv` | Historical S&P 500 membership (newest file by mtime; usually `(Updated).csv` from fja05680/sp500) | Manual copy from upstream sp500 repo after `sp500_historical.ipynb` | **Canonical PIT universe.** Procedure: [`docs/data/SP500_MEMBERSHIP.md`](SP500_MEMBERSHIP.md). Loaded by [`core/data/universe/sp500_constituents.py`](../../core/data/universe/sp500_constituents.py). |
 | `data/sp500_failed_symbols.json` | Symbols that failed yfinance fetch | Backfill scripts | Diagnostic; excluded from price panel. |
 
 ### Per-symbol FMP datasets (`data/raw/fmp/{dataset}/{SYMBOL}.parquet`)
 
-Registry: [`core/data/vendors/fmp/datasets.py`](../core/data/vendors/fmp/datasets.py). Fetcher:
-[`scripts/ingest/fetch_fmp_datasets.py`](../scripts/ingest/fetch_fmp_datasets.py) (`--list` prints
+Registry: [`core/data/vendors/fmp/datasets.py`](../../core/data/vendors/fmp/datasets.py). Fetcher:
+[`scripts/ingest/fetch_fmp_datasets.py`](../../scripts/ingest/fetch_fmp_datasets.py) (`--list` prints
 this table). Adding a dataset means adding one registry entry, not a new script.
 
 **Read the `pit_status` column before backtesting anything.**
@@ -242,18 +242,18 @@ Cost: one call per symbol per dataset (no bulk on our plan). The 16 datasets acr
 ### Framework-ingested FMP raw layer (`data/raw/fmp/{endpoint_name}/{partition_key}.parquet`)
 
 Produced by the vendor-agnostic ingestion framework: manifest
-[`config/vendors/fmp.json`](../config/vendors/fmp.json) (175 endpoints), engine
-[`core/ingest/`](../core/ingest/), driver
-[`scripts/ingest/ingest_fmp.py`](../scripts/ingest/ingest_fmp.py), unattended multi-wave wrapper
-[`scripts/ingest/run_full_ingestion.sh`](../scripts/ingest/run_full_ingestion.sh), and pre-flight
-check [`scripts/ingest/validate_fmp_manifest.py`](../scripts/ingest/validate_fmp_manifest.py)
+[`config/vendors/fmp.json`](../../config/vendors/fmp.json) (175 endpoints), engine
+[`core/ingest/`](../../core/ingest), driver
+[`scripts/ingest/ingest_fmp.py`](../../scripts/ingest/ingest_fmp.py), unattended multi-wave wrapper
+[`scripts/ingest/run_full_ingestion.sh`](../../scripts/ingest/run_full_ingestion.sh), and pre-flight
+check [`scripts/ingest/validate_fmp_manifest.py`](../../scripts/ingest/validate_fmp_manifest.py)
 (one call per endpoint; lists specs that return HTTP 200 with no rows, which is how
 FMP reports a missing required parameter). Adding an endpoint means adding one JSON
 object to the manifest, not writing a script. Full operator runbook:
-**[`docs/INGESTION.md`](INGESTION.md)**; FMP specifics (probe provenance, wave
-rationale, entitlements): [`docs/vendor/fmp/INGESTION.md`](vendor/fmp/INGESTION.md);
+**[`docs/data/INGESTION.md`](INGESTION.md)**; FMP specifics (probe provenance, wave
+rationale, entitlements): [`docs/sources/vendor/fmp/INGESTION.md`](../sources/vendor/fmp/INGESTION.md);
 the reasoning and rejected alternatives:
-[ADR 0016](decisions/0016-vendor-agnostic-ingestion-framework.md).
+[ADR 0016](../decisions/0016-vendor-agnostic-ingestion-framework.md).
 
 | Path element | Values |
 |---|---|
@@ -276,7 +276,7 @@ answer is stored as an **empty** parquet file so it is recorded once and never r
 Query the journal read-only (`sqlite3 -readonly data/quality/ingest_journal.db`) so a
 query never contends with a run in progress. Example queries — "which endpoints failed
 most", "which symbols have no earnings and why", "what did the last run cost" — are in
-[`docs/INGESTION.md` §9](INGESTION.md#9-reading-the-journal-with-sql).
+[`docs/data/INGESTION.md` §9](INGESTION.md#9-reading-the-journal-with-sql).
 
 **Cost.** All 18 FMP bulk endpoints return HTTP 402 on this plan (§6), so every
 universe-wide pull is per-symbol across the 9,011 symbols in
@@ -304,7 +304,7 @@ builders still read the older paths — consolidating them is a separate decisio
 
 ### Index membership labels (`data/universe/index_membership.parquet`)
 
-Built by [`scripts/build/build_index_membership.py`](../scripts/build/build_index_membership.py) from
+Built by [`scripts/build/build_index_membership.py`](../../scripts/build/build_index_membership.py) from
 the S&P historical CSV. Columns: `symbol`, `index_name`, `valid_from`, `valid_to`
 (NaT = still a member). One row per continuous membership interval, so a name that
 left and rejoined has several (1,255 intervals over 1,202 symbols, 503 current).
@@ -317,7 +317,7 @@ by loading a different panel.
 
 ### Universe table (`data/raw/fmp/universe/us_equity_universe.parquet`)
 
-Built by [`scripts/build/build_fmp_universe.py`](../scripts/build/build_fmp_universe.py) from the
+Built by [`scripts/build/build_fmp_universe.py`](../../scripts/build/build_fmp_universe.py) from the
 screener (live names above a market-cap floor) **plus** the delisted-companies feed.
 Columns: `symbol`, `company_name`, `exchange`, `sector`, `industry`, `market_cap`,
 `is_delisted`, `ipo_date`, `delisted_date`.
@@ -335,25 +335,25 @@ by ~37%.
 
 ### Survivorship-bias-free universe
 
-`scripts/ingest/backfill_all.py` (default `--universe auto`) loads **all unique historical S&P 500 tickers** from the newest `S&P 500 Historical Components & Changes*.csv` in `data/` via [`core/data/universe/sp500_constituents.py`](../core/data/universe/sp500_constituents.py). This includes stocks that have since been delisted or removed from the index.
+`scripts/ingest/backfill_all.py` (default `--universe auto`) loads **all unique historical S&P 500 tickers** from the newest `S&P 500 Historical Components & Changes*.csv` in `data/` via [`core/data/universe/sp500_constituents.py`](../../core/data/universe/sp500_constituents.py). This includes stocks that have since been delisted or removed from the index.
 
 At **backtest time**, `create_signals_from_factor` accepts an optional `universe_filter` callable. The default in the API (`survivorship_free=True`) passes `sp500_universe_filter()`, which restricts the tradable universe at each date to stocks that were in the S&P 500 on that date. This eliminates survivorship bias.
 
 ### How strategies consume factors
 
-- **Factor cross-section** ([`core/strategies/factor_runner.py`](../core/strategies/factor_runner.py)): ranks on a **single user-chosen factor column** from the in-memory factor `DataFrame`; accepts `universe_filter` for point-in-time membership.
-- **Signals** ([`core/signals/factor_signals.py`](../core/signals/factor_signals.py)): thin wrappers over [`create_signals_from_factor`](../core/backtest/portfolio.py).
+- **Factor cross-section** ([`core/strategies/factor_runner.py`](../../core/strategies/factor_runner.py)): ranks on a **single user-chosen factor column** from the in-memory factor `DataFrame`; accepts `universe_filter` for point-in-time membership.
+- **Signals** ([`core/signals/factor_signals.py`](../../core/signals/factor_signals.py)): thin wrappers over [`create_signals_from_factor`](../../core/backtest/portfolio.py).
 
 ## 2. Ingestion sources referenced in code
 
 | Source | Where used | Notes |
 |--------|------------|--------|
 | **yfinance** | Price panels, batch scripts, `scripts/ingest/fetch_shares_and_market_caps.py` (shares + market caps) | No API key; subject to Yahoo rate limits and symbol coverage |
-| **FRED / fredapi** | Macro defaults, metals tests, [`api/routes/fred.py`](../api/routes/fred.py) | Needs `FRED_API_KEY` where applicable |
-| **Financial Modeling Prep (FMP)** | `core/data/vendors/fmp/` (client + per-dataset fetchers), `scripts/fetch_fmp_*.py`; **and** the manifest-driven framework `core/ingest/` + `scripts/ingest/ingest_fmp.py` (see [DATA_INVENTORY §1](#framework-ingested-fmp-raw-layer-datarawfmpendpoint_namepartition_keyparquet) and [`docs/INGESTION.md`](INGESTION.md)) | Needs `FMP_API_KEY`. **Premium plan — bulk endpoints are NOT entitled**; every download is per-symbol. See [§6 FMP entitlements](#6-fmp-plan-entitlements-probed) |
-| **Banxico** | [`api/routes/banxico.py`](../api/routes/banxico.py) | MX macro series |
-| **Commodity feeds** | [`core/data/vendors/commodities.py`](../core/data/vendors/commodities.py) | Fetch/cache helpers for commodity analytics |
-| **Kenneth French data library** | [`core/data/factors/fama_french.py`](../core/data/factors/fama_french.py), `scripts/ingest/backfill_all.py`, `scripts/ingest/update_daily.py` | FF5 daily via `pandas_datareader`; no API key; public data |
+| **FRED / fredapi** | Macro defaults, metals tests, [`api/routes/fred.py`](../../api/routes/fred.py) | Needs `FRED_API_KEY` where applicable |
+| **Financial Modeling Prep (FMP)** | `core/data/vendors/fmp/` (client + per-dataset fetchers), `scripts/fetch_fmp_*.py`; **and** the manifest-driven framework `core/ingest/` + `scripts/ingest/ingest_fmp.py` (see [DATA_INVENTORY §1](#framework-ingested-fmp-raw-layer-datarawfmpendpoint_namepartition_keyparquet) and [`docs/data/INGESTION.md`](INGESTION.md)) | Needs `FMP_API_KEY`. **Premium plan — bulk endpoints are NOT entitled**; every download is per-symbol. See [§6 FMP entitlements](#6-fmp-plan-entitlements-probed) |
+| **Banxico** | [`api/routes/banxico.py`](../../api/routes/banxico.py) | MX macro series |
+| **Commodity feeds** | [`core/data/vendors/commodities.py`](../../core/data/vendors/commodities.py) | Fetch/cache helpers for commodity analytics |
+| **Kenneth French data library** | [`core/data/factors/fama_french.py`](../../core/data/factors/fama_french.py), `scripts/ingest/backfill_all.py`, `scripts/ingest/update_daily.py` | FF5 daily via `pandas_datareader`; no API key; public data |
 | **pandas-datareader** | FF5 pull (above), environment check in `scripts/ops/test_environment.py` | In `requirements.txt`; used by the Kenneth French reader |
 
 This is not an exhaustive list of every `requests.get` in the repo; search `scripts/` and `api/routes/` when adding a new row.
@@ -375,13 +375,13 @@ Conservative mapping: **“in data / core today”** means we either store proxi
 | **Risk-free rate** | `rf` in `fama_french_5.parquet` | — | Daily T-bill proxy from Kenneth French |
 | **Carry (rates/FX/commodities)** | Commodity and macro modules | Full carry book | Asset-class specific; not unified in equity factor table |
 
-**Fama–French five factors (Mkt-RF, SMB, HML, RMW, CMA):** Now **downloaded** daily from the Kenneth French data library into `fama_french_5.parquet` via [`core/data/factors/fama_french.py`](../core/data/factors/fama_french.py). These are **market-level long–short portfolio returns** (not per-stock signals). The repo also computes **custom per-stock cross-sectional features** (momentum, value/quality composites, vol, beta) from price and FMP fundamentals — these are complementary, not redundant.
+**Fama–French five factors (Mkt-RF, SMB, HML, RMW, CMA):** Now **downloaded** daily from the Kenneth French data library into `fama_french_5.parquet` via [`core/data/factors/fama_french.py`](../../core/data/factors/fama_french.py). These are **market-level long–short portfolio returns** (not per-stock signals). The repo also computes **custom per-stock cross-sectional features** (momentum, value/quality composites, vol, beta) from price and FMP fundamentals — these are complementary, not redundant.
 
 **Takeaway:** The platform now ships both **FF5 market-level factor returns** (for benchmarking and attribution) and **custom per-stock factor signals** (for cross-sectional research). For **additional** academic factors (e.g. FF momentum UMD, liquidity, short-term reversal), add pulls using the same `pandas_datareader` pattern in `core/data/factors/fama_french.py`.
 
 ## 4. Scheduling (cron)
 
-All data updates run **daily at 6 PM** (after US market close) via `crontab`. The authoritative reference copy is [`scripts/ops/crontab.txt`](../scripts/ops/crontab.txt) — restore with `crontab scripts/ops/crontab.txt` if lost.
+All data updates run **daily at 6 PM** (after US market close) via `crontab`. The authoritative reference copy is [`scripts/ops/crontab.txt`](../../scripts/ops/crontab.txt) — restore with `crontab scripts/ops/crontab.txt` if lost.
 
 | Time | Script | What it updates | Log |
 |------|--------|-----------------|-----|
@@ -397,7 +397,7 @@ Python interpreter for all jobs: `/opt/anaconda3/envs/quant/bin/python`.
 - FMP fundamentals — requires paid `FMP_API_KEY`; skip if no subscription.
 - `scripts/ingest/backfill_expanded_universe.py` — the multi-hour expanded-universe backfill (below).
 - `scripts/ingest/fetch_fmp_intraday.py` — intraday bars; cost-gated, see below.
-- `scripts/ingest/ingest_fmp.py` — the manifest-driven FMP ingestion waves. `scripts/ops/crontab.txt` carries a **commented-out** block showing the intended cadence (wave 1 nightly at 18:20, because the global reference and calendar row sets change daily and cost ~5 minutes; wave 2 weekly on Sunday at 02:00, because per-symbol filings change roughly quarterly and a cold wave-2 run is ~12.3 hours). Enable it deliberately, not by default — see [`docs/INGESTION.md`](INGESTION.md).
+- `scripts/ingest/ingest_fmp.py` — the manifest-driven FMP ingestion waves. `scripts/ops/crontab.txt` carries a **commented-out** block showing the intended cadence (wave 1 nightly at 18:20, because the global reference and calendar row sets change daily and cost ~5 minutes; wave 2 weekly on Sunday at 02:00, because per-symbol filings change roughly quarterly and a cold wave-2 run is ~12.3 hours). Enable it deliberately, not by default — see [`docs/data/INGESTION.md`](INGESTION.md).
 
 ### Long-running backfills (resumable)
 
@@ -470,10 +470,10 @@ see `build_fundamentals_panel.py --expanded`.
 what the key actually returns. On **2026-08-18**, all 263 documented examples
 covering 230 unique paths were called with the live key. **176 paths returned
 HTTP 200 and 54 returned HTTP 402.** The path-level results are in
-[`docs/vendor/fmp/ENDPOINT_CATALOG.md`](vendor/fmp/ENDPOINT_CATALOG.md).
+[`docs/sources/vendor/fmp/ENDPOINT_CATALOG.md`](../sources/vendor/fmp/ENDPOINT_CATALOG.md).
 
 Plan: **Premium**, 750 calls/min (client throttles to ~500/min in
-[`core/data/vendors/fmp/client.py`](../core/data/vendors/fmp/client.py)).
+[`core/data/vendors/fmp/client.py`](../../core/data/vendors/fmp/client.py)).
 
 **Restricted (HTTP 402 — do not build against these):**
 

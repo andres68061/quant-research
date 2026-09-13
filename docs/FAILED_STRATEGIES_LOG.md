@@ -28,7 +28,7 @@ a parameter tweak of this one.
 
 Shipped implementation: `core/strategies/pairs_index.py`,
 `POST /run-pairs-index-backtest`, `/pairs-index` UI, registry
-`pairs_stat_arb_index`, `notebooks/18_strategy_pairs_stat_arb_index.ipynb`.
+`pairs_stat_arb_index`, `notebooks/strategies/pairs_stat_arb_index.ipynb`.
 Left live and disclosed as a research tool — see that notebook and the
 registry's `known_limitations` for the user-facing framing.
 

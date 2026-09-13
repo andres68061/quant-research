@@ -97,7 +97,7 @@ def run_factor_cross_section_backtest_detail(
     End-of-day handling:
         When ``factors`` is tz-aware, a naive ``end`` date is pushed to end-of-day
         in that tz so the last US equity bar is included (see
-        docs/FACTOR_BACKTEST_AUDIT.md §3 Bug 5).
+        docs/research/FACTOR_BACKTEST_AUDIT.md §3 Bug 5).
     """
     f_dates = factors.index.get_level_values("date")
 

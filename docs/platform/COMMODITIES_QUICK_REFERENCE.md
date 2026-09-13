@@ -174,9 +174,8 @@
 
 ## 📚 Learn More
 
-- **Full Documentation:** `docs/COMMODITIES_ENHANCEMENT_SUMMARY.md`
-- **Testing Guide:** `docs/COMMODITIES_TESTING_GUIDE.md`
-- **Before/After Comparison:** `docs/COMMODITIES_BEFORE_AFTER.md`
+- **Full Documentation:** `docs/sources/COMMODITY_DATA_AVAILABILITY.md` (vendor coverage) and the Commodities page itself
+- **Testing Guide:** `docs/archive/COMMODITIES_TESTING_GUIDE.md`
 
 ---
 

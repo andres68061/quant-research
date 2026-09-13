@@ -1,7 +1,7 @@
 # FMP ingestion — manifest, waves, entitlements
 
 Vendor-specific companion to the framework runbook,
-[`docs/INGESTION.md`](../../INGESTION.md). That document explains how the shared
+[`docs/data/INGESTION.md`](../../../data/INGESTION.md). That document explains how the shared
 machinery works (planning, rate limiting, resumption, the journal, the traps);
 this one explains what is specific to **Financial Modeling Prep (FMP)**: where the
 endpoint manifest came from, why each endpoint sits in the wave it does, which
@@ -122,7 +122,7 @@ and filing feeds.
 Three reasons it is first:
 1. **It is nearly free** — 66 tasks. There is no scenario where you skip it.
 2. **It changes daily and is small**, which makes it the natural nightly refresh
-   (see the commented block in [`scripts/ops/crontab.txt`](../../../scripts/ops/crontab.txt)).
+   (see the commented block in [`scripts/ops/crontab.txt`](../../../../scripts/ops/crontab.txt)).
 3. **It is the only genuine ordering constraint.** The per-CIK, per-sector,
    per-industry and per-exchange endpoints in waves 2 and 3 take their partition
    keys from wave-1 outputs — `scripts/ingest/ingest_fmp.py::resolve_keys` reads
@@ -166,7 +166,7 @@ an explicit `--endpoints` list, and only for reconciliation.
 the one with the least settled research use, so it is opt-in.
 
 Measured task counts and costs for every wave are tabulated in
-[`docs/INGESTION.md` §6](../../INGESTION.md#6-waves-and-their-measured-cost).
+[`docs/data/INGESTION.md` §6](../../../data/INGESTION.md#6-waves-and-their-measured-cost).
 
 ---
 
@@ -219,7 +219,7 @@ calls, and look at whether the dates cluster in the recent past.
 
 Plan: **Premium**. Established by the 2026-08-18 sweep, not by the tier chart.
 The full list lives in
-[`docs/DATA_INVENTORY.md` §6](../../DATA_INVENTORY.md#6-fmp-plan-entitlements-probed);
+[`docs/data/DATA_INVENTORY.md` §6](../../../data/DATA_INVENTORY.md#6-fmp-plan-entitlements-probed);
 the summary that matters for ingestion:
 
 **Unentitled — HTTP 402 for every call (54 paths). Do not build against these:**
@@ -267,7 +267,7 @@ family, using the smallest possible response, about 50 calls:
 ```
 
 Paste a changed restricted list into
-[`docs/DATA_INVENTORY.md` §6](../../DATA_INVENTORY.md#6-fmp-plan-entitlements-probed).
+[`docs/data/DATA_INVENTORY.md` §6](../../../data/DATA_INVENTORY.md#6-fmp-plan-entitlements-probed).
 
 **Step 2 — refresh the path list.** [`ENDPOINT_CATALOG.md`](ENDPOINT_CATALOG.md)
 is a snapshot of FMP's documented stable-API paths (230 unique as of 2026-08-18)
@@ -281,7 +281,7 @@ makes no HTTP calls:
 ```bash
 /opt/anaconda3/envs/quant/bin/python - <<'PY'
 import json, re, pathlib
-catalog = pathlib.Path("docs/vendor/fmp/ENDPOINT_CATALOG.md").read_text()
+catalog = pathlib.Path("docs/sources/vendor/fmp/ENDPOINT_CATALOG.md").read_text()
 works   = {m.group(1) for m in re.finditer(r"^\| `/([^`]+)` \|.*works — HTTP 200", catalog, re.M)}
 blocked = {m.group(1) for m in re.finditer(r"^\| `/([^`]+)` \|.*blocked — HTTP 402", catalog, re.M)}
 manifest = {e["endpoint"] for e in json.load(open("config/vendors/fmp.json"))["endpoints"]}
@@ -316,7 +316,7 @@ manifest. For each new path, answer four questions with real calls:
 3. *Does `page` do anything?* Fetch page 0 and page 1 and compare them. If they
    are identical the endpoint ignores paging — the framework now detects this at
    run time, but knowing in advance saves a confusing first run. See
-   [Trap 1](../../INGESTION.md#trap-1--endpoints-that-ignore-the-page-parameter).
+   [Trap 1](../../../data/INGESTION.md#trap-1--endpoints-that-ignore-the-page-parameter).
 4. *Which date columns, and what do they mean?* Record every date column in
    `date_columns`, and set `primary_date` to the **publication_date** — the day
    the value became publicly knowable (`filingDate`, `acceptedDate`,
@@ -326,7 +326,7 @@ manifest. For each new path, answer four questions with real calls:
 
 **Step 5 — classify the point-in-time status.** Every entry needs a `pit_status`
 of `point_in_time`, `period_end_only` or `snapshot`, per
-[ADR 0010](../../decisions/0010-vendor-metric-point-in-time-classification.md).
+[ADR 0010](../../../decisions/0010-vendor-metric-point-in-time-classification.md).
 The value is validated when the manifest loads, so a typo raises `ConfigError`
 immediately rather than surfacing months later as a leaked backtest. The
 distinction:
@@ -367,10 +367,10 @@ directory of empty files that looks like a real coverage gap.
 `analyst-estimates` was exactly this — it requires a `period` parameter, and
 without it returns nothing for every symbol. Run this before any long wave, not
 only after a re-probe. Full explanation:
-[`docs/INGESTION.md` Trap 4](../../INGESTION.md#trap-4--a-spec-missing-a-required-parameter-returns-empty-not-an-error).
+[`docs/data/INGESTION.md` Trap 4](../../../data/INGESTION.md#trap-4--a-spec-missing-a-required-parameter-returns-empty-not-an-error).
 
 **Step 8 — bump `probed_on`** in `config/vendors/fmp.json`, and update
-[`docs/DATA_INVENTORY.md`](../../DATA_INVENTORY.md) per the `data-inventory-sync`
+[`docs/data/DATA_INVENTORY.md`](../../../data/DATA_INVENTORY.md) per the `data-inventory-sync`
 checklist.
 
 ---
@@ -394,7 +394,7 @@ checklist.
   you launch `ingest_fmp.py` directly.
 - **Seven `per_name` endpoints currently plan to zero tasks** because the driver
   supplies no name keys. They are catalogued, not yet ingestible. See
-  [`docs/INGESTION.md` §12](../../INGESTION.md#12-known-gaps-and-limitations).
+  [`docs/data/INGESTION.md` §12](../../../data/INGESTION.md#12-known-gaps-and-limitations).
 - **Per-CIK endpoints are capped at the first 5,000 CIKs**, a deliberate prefix
   of the SEC registry rather than full coverage.
 - **The single-call client `core/data/vendors/fmp/client.py` is unchanged and still the

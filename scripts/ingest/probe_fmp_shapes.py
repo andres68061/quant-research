@@ -7,7 +7,7 @@ tables in JavaScript, so the only reliable way to learn how an endpoint must be
 called is to call it. This script does that in three passes and writes what it
 learns, so the vendor catalog is reproducible rather than folklore:
 
-1. **Shape.** Every entitled path from ``docs/vendor/fmp/ENDPOINT_CATALOG.md`` is
+1. **Shape.** Every entitled path from ``docs/sources/vendor/fmp/ENDPOINT_CATALOG.md`` is
    called with a series of candidate parameter sets until one returns rows. That
    settles whether the endpoint is global, per-symbol, per-CIK, and so on.
 2. **Disambiguation.** Several endpoints answer a bare call *and* a symbol call —
@@ -47,7 +47,7 @@ from core.ingest.ratelimit import TokenBucket
 
 logger = logging.getLogger("probe_fmp_shapes")
 
-CATALOG = ROOT / "docs" / "vendor" / "fmp" / "ENDPOINT_CATALOG.md"
+CATALOG = ROOT / "docs" / "sources" / "vendor" / "fmp" / "ENDPOINT_CATALOG.md"
 
 # Candidate parameter sets, tried in order; the first returning rows wins.
 VARIANTS: tuple[tuple[str, dict[str, Any]], ...] = (

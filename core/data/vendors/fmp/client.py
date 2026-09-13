@@ -4,7 +4,7 @@ Handles authentication, timeouts, retries with exponential backoff, and a
 simple client-side rate limiter that keeps request volume safely under the
 Premium plan's 750 calls/minute.
 
-Endpoint catalog: ``docs/vendor/fmp/README.md``.
+Endpoint catalog: ``docs/sources/vendor/fmp/README.md``.
 """
 
 from __future__ import annotations

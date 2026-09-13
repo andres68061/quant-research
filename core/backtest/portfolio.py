@@ -154,7 +154,7 @@ def create_signals_from_factor(
             to reproduce legacy MOC-style execution where the factor at close(t)
             drives the weight that earns the return from close(t) onward — this
             is NOT realistic because it uses the closing print that the rebalance
-            itself is meant to trade on. See docs/FACTOR_BACKTEST_AUDIT.md §3 Bug 3.
+            itself is meant to trade on. See docs/research/FACTOR_BACKTEST_AUDIT.md §3 Bug 3.
 
     Returns:
         DataFrame with 'signal' column: 1 (long), -1 (short), 0 (neutral)
@@ -303,7 +303,7 @@ def calculate_portfolio_returns(
         the position is treated as realising a **-100% loss** on day t
         (bankruptcy convention) and zeroed out going forward. `pct_change` is
         called with `fill_method=None` so NaN prices no longer silently forward-fill
-        to 0% returns. See docs/FACTOR_BACKTEST_AUDIT.md §3 Bug 4.
+        to 0% returns. See docs/research/FACTOR_BACKTEST_AUDIT.md §3 Bug 4.
 
     Example:
         >>> results = calculate_portfolio_returns(

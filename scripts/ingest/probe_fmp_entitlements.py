@@ -14,7 +14,7 @@ Usage:
     /opt/anaconda3/envs/quant/bin/python scripts/ingest/probe_fmp_entitlements.py --restricted-only
     /opt/anaconda3/envs/quant/bin/python scripts/ingest/probe_fmp_entitlements.py --csv out.csv
 
-Paste the restricted list into docs/DATA_INVENTORY.md §6 after running.
+Paste the restricted list into docs/data/DATA_INVENTORY.md §6 after running.
 """
 
 import argparse

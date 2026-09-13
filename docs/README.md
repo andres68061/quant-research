@@ -1,7 +1,7 @@
 # Documentation index — start here
 
-There are 30+ documents in this directory. This page exists so you never have to
-guess which one answers your question, and so nothing gets written in two places.
+This page exists so you never have to guess which document answers your
+question, and so nothing gets written in two places.
 
 ## The four records that matter
 
@@ -11,8 +11,8 @@ you where it goes, and the other three are wrong by definition.
 
 | Question | Record | Source of truth |
 |---|---|---|
-| **"What must I know before trusting this number?"** | [DATA_HEALTH.md](DATA_HEALTH.md) | `core/research/caveats.py` (caveats, all surfaces) + `core/data/quality/health.py::known_flaws` (measured flaws) |
-| **"Why is it implemented this way?"** | [decisions/](decisions/) | One ADR per decision, with alternatives rejected |
+| **"What must I know before trusting this number?"** | [DATA_HEALTH.md](data/DATA_HEALTH.md) | `core/research/caveats.py` (caveats, all surfaces) + `core/data/quality/health.py::known_flaws` (measured flaws) |
+| **"Why is it implemented this way?"** | [decisions/](decisions) | One ADR per decision, with alternatives rejected |
 | **"Did we already try this and fail?"** | [FAILED_STRATEGIES_LOG.md](FAILED_STRATEGIES_LOG.md) | Real numbers from real runs; entries are never deleted |
 | **"What are we building next?"** | [ROADMAP.md](ROADMAP.md) | Forward-looking only; no results |
 | **"What did that experiment actually show?"** | `/research-notes` | `core/research/notes.py` — every variant plus its control; figures asserted against the experiment JSON by `tests/test_notes.py` |
@@ -59,25 +59,71 @@ render into DATA_HEALTH.md and the `/data-health` page.
 A **watchdog banner** appears on every page whenever the scheduled data checks
 find a problem, so a failure does not depend on anyone reading a log.
 
-## Data documents
+## The tree — where every document lives
+
+Documents are placed by where their subject sits in the data flow, the same
+shape `core/`, `scripts/` and `data/` use: roots feed a trunk, the trunk
+grows branches, branches carry leaves. Living records and decisions sit at
+the top because they are about the whole tree.
+
+```
+docs/
+  README.md  ROADMAP.md  FAILED_STRATEGIES_LOG.md  PLATFORM_STATUS.md  BACKLOG.txt
+  decisions/     ADRs — why things are the way they are
+  sources/   roots      the vendors and their quirks
+  data/      trunk      the tables built from them, and how they are kept honest
+  research/  branches   what we do with subsets of the data
+  platform/  leaves     the pages and features a user touches
+  archive/              implementation reports and one-off fix notes; history, not reference
+```
+
+### sources/ — roots
 
 | Document | Scope |
 |---|---|
-| [DATA_INVENTORY.md](DATA_INVENTORY.md) | **What artifacts exist** and which script produces each |
-| [DATA_MODEL.md](DATA_MODEL.md) | **How they are organised** — panel families, raw vs derived, fact vs interval tables |
-| [DATA_HEALTH.md](DATA_HEALTH.md) | **How good they are** — coverage, bias, flaws (generated section) |
-| [DATA_ARCHITECTURE.md](DATA_ARCHITECTURE.md) | Raw vs derived layering |
-| [MONITORING.md](MONITORING.md) | **How a data problem reaches you** — the four guard layers, the watchdog, alerting |
-| [SP500_MEMBERSHIP.md](SP500_MEMBERSHIP.md) | Index membership sourcing |
-| [vendor/fmp/](vendor/fmp/) | Endpoint catalog + probed entitlements |
+| [vendor/fmp/](sources/vendor/fmp) | FMP endpoint catalog, probed entitlements, ingestion specifics. **Frozen at 2026-09-09** (ADR 0019) |
+| [MACRO_VINTAGES.md](sources/MACRO_VINTAGES.md) | FRED: publication lags per series, and why they are not true vintages |
+| [DATA_SOURCES_AND_MARKET_CAP.md](sources/DATA_SOURCES_AND_MARKET_CAP.md) | Where shares outstanding and market caps come from |
+| [COMMODITY_DATA_AVAILABILITY.md](sources/COMMODITY_DATA_AVAILABILITY.md) | Which commodity series exist, from which vendor, from when |
 
-## Research output
+### data/ — trunk
 
 | Document | Scope |
 |---|---|
-| [research/](research/) | Generated experiment reports (factor screens etc.), dated |
-| [FACTOR_BACKTEST_AUDIT.md](FACTOR_BACKTEST_AUDIT.md) | Methodology audit of the factor pipeline |
-| [MACRO_VINTAGES.md](MACRO_VINTAGES.md) | Point-in-time macro handling |
+| [DATA_ARCHITECTURE.md](data/DATA_ARCHITECTURE.md) | Raw vs derived layering — the one rule everything else follows |
+| [DATA_MODEL.md](data/DATA_MODEL.md) | How the tables are organised — panel families, fact vs interval tables |
+| [DATA_INVENTORY.md](data/DATA_INVENTORY.md) | **What artifacts exist**, their shape, and which script produces each |
+| [DATA_HEALTH.md](data/DATA_HEALTH.md) | **How good they are** — coverage, bias, measured flaws (generated) |
+| [DATA_QUALITY_AND_FILTERING.md](data/DATA_QUALITY_AND_FILTERING.md) | Quarantine, bad prints, eligibility filters |
+| [INGESTION.md](data/INGESTION.md) | Operator runbook for the vendor-agnostic ingestion engine |
+| [MONITORING.md](data/MONITORING.md) | How a data problem reaches you — guard layers, watchdog, alerting, the Data Monitor |
+| [SP500_MEMBERSHIP.md](data/SP500_MEMBERSHIP.md) | Point-in-time index membership |
+| [SECTOR_CLASSIFICATION.md](data/SECTOR_CLASSIFICATION.md) | Sector labels: source, storage, refresh |
+| [RECONSTRUCTED_SNP_EXPLAINED.md](data/RECONSTRUCTED_SNP_EXPLAINED.md) | How the reconstructed S&P benchmark table is built |
+
+### research/ — branches
+
+| Document | Scope |
+|---|---|
+| [FACTOR_BACKTEST_AUDIT.md](research/FACTOR_BACKTEST_AUDIT.md) | Methodology audit of the factor pipeline |
+| [EVENT_DRIVEN_BACKTEST.md](research/EVENT_DRIVEN_BACKTEST.md) | Event-study backtest design |
+| [BENCHMARK_OPTIONS.md](research/BENCHMARK_OPTIONS.md) | Which benchmark to compare against, and when |
+| [factor_screen_*.md](research) | Generated, dated experiment reports |
+| [ml/](research/ml) | ML price prediction: design, quick start, terminology |
+
+### platform/ — leaves
+
+| Document | Scope |
+|---|---|
+| [RESUME_PLATFORM_MAP.md](platform/RESUME_PLATFORM_MAP.md) | Which page demonstrates which claim |
+| [COMMODITIES_QUICK_REFERENCE.md](platform/COMMODITIES_QUICK_REFERENCE.md) | The commodities page and its API |
+| [RATIO_ANALYSIS_FEATURE.md](platform/RATIO_ANALYSIS_FEATURE.md) | The ratio-analysis feature |
+
+**Where does a new document go?** About a vendor → `sources/`. About a table
+we build or how we keep it honest → `data/`. About a method, experiment or
+model → `research/`. About a page → `platform/`. A report of work done, once
+the work is merged → `archive/` (or, better, a commit message). Something the
+whole platform must obey → an ADR in `decisions/`.
 
 ## Skills that enforce all of this
 

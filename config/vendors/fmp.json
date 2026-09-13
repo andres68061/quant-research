@@ -4,7 +4,7 @@
  "rate_limit_per_minute": 600,
  "raw_root": "data/raw/fmp",
  "probed_on": "2026-08-24",
- "notes": "Generated from a live probe of every endpoint in docs/vendor/fmp/ENDPOINT_CATALOG.md. Regenerate with scripts/ingest/probe_fmp_shapes.py when the vendor surface changes.",
+ "notes": "Generated from a live probe of every endpoint in docs/sources/vendor/fmp/ENDPOINT_CATALOG.md. Regenerate with scripts/ingest/probe_fmp_shapes.py when the vendor surface changes.",
  "endpoints": [
   {
    "name": "actively_trading_list",

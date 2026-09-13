@@ -1,7 +1,7 @@
 # Data ingestion runbook
 
 How to download a vendor's data into the **raw layer** (`data/raw/`) with the
-framework in [`core/ingest/`](../core/ingest/), and how to tell afterwards what
+framework in [`core/ingest/`](../../core/ingest), and how to tell afterwards what
 actually landed.
 
 The framework is deliberately vendor-agnostic. A vendor is described by a JSON
@@ -11,7 +11,7 @@ turn "path plus query parameters" into an HTTP response). Everything else —
 planning, concurrency, rate limiting, retries, atomic storage, resumption, and
 the audit trail — is shared. Today there is one vendor, Financial Modeling Prep
 (FMP); its specifics live in
-[`docs/vendor/fmp/INGESTION.md`](vendor/fmp/INGESTION.md).
+[`docs/sources/vendor/fmp/INGESTION.md`](../sources/vendor/fmp/INGESTION.md).
 
 ---
 
@@ -63,19 +63,19 @@ config/vendors/{vendor}.json      the manifest: one JSON entry per endpoint
 
 | Module | Owns |
 |---|---|
-| [`core/ingest/spec.py`](../core/ingest/spec.py) | `EndpointSpec` — the declarative description of one endpoint (partition, point-in-time status, pagination, date chunking, wave). `Task` — one request whose result is one stored file. |
-| [`core/ingest/catalog.py`](../core/ingest/catalog.py) | Reading `config/vendors/{vendor}.json`, validating it (an unknown `pit_status` raises `ConfigError` on load rather than becoming a leaked backtest months later), and selecting specs by wave or by name. |
-| [`core/ingest/plan.py`](../core/ingest/plan.py) | Expanding specs into tasks: one global endpoint becomes 1 task, a per-symbol endpoint becomes 9,011, a date-chunked price endpoint becomes 9,011 × (number of windows). Planning is separate from execution so a run can be costed before it is started. |
-| [`core/ingest/ratelimit.py`](../core/ingest/ratelimit.py) | `TokenBucket` — one shared, thread-safe permit source that paces every worker against one wall clock, with adaptive backoff on HTTP 429. |
-| [`core/ingest/runner.py`](../core/ingest/runner.py) | One task end to end: skip if already on disk, acquire a permit, fetch, retry retryable statuses, store atomically, return a `TaskResult`. Also installs the SIGINT/SIGTERM handler that drains rather than kills. |
-| [`core/ingest/paginate.py`](../core/ingest/paginate.py) | Walking `page`/`limit` for endpoints that cap their response, and stopping correctly (see [§11 Traps](#11-traps)). |
-| [`core/ingest/pool.py`](../core/ingest/pool.py) | The thread pool, progress lines every 30 seconds, and turning a crashed worker into a journalled `failed` task instead of a lost one. |
-| [`core/ingest/journal.py`](../core/ingest/journal.py) | The SQLite audit trail: one row per task with status, HTTP status code, row count, byte count, duration, attempt count, and error text. |
-| [`core/ingest/report.py`](../core/ingest/report.py) | Rendering one run's journal rows into the text report a human reads afterwards. |
-| [`core/data/vendors/fmp/transport.py`](../core/data/vendors/fmp/transport.py) | The FMP-specific half: build the URL, attach the API key, redact the key from any error text, normalise the response into `FetchResult(status_code, rows, content, error)`. |
-| [`scripts/ingest/ingest_fmp.py`](../scripts/ingest/ingest_fmp.py) | The command-line driver: resolve partition keys, plan, run, report. |
-| [`scripts/ingest/validate_fmp_manifest.py`](../scripts/ingest/validate_fmp_manifest.py) | Pre-flight check: call each spec once against the live vendor and list the ones that return nothing (see [Trap 4](#trap-4--a-spec-missing-a-required-parameter-returns-empty-not-an-error)). |
-| [`scripts/ingest/run_full_ingestion.sh`](../scripts/ingest/run_full_ingestion.sh) | Unattended sequential driver for several waves in a row. |
+| [`core/ingest/spec.py`](../../core/ingest/spec.py) | `EndpointSpec` — the declarative description of one endpoint (partition, point-in-time status, pagination, date chunking, wave). `Task` — one request whose result is one stored file. |
+| [`core/ingest/catalog.py`](../../core/ingest/catalog.py) | Reading `config/vendors/{vendor}.json`, validating it (an unknown `pit_status` raises `ConfigError` on load rather than becoming a leaked backtest months later), and selecting specs by wave or by name. |
+| [`core/ingest/plan.py`](../../core/ingest/plan.py) | Expanding specs into tasks: one global endpoint becomes 1 task, a per-symbol endpoint becomes 9,011, a date-chunked price endpoint becomes 9,011 × (number of windows). Planning is separate from execution so a run can be costed before it is started. |
+| [`core/ingest/ratelimit.py`](../../core/ingest/ratelimit.py) | `TokenBucket` — one shared, thread-safe permit source that paces every worker against one wall clock, with adaptive backoff on HTTP 429. |
+| [`core/ingest/runner.py`](../../core/ingest/runner.py) | One task end to end: skip if already on disk, acquire a permit, fetch, retry retryable statuses, store atomically, return a `TaskResult`. Also installs the SIGINT/SIGTERM handler that drains rather than kills. |
+| [`core/ingest/paginate.py`](../../core/ingest/paginate.py) | Walking `page`/`limit` for endpoints that cap their response, and stopping correctly (see [§11 Traps](#11-traps)). |
+| [`core/ingest/pool.py`](../../core/ingest/pool.py) | The thread pool, progress lines every 30 seconds, and turning a crashed worker into a journalled `failed` task instead of a lost one. |
+| [`core/ingest/journal.py`](../../core/ingest/journal.py) | The SQLite audit trail: one row per task with status, HTTP status code, row count, byte count, duration, attempt count, and error text. |
+| [`core/ingest/report.py`](../../core/ingest/report.py) | Rendering one run's journal rows into the text report a human reads afterwards. |
+| [`core/data/vendors/fmp/transport.py`](../../core/data/vendors/fmp/transport.py) | The FMP-specific half: build the URL, attach the API key, redact the key from any error text, normalise the response into `FetchResult(status_code, rows, content, error)`. |
+| [`scripts/ingest/ingest_fmp.py`](../../scripts/ingest/ingest_fmp.py) | The command-line driver: resolve partition keys, plan, run, report. |
+| [`scripts/ingest/validate_fmp_manifest.py`](../../scripts/ingest/validate_fmp_manifest.py) | Pre-flight check: call each spec once against the live vendor and list the ones that return nothing (see [Trap 4](#trap-4--a-spec-missing-a-required-parameter-returns-empty-not-an-error)). |
+| [`scripts/ingest/run_full_ingestion.sh`](../../scripts/ingest/run_full_ingestion.sh) | Unattended sequential driver for several waves in a row. |
 
 **The runner knows nothing about any vendor.** It receives a
 `fetch(path, params) -> FetchResult` callable. That is the entire vendor
@@ -380,7 +380,7 @@ ORDER BY failed DESC;
 
 An endpoint whose `failed` count equals its task count and whose status code is
 402 is **unentitled**, not broken — see the FMP entitlement list in
-[`docs/DATA_INVENTORY.md` §6](DATA_INVENTORY.md#6-fmp-plan-entitlements-probed).
+[`docs/data/DATA_INVENTORY.md` §6](DATA_INVENTORY.md#6-fmp-plan-entitlements-probed).
 
 ### Which symbols have no earnings data, and why?
 
@@ -644,17 +644,17 @@ partition keys the vendor's manifest needs, then call `plan_run` and `execute`.
 
 ## Related documents
 
-- [`docs/vendor/fmp/INGESTION.md`](vendor/fmp/INGESTION.md) — the FMP-specific
+- [`docs/sources/vendor/fmp/INGESTION.md`](../sources/vendor/fmp/INGESTION.md) — the FMP-specific
   companion: how the manifest was probed, wave rationale, entitled versus
   unentitled endpoint families, and how to re-probe.
-- [`docs/vendor/fmp/ENDPOINT_CATALOG.md`](vendor/fmp/ENDPOINT_CATALOG.md) —
+- [`docs/sources/vendor/fmp/ENDPOINT_CATALOG.md`](../sources/vendor/fmp/ENDPOINT_CATALOG.md) —
   every documented FMP path with the HTTP status observed on this key.
-- [`docs/DATA_INVENTORY.md`](DATA_INVENTORY.md) — what is on disk and who
+- [`docs/data/DATA_INVENTORY.md`](DATA_INVENTORY.md) — what is on disk and who
   produces it.
-- [`docs/DATA_ARCHITECTURE.md`](DATA_ARCHITECTURE.md) — the raw/derived layer
+- [`docs/data/DATA_ARCHITECTURE.md`](DATA_ARCHITECTURE.md) — the raw/derived layer
   split this framework writes into.
-- [`docs/decisions/0016-vendor-agnostic-ingestion-framework.md`](decisions/0016-vendor-agnostic-ingestion-framework.md)
+- [`docs/decisions/0016-vendor-agnostic-ingestion-framework.md`](../decisions/0016-vendor-agnostic-ingestion-framework.md)
   — why a declarative manifest plus a shared runner, and the alternatives
   rejected.
-- [`docs/decisions/0010-vendor-metric-point-in-time-classification.md`](decisions/0010-vendor-metric-point-in-time-classification.md)
+- [`docs/decisions/0010-vendor-metric-point-in-time-classification.md`](../decisions/0010-vendor-metric-point-in-time-classification.md)
   — the point-in-time classification that `pit_status` carries.

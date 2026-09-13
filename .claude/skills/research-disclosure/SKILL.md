@@ -75,7 +75,7 @@ fails loudly rather than silently disclosing nothing.
 |---|---|
 | `core/research/caveats.py` | **Caveats** — what a reader must know. The one registry. |
 | `core/data/quality/health.py::known_flaws` | **Measured data flaws** — recomputed from disk each audit. |
-| `docs/DATA_HEALTH.md` | Rendered data state + flaws (generated; do not hand-edit the marked section). |
+| `docs/data/DATA_HEALTH.md` | Rendered data state + flaws (generated; do not hand-edit the marked section). |
 | `docs/decisions/` | **Why** an implementation choice was made, with alternatives rejected. |
 | `docs/FAILED_STRATEGIES_LOG.md` | **Experiment outcomes** that were negative, with real numbers. |
 | `docs/ROADMAP.md` | Forward-looking work only. |

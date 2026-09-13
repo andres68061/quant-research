@@ -42,7 +42,7 @@ a required parameter. **176 paths returned HTTP 200; 54 returned HTTP 402.**
 This is path-level evidence, not an inference from endpoint families.
 
 `scripts/ingest/probe_fmp_entitlements.py` remains the smaller representative smoke
-test. Run it after any subscription change and update `docs/DATA_INVENTORY.md`
+test. Run it after any subscription change and update `docs/data/DATA_INVENTORY.md`
 §6:
 
 ```bash

@@ -25,7 +25,7 @@ July 1 (released ~July 12), June unemployment on June 11 (released ~July 3),
 and the June fed-funds monthly average on June 6, before the month had
 ended. Every consumer of `macro.parquet` - the regime HMM's five macro
 z-scores in particular - saw macro data roughly a month before it existed.
-`docs/MACRO_VINTAGES.md` stated the right intent ("CPI usually mid-month after
+`docs/sources/MACRO_VINTAGES.md` stated the right intent ("CPI usually mid-month after
 reference month") next to the wrong arithmetic; nothing checked one against
 the other.
 

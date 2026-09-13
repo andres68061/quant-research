@@ -11,7 +11,7 @@ Python engine.
 ## Research findings
 
 The headline results, positive and negative. Full methodology in
-[docs/FACTOR_BACKTEST_AUDIT.md](docs/FACTOR_BACKTEST_AUDIT.md), negative
+[docs/research/FACTOR_BACKTEST_AUDIT.md](docs/research/FACTOR_BACKTEST_AUDIT.md), negative
 results preserved in [docs/FAILED_STRATEGIES_LOG.md](docs/FAILED_STRATEGIES_LOG.md).
 
 1. **XOM/CVX cointegration pair — the one validated signal.** Engle-Granger
@@ -176,9 +176,9 @@ quant/
   config/         # Settings and environment
   scripts/        # CLI entry points: ingest/ build/ experiments/ ops/
   tests/          # pytest suite
-  notebooks/      # Jupyter notebooks (outputs stripped)
+  notebooks/      # explore/ ideas/ strategies/ pipelines/ (outputs stripped)
   data/           # Parquet, DuckDB (gitignored)
-  docs/           # Research docs: backtest audit, failed strategies log, roadmap
+  docs/           # sources/ data/ research/ platform/ + ADRs, roadmap, failure log
   docs/decisions/ # ADRs: why implementations are shaped the way they are
   runtime/        # Logs and result caches written by running code (gitignored)
   docker/         # Dockerfiles

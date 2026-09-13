@@ -113,7 +113,7 @@ Factor-path steps 1, 3, 4, 6, 7 still apply, plus:
 - ~87 delisted symbols in `prices.parquet` have corrupted quotes (spikes like
   $0.68 → $11,000), concentrated 2010–2017. Backtests starting before ~2018
   produce meaningless metrics for ANY factor. Use recent windows or wait for the
-  FMP data migration (see `docs/vendor/fmp/README.md`).
+  FMP data migration (see `docs/sources/vendor/fmp/README.md`).
 - Always pass `universe_filter=sp500_universe_filter()` (import from
   `core.backtest.portfolio`) for survivorship-free results.
 - Metric keys from `calculate_performance_metrics` are `annualized_return` /

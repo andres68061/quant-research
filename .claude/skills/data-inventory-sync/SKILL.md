@@ -1,6 +1,6 @@
 ---
 name: data-inventory-sync
-description: Use after adding, removing, or reshaping any data artifact, ingestion script, or vendor dependency in this repo — new parquet output, new columns in a factor panel, a new fetcher under scripts/, a changed cron job, or a change in what an API key is entitled to. Keeps docs/DATA_INVENTORY.md, docs/DATA_ARCHITECTURE.md and the vendor docs from drifting away from what is actually on disk. Triggers on "add a dataset", "new fetcher", "download X from FMP", "build a new panel", "add a factor column", "why does the doc say", or any commit that touches data/ layout or scripts/fetch_*.
+description: Use after adding, removing, or reshaping any data artifact, ingestion script, or vendor dependency in this repo — new parquet output, new columns in a factor panel, a new fetcher under scripts/, a changed cron job, or a change in what an API key is entitled to. Keeps docs/data/DATA_INVENTORY.md, docs/data/DATA_ARCHITECTURE.md and the vendor docs from drifting away from what is actually on disk. Triggers on "add a dataset", "new fetcher", "download X from FMP", "build a new panel", "add a factor column", "why does the doc say", or any commit that touches data/ layout or scripts/fetch_*.
 ---
 
 # Data inventory sync
@@ -41,7 +41,7 @@ That is the failure mode this skill exists to prevent.
    /opt/anaconda3/envs/quant/bin/python scripts/ops/audit_data_health.py
    ```
 
-   This recomputes every number in `docs/DATA_HEALTH.md`'s generated section and
+   This recomputes every number in `docs/data/DATA_HEALTH.md`'s generated section and
    `data/quality/data_health.json` (which the `/data-health` page serves) from
    the files on disk. A data change that ends without rerunning it leaves the
    health record describing a state that no longer exists — which is worse than
@@ -62,17 +62,17 @@ That is the failure mode this skill exists to prevent.
    print(d.shape); print(list(d.columns)); print(d.index.names)"
    ```
 
-2. **`docs/DATA_INVENTORY.md`** — the artifact-level record:
+2. **`docs/data/DATA_INVENTORY.md`** — the artifact-level record:
    - §1 table: path, shape, producer script, whether the API loads it at startup.
    - §2: ingestion sources — script name **and** module path must both resolve.
    - §3: factor-family gap map, if a new factor family became available.
    - §4: cron, if scheduling changed. Mirror into `scripts/ops/crontab.txt`.
    - §6: vendor entitlements, if a probe result changed.
 
-3. **`docs/DATA_ARCHITECTURE.md`** — only if the raw/derived boundary moved
+3. **`docs/data/DATA_ARCHITECTURE.md`** — only if the raw/derived boundary moved
    (a new raw layer, or a derived artifact that is now a source of truth).
 
-4. **`docs/vendor/<vendor>/`** — if endpoint behaviour differs from the snapshot,
+4. **`docs/sources/vendor/<vendor>/`** — if endpoint behaviour differs from the snapshot,
    annotate the file rather than silently trusting the snapshot. Say when it was
    probed.
 

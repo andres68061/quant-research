@@ -12,7 +12,7 @@ temporary file and are then atomically renamed, so a process killed mid-write ca
 never leave a half-written parquet that a later run would mistake for complete.
 Symbols with no vendor coverage get an empty file so they are not retried forever.
 
-Bulk endpoints are not on our plan (see docs/DATA_INVENTORY.md §6), so every
+Bulk endpoints are not on our plan (see docs/data/DATA_INVENTORY.md §6), so every
 symbol costs one call per dataset. Budget: N_symbols x N_datasets calls, at the
 client's ~500 calls/min ceiling.
 

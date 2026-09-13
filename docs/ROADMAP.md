@@ -203,7 +203,7 @@ of the generic per-backtest metrics dict.
   `/optimize` + `/simulate` on the identical window shows Sharpe **1.05**;
   the honest walk-forward version shows Sharpe **0.49**, roughly half.
   This was previously undisclosed; distinct from the already-fixed
-  factor-lookahead issue in `docs/PORTFOLIO_SIMULATION_FIXES_APPLIED.md`.
+  factor-lookahead issue in `docs/archive/PORTFOLIO_SIMULATION_FIXES_APPLIED.md`.
 
 ## PEAD validated on the expanded universe (2026-08-13) — the first positive result
 
@@ -364,7 +364,7 @@ Whatever comes out of 1–4 goes to `FAILED_STRATEGIES_LOG.md` or ships — see 
 - **FMP footprint expansion + fundamental factor library (2026-08-07)** —
   probed entitlements empirically (`scripts/ingest/probe_fmp_entitlements.py`; the
   complete 2026-08-18 sweep found 176/230 paths working and records all 54
-  HTTP-402 paths in `docs/vendor/fmp/ENDPOINT_CATALOG.md`); dataset registry
+  HTTP-402 paths in `docs/sources/vendor/fmp/ENDPOINT_CATALOG.md`); dataset registry
   with mandatory point-in-time classification (`core/data/vendors/fmp/datasets.py`, 16
   per-symbol datasets, ADR 0010); mined the raw statements from 6 derived fields
   to 37 factor columns (`statement_metrics.py`, `fundamental_factors.py`,
@@ -409,7 +409,7 @@ Whatever comes out of 1–4 goes to `FAILED_STRATEGIES_LOG.md` or ships — see 
   Gatev-SSD basket formation/re-formation, no lookahead;
   `core/strategies/pairs_index.py`, `POST /run-pairs-index-backtest`,
   `/pairs-index` UI, registry `pairs_stat_arb_index`. **Honest result**
-  (`notebooks/18_strategy_pairs_stat_arb_index.ipynb`): the systematic basket
+  (`notebooks/strategies/pairs_stat_arb_index.ipynb`): the systematic basket
   lost money net of costs under every formation criterion tried (SSD,
   Engle-Granger significance, min-dispersion filter, formation-internal
   walk-forward Sharpe) and underperformed the single hand-vetted XOM/CVX
@@ -425,7 +425,7 @@ Whatever comes out of 1–4 goes to `FAILED_STRATEGIES_LOG.md` or ships — see 
   OOS PnL; `POST /screen-pairs`.
 - **Pairs trading (Engle–Granger)** — `core/signals/pairs.py`,
   `POST /run-pairs-backtest`, `/pairs` UI, registry
-  `pairs_cointegration`, `notebooks/17_strategy_pairs_cointegration.ipynb`.
+  `pairs_cointegration`, `notebooks/strategies/pairs_cointegration.ipynb`.
 - **`near_52w_high` (George & Hwang 2004)** — proximity to 252-day high
   factor + registry + panel patch + research notebook.
 - Prior: resume-alignment (SHAP, Risk tab, quarantine UI, EDGAR, `beta_60d`);

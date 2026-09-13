@@ -390,7 +390,7 @@ class TestRebalanceFreqNormalization:
 
 class TestDelistingRealization:
     """
-    Guards for Bug 4 + Bug 8 in docs/FACTOR_BACKTEST_AUDIT.md.
+    Guards for Bug 4 + Bug 8 in docs/research/FACTOR_BACKTEST_AUDIT.md.
 
     A long position whose price goes to NaN (delisting / suspension) must be
     realized as a -100% return on the position weight on the first NaN day.
@@ -453,7 +453,7 @@ class TestDelistingRealization:
 
 class TestSignalLag:
     """
-    Guards for Bug 3 in docs/FACTOR_BACKTEST_AUDIT.md.
+    Guards for Bug 3 in docs/research/FACTOR_BACKTEST_AUDIT.md.
 
     With default `signal_lag_days=1`, the signal emitted on date t must be
     derived from the factor value observed on date (t-1). With
@@ -520,7 +520,7 @@ class TestSignalLag:
 
 class TestEndOfDayTzBoundary:
     """
-    Guards for Bug 5 in docs/FACTOR_BACKTEST_AUDIT.md.
+    Guards for Bug 5 in docs/research/FACTOR_BACKTEST_AUDIT.md.
 
     When the factor index is tz-aware UTC, a tz-naive request date like
     '2024-06-28' localizes to 00:00 UTC — which is BEFORE the ~20:00 UTC

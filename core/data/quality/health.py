@@ -5,7 +5,7 @@ universe funnel, per-layer coverage, survivorship gaps, leakage flags, calendar
 anomalies, and a machine-readable registry of known flaws. It is consumed by:
 
 - ``scripts/ops/audit_data_health.py`` — writes the JSON snapshot + refreshes
-  ``docs/DATA_HEALTH.md``'s generated section,
+  ``docs/data/DATA_HEALTH.md``'s generated section,
 - ``GET /data-health`` — serves the snapshot and per-symbol drilldowns to the
   frontend Data Health page.
 

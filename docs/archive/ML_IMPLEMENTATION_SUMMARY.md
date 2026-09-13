@@ -66,21 +66,21 @@
 
 ### 2. Documentation (4 files)
 
-1. **`docs/ML_PRICE_PREDICTION.md`** (900+ lines)
+1. **`docs/research/ml/ML_PRICE_PREDICTION.md`** (900+ lines)
    - Complete technical documentation
    - Design decisions and rationale
    - Usage guide (Frontend + programmatic)
    - Interpretation guide
    - FAQ section
 
-2. **`docs/ML_TRANSPARENCY_REPORT.md`** (600+ lines)
+2. **`docs/archive/ML_TRANSPARENCY_REPORT.md`** (600+ lines)
    - What we DID: Data prep completed
    - What we DID NOT do: Steps skipped
    - To be DECIDED: User decisions
    - Code examples for each decision
    - Summary table
 
-3. **`docs/ML_QUICK_START.md`** (400+ lines)
+3. **`docs/research/ml/ML_QUICK_START.md`** (400+ lines)
    - Installation instructions
    - Quick start guide (Frontend + Python API)
    - Troubleshooting
@@ -227,9 +227,9 @@ Most ML implementations are black boxes. This implementation:
 ### Created (4 new files)
 1. `src/data/ml_features.py` (600 lines)
 2. `src/models/commodity_direction.py` (800 lines)
-3. `docs/ML_PRICE_PREDICTION.md` (900 lines)
-4. `docs/ML_TRANSPARENCY_REPORT.md` (600 lines)
-5. `docs/ML_QUICK_START.md` (400 lines)
+3. `docs/research/ml/ML_PRICE_PREDICTION.md` (900 lines)
+4. `docs/archive/ML_TRANSPARENCY_REPORT.md` (600 lines)
+5. `docs/research/ml/ML_QUICK_START.md` (400 lines)
 
 ### Modified (2 files)
 1. `frontend/src/pages/MetalsAnalytics.tsx` (+600 lines, new section)

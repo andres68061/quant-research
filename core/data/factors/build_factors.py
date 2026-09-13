@@ -31,7 +31,7 @@ def momentum_excluding_recent(close: pd.Series, months: int) -> pd.Series:
     -----
     - Arithmetic `cum_{months} - cum_1m` is incorrect for non-infinitesimal returns and
       re-introduces the short-term reversal effect that the m-1 construction is
-      designed to remove. See `docs/FACTOR_BACKTEST_AUDIT.md` §3 Bug 1.
+      designed to remove. See `docs/research/FACTOR_BACKTEST_AUDIT.md` §3 Bug 1.
     - Returns NaN until the full ``months*21`` history is available. Short-history
       stocks (IPOs) correctly get no signal instead of a spurious one equal to
       ``-cum_1m`` (previous `fill_value=0.0` bug).

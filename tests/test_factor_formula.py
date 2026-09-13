@@ -2,7 +2,7 @@
 Unit tests locking in the momentum-excluding-recent formula.
 
 These tests guard against regressions of two specific bugs documented in
-`docs/FACTOR_BACKTEST_AUDIT.md` §3:
+`docs/research/FACTOR_BACKTEST_AUDIT.md` §3:
 
 - Bug 1: arithmetic `cum_12 - cum_1` (incorrect) instead of geometric
   `(1+cum_12)/(1+cum_1) - 1` (correct). For non-infinitesimal returns the

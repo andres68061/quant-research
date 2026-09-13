@@ -38,7 +38,7 @@ Every per-symbol FMP dataset is declared in a registry
   screening only; never backtesting.
 
 A test asserts every registered dataset declares one of the three. The status
-is repeated in `docs/DATA_INVENTORY.md` so it is visible without reading code.
+is repeated in `docs/data/DATA_INVENTORY.md` so it is visible without reading code.
 
 Vendor-computed ratios (`key_metrics`, `ratios`, `financial_growth`,
 `enterprise_values`) are all `period_end_only`. Where we need those quantities

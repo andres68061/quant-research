@@ -12,7 +12,7 @@ Two layers:
 
 **Vintages:** this module uses *fixed* calendar-day publication lags
 (``MACRO_PUBLICATION_LAGS_DAYS``), not ALFRED real-time revision histories.
-See ``docs/MACRO_VINTAGES.md``. ``MACRO_USES_TRUE_VINTAGES`` is False until
+See ``docs/sources/MACRO_VINTAGES.md``. ``MACRO_USES_TRUE_VINTAGES`` is False until
 an ALFRED (or equivalent) vintage store lands.
 
 The notebook research flow loads from the raw layer and applies pub-lag /

@@ -3,7 +3,7 @@
 Each entry answers "what are we betting on, why should it work, what published
 evidence supports it, and what are the known failure modes" — so the UI and
 docs can present the strategy honestly (with caveats) rather than as a black
-box.  See ``docs/FACTOR_BACKTEST_AUDIT.md`` §4 for the motivation.
+box.  See ``docs/research/FACTOR_BACKTEST_AUDIT.md`` §4 for the motivation.
 """
 
 from __future__ import annotations
@@ -668,7 +668,7 @@ STRATEGIES: dict[str, StrategyMetadata] = {
         expected_sharpe_range=(-0.1, 0.7),
         known_limitations=(
             "Sector labels are today's FMP profile applied to all history "
-            "(mild lookahead) — see docs/SP500_MEMBERSHIP.md and sector module.",
+            "(mild lookahead) — see docs/data/SP500_MEMBERSHIP.md and sector module.",
             "Thin sectors (<2 names) drop out of the demean step that day.",
             "Pre-2015 S&P coverage gap applies.",
         ),

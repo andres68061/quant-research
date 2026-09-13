@@ -172,25 +172,25 @@ for item in metadata['transparency']['data_prep_NOT_done']:
 
 Read these in order:
 
-1. [ ] **`docs/ML_QUICK_START.md`** (start here)
+1. [ ] **`docs/research/ml/ML_QUICK_START.md`** (start here)
    - Installation
    - Quick start
    - Troubleshooting
 
-2. [ ] **`docs/ML_PRICE_PREDICTION.md`** (comprehensive)
+2. [ ] **`docs/research/ml/ML_PRICE_PREDICTION.md`** (comprehensive)
    - Technical details
    - Feature engineering
    - Model architecture
    - Interpretation guide
    - FAQ
 
-3. [ ] **`docs/ML_TRANSPARENCY_REPORT.md`** (transparency)
+3. [ ] **`docs/archive/ML_TRANSPARENCY_REPORT.md`** (transparency)
    - What we did
    - What we didn't do
    - What you need to decide
    - Code examples
 
-4. [ ] **`docs/ML_IMPLEMENTATION_SUMMARY.md`** (overview)
+4. [ ] **`docs/archive/ML_IMPLEMENTATION_SUMMARY.md`** (overview)
    - What was built
    - Files created
    - Testing checklist
@@ -301,7 +301,7 @@ If something goes wrong:
 - [ ] Check outlier analysis (extreme events?)
 - [ ] Try different commodity
 - [ ] Try different time period
-- [ ] See `docs/ML_PRICE_PREDICTION.md` FAQ
+- [ ] See `docs/research/ml/ML_PRICE_PREDICTION.md` FAQ
 
 ### Slow Training (>5 minutes)
 - [ ] Normal for first run (compiling neural network)
@@ -350,8 +350,8 @@ Before marking complete:
 ---
 
 **Questions?**
-- See `docs/ML_PRICE_PREDICTION.md` (comprehensive FAQ)
-- Check `docs/ML_TRANSPARENCY_REPORT.md` (data prep decisions)
+- See `docs/research/ml/ML_PRICE_PREDICTION.md` (comprehensive FAQ)
+- Check `docs/archive/ML_TRANSPARENCY_REPORT.md` (data prep decisions)
 - Review code: `src/data/ml_features.py`, `src/models/commodity_direction.py`
 
 **Status:** 🚀 Ready to use!

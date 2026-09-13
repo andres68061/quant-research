@@ -32,7 +32,7 @@
 
 # 6. FMP vendor ingestion — nightly wave-1 refresh, weekly wave-2. Runs through
 #    the supervisor, which holds the lock and power assertion. Read
-#    docs/INGESTION.md; wave 2 is a multi-hour, several-hundred-thousand-call job.
+#    docs/data/INGESTION.md; wave 2 is a multi-hour, several-hundred-thousand-call job.
 #
 #    Both jobs are safe to re-run: completion is a file on disk, so a repeat run
 #    skips what already landed and costs zero API calls for it. Outcomes go to the

@@ -37,7 +37,7 @@ Main functions:
 
 ### 3. Documentation
 
-**`docs/SECTOR_CLASSIFICATION.md`** (500+ lines)
+**`docs/data/SECTOR_CLASSIFICATION.md`** (500+ lines)
 - Complete usage guide
 - Data source explanation
 - Refresh policy details
@@ -45,7 +45,7 @@ Main functions:
 - Troubleshooting guide
 - Integration instructions
 
-**`docs/SECTOR_CLASSIFICATION_SUMMARY.md`** (this file)
+**`docs/archive/SECTOR_CLASSIFICATION_SUMMARY.md`** (this file)
 - Quick reference
 - Implementation summary
 
@@ -369,7 +369,7 @@ All existing workflows now include sector classification:
 ## 📚 Documentation
 
 ### Main Documentation
-**`docs/SECTOR_CLASSIFICATION.md`** - Complete guide (500+ lines)
+**`docs/data/SECTOR_CLASSIFICATION.md`** - Complete guide (500+ lines)
 
 Sections:
 1. Overview
@@ -385,7 +385,7 @@ Sections:
 11. Future Enhancements
 
 ### Quick Reference
-**`docs/SECTOR_CLASSIFICATION_SUMMARY.md`** - This file
+**`docs/archive/SECTOR_CLASSIFICATION_SUMMARY.md`** - This file
 
 ---
 
@@ -424,8 +424,8 @@ Before using in production:
 ## 📞 Support
 
 ### Documentation
-- Main guide: `docs/SECTOR_CLASSIFICATION.md`
-- This summary: `docs/SECTOR_CLASSIFICATION_SUMMARY.md`
+- Main guide: `docs/data/SECTOR_CLASSIFICATION.md`
+- This summary: `docs/archive/SECTOR_CLASSIFICATION_SUMMARY.md`
 - README: See "Sector Classification Management" section
 
 ### Code

@@ -4,12 +4,12 @@ This document scopes a **future** engine that complements the existing **cross-s
 
 ## Implementation status
 
-**v0 (landed):** [`core/backtest/events/`](../core/backtest/events/) provides:
+**v0 (landed):** [`core/backtest/events/`](../../core/backtest/events) provides:
 
 - `Event` / `EventType` and `EventLog` with **strictly increasing, tz-aware** timestamps (`DataSchemaError` on violation).
 - `simulate_equal_weight_rebalances`: minimal path that applies `REBALANCE` events with payload `{"symbols": [...]}` and equal weights; returns a daily return series aligned to the price panel.
 
-**HTTP (landed):** `POST /backtest/events/simulate` in [`api/routes/events_backtest.py`](../api/routes/events_backtest.py) accepts JSON events plus row-oriented `price_rows` (wide daily panel: each row has `date` and one column per symbol). Maps `DataSchemaError` to HTTP 422. See [`api/schemas/events_backtest.py`](../api/schemas/events_backtest.py).
+**HTTP (landed):** `POST /backtest/events/simulate` in [`api/routes/events_backtest.py`](../../api/routes/events_backtest.py) accepts JSON events plus row-oriented `price_rows` (wide daily panel: each row has `date` and one column per symbol). Maps `DataSchemaError` to HTTP 422. See [`api/schemas/events_backtest.py`](../../api/schemas/events_backtest.py).
 
 **Next:** intraday bars, richer payloads, optional UI visualization.
 
@@ -24,7 +24,7 @@ This document scopes a **future** engine that complements the existing **cross-s
 **Out of scope for an initial version (v0):**
 
 - Full **tick-by-tick** matching engine or order book (unless explicitly added later).
-- **Live** execution or broker connectivity (paper/live trading remains a separate product gap; see [PLATFORM_STATUS.md](PLATFORM_STATUS.md)).
+- **Live** execution or broker connectivity (paper/live trading remains a separate product gap; see [PLATFORM_STATUS.md](../PLATFORM_STATUS.md)).
 
 **Terminology:**
 
@@ -87,6 +87,6 @@ flowchart LR
 
 ## References
 
-- Platform gaps: [PLATFORM_STATUS.md](PLATFORM_STATUS.md)
-- Roadmap ordering: [docs/BACKLOG.txt](../docs/BACKLOG.txt)
-- Strategy boundaries: [.cursor/rules/quant-strategies.mdc](../.cursor/rules/quant-strategies.mdc)
+- Platform gaps: [PLATFORM_STATUS.md](../PLATFORM_STATUS.md)
+- Roadmap ordering: [docs/BACKLOG.txt](../BACKLOG.txt)
+- Strategy boundaries: [.cursor/rules/quant-strategies.mdc](../../.cursor/rules/quant-strategies.mdc)

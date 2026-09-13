@@ -149,7 +149,7 @@ def build_batched(
     peak memory stays at one batch.
 
     Two deliberate differences from the canonical artifact, both documented in
-    docs/DATA_HEALTH.md:
+    docs/data/DATA_HEALTH.md:
 
     - Output rows are sorted (date, symbol) **within each batch**, not globally.
       Sort or group after loading; do not assume a monotonic date index.

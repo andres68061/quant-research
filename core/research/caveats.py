@@ -375,7 +375,7 @@ CAVEAT_REGISTRY: tuple[Caveat, ...] = (
             "Payrolls, industrial production, GDP-type series and M2 are revised for months "
             "after first release. The monitor shows today's vintage of the whole history, so "
             "a 'normal' historical range is slightly cleaner than a real-time observer saw. "
-            "True vintages would need ALFRED (docs/MACRO_VINTAGES.md)."
+            "True vintages would need ALFRED (docs/sources/MACRO_VINTAGES.md)."
         ),
         surfaces=(SURFACE_DATA_MONITOR,),
         remediation="Store ALFRED vintages in the raw layer and derive from publication_date.",

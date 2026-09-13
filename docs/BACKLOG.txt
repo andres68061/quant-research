@@ -9,10 +9,10 @@ Maintained as a simple text backlog. For narrative context see docs/PLATFORM_STA
 - Migration cleanup: runtime is React + FastAPI; legacy Streamlit/Dash code removed (no _archive/ on disk).
 - core/strategies/ registry v1: metadata in core/strategies/registry.py, GET /strategies, run_factor_cross_section_backtest shared by POST /run-backtest and GET /replay/frames. v2: unify ML POST /run-ml-strategy behind the same dispatcher (optional).
 - Pandas resample: legacy rebalance aliases (e.g. M, Q) normalized to ME/QE/YE in core/backtest/portfolio.py; BacktestRequest default rebalance_freq ME.
-- Event-driven backtesting v0: core/backtest/events/ (EventLog validation, simulate_equal_weight_rebalances); see docs/EVENT_DRIVEN_BACKTEST.md.
+- Event-driven backtesting v0: core/backtest/events/ (EventLog validation, simulate_equal_weight_rebalances); see docs/research/EVENT_DRIVEN_BACKTEST.md.
 - Options / implied vol (partial MVP): core/metrics/black_scholes.py (European BS, implied vol via Brent), core/metrics/vol_surface.py (IV grid from price matrix). Still open: Dupire/local vol, SABR/SVI, option-chain ingestion, API/UI.
-- Event-driven backtesting: POST /backtest/events/simulate (FastAPI) delegates to core/backtest/events/simulator.py; see docs/EVENT_DRIVEN_BACKTEST.md.
-- Data / factor inventory doc: docs/DATA_INVENTORY.md (artifacts, yfinance/FRED/FMP sources, gap vs systematic factor families).
+- Event-driven backtesting: POST /backtest/events/simulate (FastAPI) delegates to core/backtest/events/simulator.py; see docs/research/EVENT_DRIVEN_BACKTEST.md.
+- Data / factor inventory doc: docs/data/DATA_INVENTORY.md (artifacts, yfinance/FRED/FMP sources, gap vs systematic factor families).
 - Fama-French 5 factor daily returns: core/data/factors/fama_french.py fetches FF5 (Mkt-RF, SMB, HML, RMW, CMA, RF) from Kenneth French library via pandas_datareader; wired into backfill_all.py and update_daily.py; persisted as fama_french_5.parquet + DuckDB view.
 - Scheduling: crontab active (daily 6 PM: prices/macro/FF5/factors/sectors, commodities, market caps). Reference in scripts/ops/crontab.txt.
 - Repo hygiene: .gitignore covers outputs/; config/settings.py uses logging (no print); artifact dir consolidated to runtime/outputs/ml_results; notebook 05 uses core/ imports; stale _archive/ references removed; ad-hoc scripts deleted.
@@ -32,7 +32,7 @@ Maintained as a simple text backlog. For narrative context see docs/PLATFORM_STA
 
 ## Research / decisions (open questions — not scheduled as work yet)
 
-- Data inventory and systematic factor gaps: **documented** in docs/DATA_INVENTORY.md. FF5 daily pulled; market cap wired; remaining gaps: FF momentum (UMD), liquidity.
+- Data inventory and systematic factor gaps: **documented** in docs/data/DATA_INVENTORY.md. FF5 daily pulled; market cap wired; remaining gaps: FF momentum (UMD), liquidity.
 - Workflow: **resolved** — prototype in notebooks (explore only); extract to core/ + tests for production. Notebook 05 cleaned as example.
 - Portfolio optimization: should the objective be pluggable (e.g. maximize CAGR vs mean return; downside deviation vs variance)? API and core changes if yes.
 - Stock universe quality: survivorship bias eliminated via point-in-time S&P 500 filter (default on). Remaining: macro lookahead (FRED publication lag), same-close trading assumption, historical shares outstanding accuracy.

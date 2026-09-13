@@ -44,7 +44,7 @@
 
 The React frontend (`frontend/src/pages/MetalsAnalytics.tsx`) uses the standardized parameter names throughout its controls.
 
-### 2. `/docs/ML_TERMINOLOGY_REFERENCE.md`
+### 2. `docs/research/ml/ML_TERMINOLOGY_REFERENCE.md`
 **Created:** Complete reference document with:
 - Official definitions of all 5 parameters
 - Walk-forward validation illustration

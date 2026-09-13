@@ -20,7 +20,7 @@ description: Reference for the Financial Modeling Prep (FMP) API used for market
 The vendor's plan/tier table **does not match** what our key returns. On
 2026-08-18, all 230 unique documented paths were tested: 176 returned HTTP 200
 and 54 returned HTTP 402. The exact path-level result is in
-`docs/vendor/fmp/ENDPOINT_CATALOG.md`.
+`docs/sources/vendor/fmp/ENDPOINT_CATALOG.md`.
 
 Restricted groups include transcript directory/content, exchange and
 asset-class batch quotes, latest/TTM statements, point-in-time market snapshots,
@@ -31,7 +31,7 @@ Senate trades despite the marketing page listing them as Ultimate-only.
 **Because bulk is unavailable, every universe-wide download is per-symbol** and
 rate-limit bound. Budget calls before starting anything wide.
 
-Re-probe after any subscription change and update `docs/DATA_INVENTORY.md` §6:
+Re-probe after any subscription change and update `docs/data/DATA_INVENTORY.md` §6:
 
 ```bash
 /opt/anaconda3/envs/quant/bin/python scripts/ingest/probe_fmp_entitlements.py --restricted-only
@@ -75,7 +75,7 @@ so nothing about the result will prompt a second look. See ADR 0010.
 
 ## Endpoint reference
 
-Local snapshot: `docs/vendor/fmp/` (`README.md` is the category index). Per-endpoint
+Local snapshot: `docs/sources/vendor/fmp/` (`README.md` is the category index). Per-endpoint
 parameter tables were not captured (JS-rendered) — probe the endpoint when exact
 parameters matter.
 

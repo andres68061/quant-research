@@ -3,7 +3,7 @@ S&P 500 Historical Constituents Management
 
 Point-in-time S&P 500 membership for survivorship-bias-free backtests.
 
-Canonical source and update procedure: ``docs/SP500_MEMBERSHIP.md``.
+Canonical source and update procedure: ``docs/data/SP500_MEMBERSHIP.md``.
 Live file: newest ``data/S&P 500 Historical Components & Changes*.csv``
 (usually the upstream fja05680 ``(Updated).csv``).
 """
