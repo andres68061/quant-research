@@ -55,9 +55,15 @@ def notify_desktop(title: str, message: str) -> None:
     dropped alert is worse than a terse one.
     """
     body = message if len(message) <= 220 else message[:217] + "..."
-    script = f'display notification {body!r} with title {title!r} sound name "Basso"'
+    # Text goes in as argv, never interpolated into the script: a verdict with
+    # an em dash or quotes broke the AppleScript parser and the alert was lost.
+    script = (
+        "on run argv\n"
+        '  display notification (item 1 of argv) with title (item 2 of argv) sound name "Basso"\n'
+        "end run"
+    )
     try:
-        subprocess.run(["osascript", "-e", script], check=False, timeout=10)
+        subprocess.run(["osascript", "-e", script, body, title], check=False, timeout=10)
     except (OSError, subprocess.SubprocessError) as exc:
         logger.warning("Desktop notification failed: %s", exc)
 

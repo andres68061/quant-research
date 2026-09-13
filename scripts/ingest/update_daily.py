@@ -494,12 +494,27 @@ def main(out_root: str = "data/factors", db_path: str = "data/factors/factors.du
     print("=" * 80)
     print()
 
+    # Steps 1-2 talk to a vendor each. Neither may abort the run: when FMP was
+    # unreachable (2026-09-10..12) the price step raised and every step after
+    # it - FRED macro, FF5, VIX, DuckDB views - was silently skipped too.
+    failures: list[str] = []
+
     # Step 1: Update prices
-    prices_updated = update_prices(out_root_p)
+    try:
+        prices_updated = update_prices(out_root_p)
+    except Exception as exc:  # noqa: BLE001 - vendor outage; keep going
+        print(f"   ⚠️  Price update failed ({type(exc).__name__}: {str(exc)[:160]}); continuing.")
+        failures.append("prices")
+        prices_updated = False
     print()
 
     # Step 2: Update macro
-    macro_updated = update_macro(out_root_p)
+    try:
+        macro_updated = update_macro(out_root_p)
+    except Exception as exc:  # noqa: BLE001
+        print(f"   ⚠️  Macro update failed ({type(exc).__name__}: {str(exc)[:160]}); continuing.")
+        failures.append("macro")
+        macro_updated = False
     print()
 
     # Step 3: Update Fama-French 5 factors
@@ -574,6 +589,11 @@ def main(out_root: str = "data/factors", db_path: str = "data/factors/factors.du
             print("   📉 VIX refreshed")
     else:
         print("✅ Data is already up to date - no changes needed")
+    if failures:
+        # Printed AFTER the success line so the watchdog reads it as the
+        # latest state; "FAILED" is not one of its failure markers by design -
+        # a partial run is a warning for a human, not a stopped job.
+        print(f"⚠️  Steps that did not complete: {', '.join(failures)} (vendor unreachable?)")
     print("=" * 80)
 
 

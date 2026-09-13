@@ -89,7 +89,14 @@ def failure_markers_after_last_success(tail: str, success_marker: str) -> list[s
     last success line is what makes "the most recent run failed" mean that.
     """
     cut = tail.rfind(success_marker)
-    recent = tail[cut + len(success_marker) :] if cut >= 0 else tail
+    if cut < 0:
+        recent = tail
+    else:
+        # Skip to the end of the success line: the watchdog's own verdict line
+        # quotes other jobs' markers ("...log ends with Traceback") and must
+        # not indict its own log.
+        line_end = tail.find("\n", cut)
+        recent = tail[line_end + 1 :] if line_end >= 0 else ""
     return [marker for marker in FAILURE_MARKERS if marker in recent]
 
 

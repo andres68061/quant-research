@@ -171,6 +171,16 @@ class TestScheduledJobs:
         job = next(c for c in snapshot["checks"] if c["name"] == "job:update.log")
         assert job["status"] == "error"
 
+    def test_success_line_quoting_a_marker_does_not_self_incriminate(self, fake_tree: Path) -> None:
+        """The watchdog's own verdict line mentions other jobs' tracebacks."""
+        write_log(
+            wd.LOGS_DIR / "watchdog.log",
+            "INFO watchdog: Watchdog verdict: error — job:update.log log ends with Traceback\n",
+        )
+        snapshot = wd.run_watchdog(now=NOW)
+        job = next(c for c in snapshot["checks"] if c["name"] == "job:watchdog.log")
+        assert job["status"] == "ok"
+
     def test_missing_log_is_a_warning_not_an_error(self, fake_tree: Path) -> None:
         """A job that has never run is worth noting but does not invalidate data."""
         (wd.LOGS_DIR / "update.log").unlink()
