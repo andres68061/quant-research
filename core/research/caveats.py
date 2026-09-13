@@ -434,6 +434,32 @@ CAVEAT_REGISTRY: tuple[Caveat, ...] = (
         ),
         surfaces=(SURFACE_DATA_MONITOR,),
     ),
+    # ---------------- Data: the FMP raw layer is a dated snapshot ----------------
+    Caveat(
+        id="fmp-raw-layer-frozen-2026-09-09",
+        kind="data",
+        severity="medium",
+        title="Vendor data (prices, fundamentals, commodities, VIX, sectors) is frozen at 2026-09-09",
+        detail=(
+            "The FMP subscription ended in September 2026. Everything it produced - the "
+            "8,900-symbol price panel, statements and ratios, commodities, VIX, sector "
+            "labels, index membership - is a snapshot as of 2026-09-09 and does not advance. "
+            "Research on history is unaffected and is exactly reproducible against this "
+            "snapshot. Any result found on it can be tested out-of-sample on data after "
+            "that date once a source is refetched. FRED macro and Fama-French factors are "
+            "free and keep updating."
+        ),
+        surfaces=(
+            SURFACE_DATA_MONITOR,
+            SURFACE_DATA_HEALTH,
+            SURFACE_FACTOR_BACKTEST,
+            SURFACE_FACTOR_SCREEN,
+            SURFACE_SECTOR_PERFORMANCE,
+            SURFACE_PEAD,
+            SURFACE_UNIVERSE,
+        ),
+        remediation="Refetch the months after 2026-09-09 from any vendor and treat them as the holdout.",
+    ),
 )
 
 _BY_ID = {caveat.id: caveat for caveat in CAVEAT_REGISTRY}

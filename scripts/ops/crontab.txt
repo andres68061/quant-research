@@ -14,7 +14,8 @@
 0 18 * * * cd __REPO__ && /opt/anaconda3/envs/quant/bin/python -u scripts/ingest/update_daily.py >> runtime/logs/update.log 2>&1
 
 # 2. Commodity prices (GLD, SLV, WTI, etc.)
-5 18 * * * cd __REPO__ && /opt/anaconda3/envs/quant/bin/python -u scripts/ingest/update_commodities.py >> runtime/logs/commodities_update.log 2>&1
+# FROZEN 2026-09-09 (FMP_SNAPSHOT_AS_OF, ADR 0019) - re-enable when a vendor is live:
+# 5 18 * * * cd __REPO__ && /opt/anaconda3/envs/quant/bin/python -u scripts/ingest/update_commodities.py >> runtime/logs/commodities_update.log 2>&1
 
 # 3. Shares outstanding + historical market caps (yfinance, free)
 10 18 * * * cd __REPO__ && /opt/anaconda3/envs/quant/bin/python -u scripts/ingest/fetch_shares_and_market_caps.py >> runtime/logs/market_caps_update.log 2>&1
@@ -64,5 +65,7 @@
 #    Add --force only to deliberately refetch after a vendor restatement, and
 #    narrow it with --endpoints when you do.
 #
-20 18 * * * cd __REPO__ && INGEST_WAVES="1" /bin/bash scripts/ingest/ingest_daemon.sh >> runtime/logs/ingest_cron.log 2>&1
-0 2 * * 0 cd __REPO__ && INGEST_WAVES="2" /bin/bash scripts/ingest/ingest_daemon.sh >> runtime/logs/ingest_cron.log 2>&1
+# FROZEN 2026-09-09 (FMP_SNAPSHOT_AS_OF, ADR 0019) - re-enable when a vendor is live:
+# 20 18 * * * cd __REPO__ && INGEST_WAVES="1" /bin/bash scripts/ingest/ingest_daemon.sh >> runtime/logs/ingest_cron.log 2>&1
+# FROZEN 2026-09-09 (FMP_SNAPSHOT_AS_OF, ADR 0019) - re-enable when a vendor is live:
+# 0 2 * * 0 cd __REPO__ && INGEST_WAVES="2" /bin/bash scripts/ingest/ingest_daemon.sh >> runtime/logs/ingest_cron.log 2>&1

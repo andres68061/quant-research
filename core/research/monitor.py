@@ -250,7 +250,9 @@ def series_report(
 
 
 def staleness_board(
-    panels: Dict[str, pd.DataFrame], as_of: pd.Timestamp
+    panels: Dict[str, pd.DataFrame],
+    as_of: pd.Timestamp,
+    snapshots: Optional[Dict[str, pd.Timestamp]] = None,
 ) -> List[Dict[str, object]]:
     """Freshness of every catalogued series, worst first.
 
@@ -259,7 +261,12 @@ def staleness_board(
             frames keyed by source. A series whose panel or column is missing
             reports ``empty``.
         as_of: The clock.
+        snapshots: ``{source: frozen-as-of date}`` for vendors whose raw layer
+            is a dated snapshot. Their series are judged against the snapshot
+            date, so a deliberate freeze is not reported as a feed failure;
+            the row carries ``snapshot_as_of`` so the page can say so.
     """
+    snapshots = snapshots or {}
     rows: List[Dict[str, object]] = []
     for spec in monitored_series_catalog():
         panel = panels.get(spec.source)
@@ -268,7 +275,9 @@ def staleness_board(
             if panel is not None and spec.id in panel.columns
             else pd.Series(dtype="float64")
         )
-        report = eda.staleness(values, spec.id, as_of, spec.expected_max_gap_days)
+        frozen_at = snapshots.get(spec.source)
+        clock = min(as_of, frozen_at) if frozen_at is not None else as_of
+        report = eda.staleness(values, spec.id, clock, spec.expected_max_gap_days)
         rows.append(
             {
                 **report.to_dict(),
@@ -276,6 +285,7 @@ def staleness_board(
                 "group": spec.group,
                 "source": spec.source,
                 "frequency": spec.frequency,
+                "snapshot_as_of": None if frozen_at is None else str(frozen_at.date()),
             }
         )
     order = {"stale": 0, "empty": 1, "late": 2, "fresh": 3}

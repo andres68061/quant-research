@@ -15,6 +15,7 @@ from typing import Dict, List, Optional
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
+from config.settings import FMP_SNAPSHOT_AS_OF
 from core.data.factors.macro import RAW_MACRO_PARQUET
 from core.data.vendors.commodities import CommodityDataFetcher
 from core.research.caveats import SURFACE_DATA_MONITOR, as_dicts, caveats_for_surface
@@ -119,9 +120,15 @@ def series(
         transform=transform,  # type: ignore[arg-type]
         bins=bins,
     )
+    clock = _today()
+    if spec.source == "fmp" and FMP_SNAPSHOT_AS_OF:
+        clock = min(clock, pd.Timestamp(FMP_SNAPSHOT_AS_OF))
     report["staleness"] = compute_staleness(
-        full_values, spec.id, _today(), spec.expected_max_gap_days
+        full_values, spec.id, clock, spec.expected_max_gap_days
     ).to_dict()
+    report["staleness"]["snapshot_as_of"] = (
+        FMP_SNAPSHOT_AS_OF if spec.source == "fmp" and FMP_SNAPSHOT_AS_OF else None
+    )
     report["caveats"] = as_dicts(caveats_for_surface(SURFACE_DATA_MONITOR))
     return report
 
@@ -161,11 +168,17 @@ def yield_curve(
 @router.get("/staleness")
 def staleness() -> dict:
     """Freshness of every monitored series, worst first."""
-    rows = staleness_board(_panels(), _today())
+    snapshots = {"fmp": pd.Timestamp(FMP_SNAPSHOT_AS_OF)} if FMP_SNAPSHOT_AS_OF else {}
+    rows = staleness_board(_panels(), _today(), snapshots)
     counts = {
         s: sum(1 for r in rows if r["status"] == s) for s in ("fresh", "late", "stale", "empty")
     }
-    return {"as_of": str(_today().date()), "counts": counts, "series": rows}
+    return {
+        "as_of": str(_today().date()),
+        "snapshots": {k: str(v.date()) for k, v in snapshots.items()},
+        "counts": counts,
+        "series": rows,
+    }
 
 
 __all__ = ["router"]

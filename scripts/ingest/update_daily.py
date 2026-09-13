@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from config.settings import FMP_ENABLED, FMP_SNAPSHOT_AS_OF  # noqa: E402
 from core.data.factors.build_factors import build_price_factors, merge_market_cap
 from core.data.factors.fama_french import update_ff5_parquet
 from core.data.factors.io import connect_duckdb, register_parquet
@@ -54,6 +55,14 @@ from core.data.universe.sector_classification import (
 from core.data.vendors.fmp.panel import update_panel_from_fmp
 
 
+def _fmp_frozen(step: str) -> bool:
+    """True (and says so) when FMP is a snapshot and ``step`` must be skipped."""
+    if FMP_ENABLED:
+        return False
+    print(f"   ⏸  {step}: FMP raw layer is frozen at snapshot {FMP_SNAPSHOT_AS_OF} — skipping")
+    return True
+
+
 def update_prices(out_root: Path) -> bool:
     """
     Update prices.parquet with new data since last date.
@@ -64,6 +73,8 @@ def update_prices(out_root: Path) -> bool:
     prices_path = out_root / "prices.parquet"
 
     print(f"📈 Updating prices from {prices_path}...")
+    if _fmp_frozen("prices"):
+        return False
 
     # Read existing prices
     existing_prices = read_parquet(prices_path)
@@ -273,6 +284,8 @@ def refresh_fundamentals_if_due(max_age_days: int = 7) -> bool:
             )
             return False
 
+    if _fmp_frozen("fundamentals"):
+        return False
     print("📑 Refreshing FMP fundamentals (weekly)...")
     fetch = subprocess.run(
         [
@@ -317,6 +330,8 @@ def refresh_market_caps_if_due(max_age_days: int = 7) -> bool:
         print(f"💰 Market-cap panel is {age}d old — skipping (refresh every {max_age_days}d)")
         return False
 
+    if _fmp_frozen("market caps"):
+        return False
     print("💰 Refreshing FMP historical market caps (weekly)...")
     # Incremental: skip existing raw files; rebuild the stacked panel.
     result = subprocess.run(
@@ -344,6 +359,8 @@ def refresh_sp500_membership_if_due(max_age_days: int = 7) -> bool:
         print(f"🏛️  S&P membership is {age}d old — skipping (refresh every {max_age_days}d)")
         return False
 
+    if _fmp_frozen("S&P membership"):
+        return False
     print("🏛️  Refreshing S&P 500 membership from FMP (weekly)...")
     result = subprocess.run(
         [
@@ -368,6 +385,8 @@ def refresh_vix_if_due(max_age_days: int = 1) -> bool:
     age = _file_age_days(vix_path)
     if age is not None and age < max_age_days:
         print(f"📉 VIX is {age}d old — skipping")
+        return False
+    if _fmp_frozen("VIX"):
         return False
     print("📉 Refreshing VIX from FMP...")
     series = load_vix(force_refresh=True)
@@ -400,6 +419,8 @@ def refresh_lifecycle_if_due(prices_updated: bool, max_age_days: int = 30) -> bo
 
     script = str(ROOT / "scripts" / "build" / "build_symbol_lifecycle.py")
     if windows_stale:
+        if _fmp_frozen("lifecycle registries"):
+            return False
         print("⏳ Refreshing symbol lifecycle windows from FMP (monthly) + applying...")
         cmd = ["/opt/anaconda3/envs/quant/bin/python", script, "--apply"]
     else:
@@ -423,6 +444,8 @@ def update_sectors_if_needed(out_root: Path) -> bool:
         True if sectors were updated, False otherwise
     """
     print("📊 Checking sector classifications...")
+    if _fmp_frozen("sectors"):
+        return False
 
     # Load existing sector data
     sector_df = load_sector_classifications()
@@ -594,6 +617,8 @@ def main(out_root: str = "data/factors", db_path: str = "data/factors/factors.du
         # latest state; "FAILED" is not one of its failure markers by design -
         # a partial run is a warning for a human, not a stopped job.
         print(f"⚠️  Steps that did not complete: {', '.join(failures)} (vendor unreachable?)")
+    # Always the last line, changed or not: the watchdog keys on it.
+    print("🏁 Incremental update finished")
     print("=" * 80)
 
 

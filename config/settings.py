@@ -25,6 +25,15 @@ load_dotenv()
 ALPHAVANTAGE_API_KEY = os.getenv("ALPHAVANTAGE_API_KEY")
 FMP_API_KEY = os.getenv("FMP_API_KEY") or os.getenv("FINANCIAL_MODELING_PREP_API_KEY")
 
+# Vendor snapshot. When a paid vendor lapses, the raw layer it produced is
+# frozen as a dated snapshot rather than left to fail nightly: research on
+# history is unaffected (and becomes exactly reproducible), scheduled jobs
+# skip that vendor's steps, and the watchdog reads "frozen at <date>" as
+# healthy instead of stale. Set FMP_SNAPSHOT_AS_OF=YYYY-MM-DD to freeze FMP;
+# leave unset while the subscription is live. See ADR 0019.
+FMP_SNAPSHOT_AS_OF = os.getenv("FMP_SNAPSHOT_AS_OF") or None
+FMP_ENABLED = bool(FMP_API_KEY) and not FMP_SNAPSHOT_AS_OF
+
 # AI / LLM providers
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 

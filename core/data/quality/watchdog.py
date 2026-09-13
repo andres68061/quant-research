@@ -34,10 +34,14 @@ from typing import Any, Literal
 import pandas as pd
 import pyarrow.parquet as pq
 
+from config.settings import FMP_ENABLED, FMP_SNAPSHOT_AS_OF
+
 logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[3]
 FACTORS_DIR = ROOT / "data" / "factors"
+COMMODITIES_PANEL = ROOT / "data" / "commodities" / "prices.parquet"
+RAW_MACRO_PANEL = ROOT / "data" / "raw" / "macro_fred.parquet"
 QUALITY_DIR = ROOT / "data" / "quality"
 LOGS_DIR = ROOT / "runtime" / "logs"
 
@@ -71,11 +75,12 @@ MAX_PANEL_STALENESS_DAYS = 5
 # until 8 KB of clean output had pushed the old traceback out of the tail,
 # and a fixed job could not clear its own alarm.
 SCHEDULED_JOBS: tuple[tuple[str, int, str], ...] = (
-    ("update.log", 2, "Incremental update completed successfully"),
-    ("commodities_update.log", 2, "DONE"),
+    ("update.log", 2, "Incremental update finished"),
     ("market_caps_update.log", 2, "COMPLETE"),
     ("watchdog.log", 2, "Watchdog verdict"),
 )
+# Jobs that only run while their vendor is live; not expected while frozen.
+FMP_SCHEDULED_JOBS: tuple[tuple[str, int, str], ...] = (("commodities_update.log", 2, "DONE"),)
 
 # Log lines that mean a job ended badly even though it produced output.
 FAILURE_MARKERS: tuple[str, ...] = ("Traceback", "CRITICAL", "ERROR", "Killed")
@@ -226,6 +231,31 @@ def check_panel_freshness(now: datetime | None = None) -> list[Check]:
     age_days = (reference - last_utc).days
     facts = {"last_date": str(last.date()), "age_days": age_days}
 
+    if FMP_SNAPSHOT_AS_OF:
+        # The price panel is FMP-fed; frozen by design, so judge it against the
+        # snapshot date rather than the wall clock.
+        snapshot = pd.Timestamp(FMP_SNAPSHOT_AS_OF).tz_localize("UTC")
+        lag = (snapshot - last_utc).days
+        facts["snapshot_as_of"] = FMP_SNAPSHOT_AS_OF
+        if lag > MAX_PANEL_STALENESS_DAYS:
+            return [
+                Check(
+                    "panel_freshness",
+                    "error",
+                    f"Last price {last.date()} is {lag} days short of the declared "
+                    f"snapshot {FMP_SNAPSHOT_AS_OF}",
+                    facts,
+                )
+            ]
+        return [
+            Check(
+                "panel_freshness",
+                "ok",
+                f"Last price {last.date()}; panel frozen at snapshot {FMP_SNAPSHOT_AS_OF} by design",
+                facts,
+            )
+        ]
+
     if age_days > MAX_PANEL_STALENESS_DAYS:
         return [
             Check(
@@ -248,22 +278,21 @@ def check_series_freshness(now: datetime | None = None) -> list[Check]:
     """
     # Imported here so the fast watchdog path does not pay for the research
     # package on every 4-hourly run when it only needs file metadata.
-    from core.data.factors.macro import RAW_MACRO_PARQUET
     from core.research.monitor import pivot_raw_macro, staleness_board
 
     reference = now or datetime.now(timezone.utc)
     as_of = pd.Timestamp(reference).tz_convert("UTC").tz_localize(None)
     panels: dict[str, pd.DataFrame] = {}
-    commodities = ROOT / "data" / "commodities" / "prices.parquet"
     try:
-        if commodities.exists():
-            panels["fmp"] = pd.read_parquet(commodities)
-        if RAW_MACRO_PARQUET.exists():
-            panels["fred"] = pivot_raw_macro(pd.read_parquet(RAW_MACRO_PARQUET))
+        if COMMODITIES_PANEL.exists():
+            panels["fmp"] = pd.read_parquet(COMMODITIES_PANEL)
+        if RAW_MACRO_PANEL.exists():
+            panels["fred"] = pivot_raw_macro(pd.read_parquet(RAW_MACRO_PANEL))
     except Exception as exc:  # noqa: BLE001
         return [Check("series_freshness", "error", f"Cannot read monitored panels: {exc}")]
 
-    board = staleness_board(panels, as_of)
+    snapshots = {"fmp": pd.Timestamp(FMP_SNAPSHOT_AS_OF)} if FMP_SNAPSHOT_AS_OF else {}
+    board = staleness_board(panels, as_of, snapshots)
     stale = [r for r in board if r["status"] == "stale"]
     late = [r for r in board if r["status"] == "late"]
     empty = [r for r in board if r["status"] == "empty"]
@@ -306,7 +335,8 @@ def check_scheduled_jobs(now: datetime | None = None) -> list[Check]:
     """
     reference = now or datetime.now(timezone.utc)
     checks: list[Check] = []
-    for log_name, max_age_days, success_marker in SCHEDULED_JOBS:
+    jobs = SCHEDULED_JOBS + (FMP_SCHEDULED_JOBS if FMP_ENABLED else ())
+    for log_name, max_age_days, success_marker in jobs:
         path = LOGS_DIR / log_name
         if not path.exists():
             checks.append(

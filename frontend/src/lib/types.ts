@@ -1360,6 +1360,8 @@ export interface StalenessReport {
   days_since_last: number | null;
   expected_max_gap_days: number;
   status: StaleStatus;
+  /** Set when the series' vendor is frozen as a dated snapshot; age is measured to this date. */
+  snapshot_as_of?: string | null;
 }
 
 export interface Caveat {
@@ -1416,6 +1418,8 @@ export interface StalenessBoardRow extends StalenessReport {
 
 export interface StalenessBoardResponse {
   as_of: string;
+  /** Vendors whose raw layer is frozen, and the date they are frozen at. */
+  snapshots: Record<string, string>;
   counts: Record<StaleStatus, number>;
   series: StalenessBoardRow[];
 }

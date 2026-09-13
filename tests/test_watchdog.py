@@ -53,9 +53,32 @@ def fake_tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         if name != "prices.parquet":
             pd.DataFrame({"value": range(1000)}).to_parquet(factors / name)
 
-    for log_name, _, _ in wd.SCHEDULED_JOBS:
+    for log_name, _, _ in wd.SCHEDULED_JOBS + wd.FMP_SCHEDULED_JOBS:
         write_log(logs / log_name, "finished cleanly\n")
 
+    # Every catalogued commodity and FRED series, one fresh observation each,
+    # so series_freshness has something real to judge without the repo's data.
+    from core.data.factors.macro_catalog import FRED_SERIES_CATALOG
+    from core.data.vendors.commodities import COMMODITIES_CONFIG
+
+    stamp = pd.Timestamp(NOW.date())
+    commodities = tmp_path / "commodities" / "prices.parquet"
+    commodities.parent.mkdir()
+    pd.DataFrame({sym: [1.0] for sym in COMMODITIES_CONFIG}, index=[stamp]).to_parquet(commodities)
+    raw_macro = tmp_path / "raw" / "macro_fred.parquet"
+    raw_macro.parent.mkdir()
+    pd.DataFrame(
+        {
+            "reference_date": [stamp] * len(FRED_SERIES_CATALOG),
+            "series_id": list(FRED_SERIES_CATALOG),
+            "value": 1.0,
+        }
+    ).to_parquet(raw_macro)
+    monkeypatch.setattr(wd, "COMMODITIES_PANEL", commodities)
+    monkeypatch.setattr(wd, "RAW_MACRO_PANEL", raw_macro)
+    # Independent of the developer's .env: vendor live, no snapshot.
+    monkeypatch.setattr(wd, "FMP_ENABLED", True)
+    monkeypatch.setattr(wd, "FMP_SNAPSHOT_AS_OF", None)
     monkeypatch.setattr(wd, "FACTORS_DIR", factors)
     monkeypatch.setattr(wd, "QUALITY_DIR", quality)
     monkeypatch.setattr(wd, "LOGS_DIR", logs)
@@ -77,7 +100,7 @@ class TestCleanTree:
         assert "panel_freshness" in names
         for panel in wd.CRITICAL_PANELS:
             assert f"panel_present:{panel}" in names
-        for log_name, _, _ in wd.SCHEDULED_JOBS:
+        for log_name, _, _ in wd.SCHEDULED_JOBS + wd.FMP_SCHEDULED_JOBS:
             assert f"job:{log_name}" in names
 
 
@@ -137,6 +160,28 @@ class TestFreshness:
         assert freshness["status"] == "ok"
 
 
+class TestSnapshot:
+    def test_frozen_panel_is_ok_when_it_reaches_the_snapshot(
+        self, fake_tree: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A panel that stops on the declared snapshot date is healthy, however old."""
+        last = pd.read_parquet(wd.FACTORS_DIR / "prices.parquet").index.max()
+        monkeypatch.setattr(wd, "FMP_SNAPSHOT_AS_OF", str(pd.Timestamp(last).date()))
+        snapshot = wd.run_watchdog(now=NOW + timedelta(days=400))
+        panel = next(c for c in snapshot["checks"] if c["name"] == "panel_freshness")
+        assert panel["status"] == "ok" and "snapshot" in panel["detail"]
+
+    def test_frozen_panel_short_of_snapshot_is_an_error(
+        self, fake_tree: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        last = pd.read_parquet(wd.FACTORS_DIR / "prices.parquet").index.max()
+        declared = pd.Timestamp(last) + timedelta(days=30)
+        monkeypatch.setattr(wd, "FMP_SNAPSHOT_AS_OF", str(declared.date()))
+        snapshot = wd.run_watchdog(now=NOW)
+        panel = next(c for c in snapshot["checks"] if c["name"] == "panel_freshness")
+        assert panel["status"] == "error"
+
+
 class TestScheduledJobs:
     def test_silent_job_is_an_error(self, fake_tree: Path) -> None:
         """A cron job that stops firing emits no error anywhere; its log just stops."""
@@ -156,7 +201,7 @@ class TestScheduledJobs:
         write_log(
             wd.LOGS_DIR / "update.log",
             "fetching...\nTraceback (most recent call last):\n  boom\n"
-            "fetching...\n✅ Incremental update completed successfully!\n",
+            "fetching...\n🏁 Incremental update finished\n",
         )
         snapshot = wd.run_watchdog(now=NOW)
         job = next(c for c in snapshot["checks"] if c["name"] == "job:update.log")
@@ -165,7 +210,7 @@ class TestScheduledJobs:
     def test_traceback_after_the_last_success_is_an_error(self, fake_tree: Path) -> None:
         write_log(
             wd.LOGS_DIR / "update.log",
-            "✅ Incremental update completed successfully!\nfetching...\nTraceback (most recent call last):\n",
+            "🏁 Incremental update finished\nfetching...\nTraceback (most recent call last):\n",
         )
         snapshot = wd.run_watchdog(now=NOW)
         job = next(c for c in snapshot["checks"] if c["name"] == "job:update.log")

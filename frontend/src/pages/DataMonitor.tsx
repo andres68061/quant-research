@@ -290,7 +290,12 @@ export default function DataMonitor() {
       bottom={
         <BottomPanel>
           {board.data ? (
-            <StalenessTable rows={board.data.series} asOf={board.data.as_of} onSelect={selectSeries} />
+            <StalenessTable
+              rows={board.data.series}
+              asOf={board.data.as_of}
+              snapshots={board.data.snapshots}
+              onSelect={selectSeries}
+            />
           ) : (
             <div className="text-[11px] text-zinc-600">checking freshness…</div>
           )}
@@ -321,6 +326,9 @@ export default function DataMonitor() {
               >
                 last {data.staleness.last_date} · {data.staleness.days_since_last}d ·{" "}
                 {data.staleness.status}
+                {data.staleness.snapshot_as_of
+                  ? ` · frozen at snapshot ${data.staleness.snapshot_as_of}`
+                  : ""}
               </span>
             </div>
 

@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from config.settings import FMP_ENABLED, FMP_SNAPSHOT_AS_OF  # noqa: E402
 from core.data.vendors.commodities import COMMODITIES_CONFIG, CommodityDataFetcher
 
 
@@ -30,6 +31,10 @@ def main(symbols=None):
     print("=" * 70)
     print("COMMODITIES DATA UPDATER")
     print("=" * 70)
+    if not FMP_ENABLED:
+        print(f"⏸  FMP raw layer is frozen at snapshot {FMP_SNAPSHOT_AS_OF} — nothing to update")
+        print("✓ DONE - snapshot")
+        return
     print()
 
     fetcher = CommodityDataFetcher()
